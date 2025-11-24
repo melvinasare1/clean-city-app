@@ -53,10 +53,6 @@ export const useAuth = (): UseAuthReturn => {
     return () => unsubscribe();
   }, []);
 
-  /**
-   * Login with email and password
-   * TODO: This is ready to use with Firebase Auth
-   */
   const loginWithEmailPassword = async (
     email: string,
     password: string

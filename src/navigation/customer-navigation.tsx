@@ -1,8 +1,3 @@
-/**
- * Customer Navigator
- * 
- * Bottom tab navigator for customer-facing screens
- */
 
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';

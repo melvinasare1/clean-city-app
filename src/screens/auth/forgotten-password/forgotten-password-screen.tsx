@@ -4,7 +4,7 @@ import { View, TouchableOpacity } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../../../services/firebase/firebase-config';
-import { AuthStackParamList } from '../../../navigation/AuthNavigator';
+import { AuthStackParamList } from '../../../navigation/auth-navigation';
 import {
     ScreenContainer,
     AppText,

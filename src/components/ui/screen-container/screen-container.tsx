@@ -1,13 +1,12 @@
 import React from 'react';
 import {
   View,
-  StyleSheet,
   ViewStyle,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
 } from 'react-native';
-import { COLORS } from '../../lib/constants';
+import { styles } from './screen-container.styles';
 
 interface ScreenContainerProps {
   children: React.ReactNode;
@@ -51,17 +50,3 @@ export const ScreenContainer: React.FC<ScreenContainerProps> = ({
     </KeyboardAvoidingView>
   );
 };
-
-const styles = StyleSheet.create({
-  keyboardAvoid: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  scrollContent: {
-    flexGrow: 1,
-  },
-});
-

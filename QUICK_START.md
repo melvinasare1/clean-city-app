@@ -36,6 +36,7 @@ Scan QR code with **Expo Go** app on your phone!
 ## 📱 First-Time Test
 
 1. **Create a test user** in Firebase Console:
+
    - Go to Authentication → Users → Add user
    - Email: `test@example.com`
    - Password: `test123456`
@@ -51,11 +52,13 @@ Scan QR code with **Expo Go** app on your phone!
 ## 🎨 What You'll See
 
 ### Customer Flow
+
 - 🏠 **Home**: Dashboard with quick actions
 - 📦 **New Booking**: Select bins, see live price calculation
 - 📋 **My Bookings**: View bookings (mock data for now)
 
 ### Driver Flow
+
 - 🚛 **Home**: Dashboard with stats
 - 📋 **Jobs List**: See assigned jobs
 - 📄 **Job Detail**: Job details and actions
@@ -69,6 +72,7 @@ Scan QR code with **Expo Go** app on your phone!
 
 **Problem**: Firebase auth errors?
 **Solution**: Make sure you:
+
 1. Replaced config values in `firebaseConfig.ts`
 2. Enabled Email/Password auth in Firebase Console
 3. Created a test user
@@ -89,6 +93,7 @@ Scan QR code with **Expo Go** app on your phone!
 ## ✅ MVP Complete!
 
 You now have:
+
 - ✅ Firebase Auth integration
 - ✅ Customer & Driver flows
 - ✅ Navigation setup
@@ -99,4 +104,3 @@ You now have:
 **Next**: Add Firestore integration to save/fetch real data!
 
 🚀 Happy coding!
-

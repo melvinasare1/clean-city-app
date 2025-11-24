@@ -1,8 +1,3 @@
-/**
- * Driver Navigator
- * 
- * Stack navigator for driver-facing screens
- */
 
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';

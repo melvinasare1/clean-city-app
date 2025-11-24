@@ -89,6 +89,7 @@ npx expo start
 ```
 
 Then:
+
 - Scan the QR code with **Expo Go** app on your phone
 - Or press `i` for iOS simulator
 - Or press `a` for Android emulator
@@ -96,6 +97,7 @@ Then:
 ## 📱 Features (Day 1 MVP)
 
 ### Customer Flow
+
 - ✅ Login / Signup screens
 - ✅ Customer Home dashboard
 - ✅ New Booking screen (bin selection with pricing)
@@ -103,6 +105,7 @@ Then:
 - ✅ Bottom tab navigation
 
 ### Driver Flow
+
 - ✅ Login / Signup screens
 - ✅ Driver Home dashboard with stats
 - ✅ Job List screen
@@ -110,6 +113,7 @@ Then:
 - ✅ Stack navigation
 
 ### Authentication
+
 - ✅ Firebase Auth integration
 - ✅ Email/Password login
 - ✅ Auth state management with `useAuth` hook
@@ -118,6 +122,7 @@ Then:
 ## 🚧 TODO for Next Phase
 
 ### Authentication & User Management
+
 - [ ] Complete signup flow with role selection
 - [ ] Fetch user role from Firestore on login
 - [ ] Remove temporary RoleSelector screen
@@ -125,6 +130,7 @@ Then:
 - [ ] Add profile management
 
 ### Customer Features
+
 - [ ] Complete booking form (address input, date/time picker)
 - [ ] Save bookings to Firestore
 - [ ] Fetch and display user's bookings from Firestore
@@ -132,6 +138,7 @@ Then:
 - [ ] Add booking cancellation
 
 ### Driver Features
+
 - [ ] Fetch assigned jobs from Firestore
 - [ ] Implement job status updates (start, complete)
 - [ ] Add location tracking
@@ -139,6 +146,7 @@ Then:
 - [ ] Add navigation/directions integration
 
 ### Backend/Firestore
+
 - [ ] Design and implement Firestore collections:
   - `users` - User profiles with roles
   - `bookings` - Waste pickup bookings
@@ -147,6 +155,7 @@ Then:
 - [ ] Implement real-time listeners for job updates
 
 ### UI/UX Improvements
+
 - [ ] Add loading states and error handling
 - [ ] Create reusable components (Button, Card, etc.)
 - [ ] Add form validation
@@ -165,19 +174,23 @@ Defined in `src/lib/constants.ts`:
 ## 🔧 Development Notes
 
 ### Running on Physical Device (Expo Go)
+
 - Make sure your phone and computer are on the same network
 - The app should run directly in Expo Go without needing Android Studio or Xcode
 
 ### Firebase Authentication
+
 - The `useAuth` hook is ready to use with Firebase
 - Login functionality is implemented and will work once you add your Firebase config
 - Auth state changes are automatically detected
 
 ### Role Selection (Temporary)
+
 - Currently using a `RoleSelectorScreen` to manually choose between customer and driver
 - In production, this should be replaced with automatic role detection from Firestore user profile
 
 ### TypeScript
+
 - All files use TypeScript
 - Types are defined in `src/types/`
 - Navigation types are properly typed for each navigator
@@ -204,15 +217,18 @@ npm run web
 ## 🐛 Troubleshooting
 
 ### "Metro bundler not connecting"
+
 ```bash
 npx expo start -c
 ```
 
 ### "Firebase errors"
+
 - Make sure you've replaced all placeholder values in `firebaseConfig.ts`
 - Check that Authentication and Firestore are enabled in Firebase Console
 
 ### "Module not found"
+
 ```bash
 rm -rf node_modules
 npm install
@@ -222,6 +238,7 @@ npx expo start -c
 ## 📞 Support
 
 For issues or questions, please refer to:
+
 - [Expo Documentation](https://docs.expo.dev/)
 - [React Navigation Docs](https://reactnavigation.org/)
 - [Firebase Documentation](https://firebase.google.com/docs)

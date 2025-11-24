@@ -1,6 +1,3 @@
-/**
- * App-wide constants
- */
 
 // Pricing for different bin types (in your currency)
 export const PRICES = {

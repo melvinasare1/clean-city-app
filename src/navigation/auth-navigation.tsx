@@ -1,8 +1,3 @@
-/**
- * Auth Navigator
- * 
- * Stack navigator for authentication flow (Login, Signup)
- */
 
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
