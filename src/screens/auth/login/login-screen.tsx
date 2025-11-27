@@ -20,6 +20,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../../hooks/useAuth';
 import { COLORS } from '../../../lib/constants';
 import { styles } from './login-screen.styles';
+import { AppText, AppTextInput } from '@/components/ui';
 
 type AuthStackParamList = {
     Login: undefined;
@@ -59,11 +60,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
             style={styles.container}
         >
             <View style={styles.content}>
-                <Text style={styles.title}>Clean City</Text>
-                <Text style={styles.subtitle}>Waste Management Made Easy</Text>
+                <AppText style={styles.title}>Clean City</AppText>
+                <AppText style={styles.subtitle}>Waste Management Made Easy</AppText>
 
                 <View style={styles.form}>
-                    <TextInput
+                    <AppTextInput
                         style={styles.input}
                         placeholder="Email"
                         placeholderTextColor={COLORS.textSecondary}
@@ -74,7 +75,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                         editable={!isLoading}
                     />
 
-                    <TextInput
+                    <AppTextInput
                         style={styles.input}
                         placeholder="Password"
                         placeholderTextColor={COLORS.textSecondary}
@@ -100,9 +101,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                         onPress={() => navigation.navigate('Signup')}
                         disabled={isLoading}
                     >
-                        <Text style={styles.linkText}>
-                            Don't have an account? <Text style={styles.linkTextBold}>Sign Up</Text>
-                        </Text>
+                        <AppText style={styles.linkText}>
+                            Don't have an account? <AppText style={styles.linkTextBold}>Sign Up</AppText>
+                        </AppText>
                     </TouchableOpacity>
                 </View>
             </View>
