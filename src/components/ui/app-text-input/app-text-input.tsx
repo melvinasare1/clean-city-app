@@ -22,6 +22,7 @@ export const AppTextInput: React.FC<AppTextInputProps> = ({
       <TextInput
         style={[styles.input, style]}
         placeholderTextColor={COLORS.textSecondary}
+        autoCapitalize="none"
         {...props}
       />
     </View>

@@ -1,35 +1,92 @@
 
-import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import React, { useState } from 'react';
+import {
+    View,
+    Text,
+    TouchableOpacity,
+    ActivityIndicator,
+    Alert,
+    KeyboardAvoidingView,
+    Platform
+} from 'react-native';
 import { styles } from './signup-screen.styles';
-
-type AuthStackParamList = {
-    Login: undefined;
-    Signup: undefined;
-};
-
-type SignupScreenProps = {
-    navigation: NativeStackNavigationProp<AuthStackParamList, 'Signup'>;
-};
+import {
+    AppText,
+    AppTextInput
+} from '@/components/ui';
+import { useAuth } from '@/hooks/useAuth';
+import { COLORS } from '@/lib/constants';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { SignupScreenProps } from '../types';
 
 export const SignupScreen: React.FC<SignupScreenProps> = ({ navigation }) => {
-    return (
-        <View style={styles.container}>
-            <View style={styles.content}>
-                <Text style={styles.title}>Sign Up</Text>
-                <Text style={styles.subtitle}>Coming Soon</Text>
-                <Text style={styles.description}>
-                    User registration will be implemented in the next phase.
-                </Text>
 
-                <TouchableOpacity
-                    style={styles.button}
-                    onPress={() => navigation.goBack()}
-                >
-                    <Text style={styles.buttonText}>Back to Login</Text>
-                </TouchableOpacity>
-            </View>
-        </View>
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const { signup } = useAuth();
+
+    const handleSignup = async (email: string, password: string) => {
+        console.log(email, password);
+        if (!email || !password) {
+            Alert.alert('Error', 'Please enter both email and password');
+            return;
+        }
+
+        await signup(email, password);
+        setIsLoading(true);
+    }
+
+    return (
+        <SafeAreaView style={styles.container}>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={styles.container}
+            >
+
+                <View style={styles.content}>
+                    <View style={styles.form}>
+                        <AppText style={styles.title}>Clean City</AppText>
+                        <AppText style={styles.subtitle}>Join the wastemanagement kings</AppText>
+
+                        <AppTextInput
+                            style={styles.input}
+                            placeholder="Email"
+                            value={email}
+                            onChangeText={setEmail}
+                            keyboardType="email-address"
+                            editable={!isLoading}
+                        />
+
+                        <AppTextInput
+                            style={styles.input}
+                            placeholder="Password"
+                            value={password}
+                            onChangeText={setPassword}
+                            secureTextEntry
+                            editable={!isLoading}
+                        />
+
+                        <TouchableOpacity
+                            style={[styles.button, isLoading && styles.buttonDisabled]}
+                            onPress={() => handleSignup(email, password)}
+                            disabled={isLoading}
+                        >
+                            {isLoading ? (
+                                <ActivityIndicator color={COLORS.white} />
+                            ) : (
+                                <AppText style={styles.buttonText}>Sign Up</AppText>
+                            )}
+                        </TouchableOpacity>
+                    </View>
+
+                    <TouchableOpacity
+                        onPress={() => navigation.goBack()}
+                    >
+                        <Text style={styles.backToLogin}>Back to Login</Text>
+                    </TouchableOpacity>
+                </View>
+            </KeyboardAvoidingView>
+        </SafeAreaView>
     );
 };

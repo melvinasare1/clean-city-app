@@ -2,20 +2,18 @@
 import React, { useState } from 'react';
 import { View, TouchableOpacity } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { sendPasswordResetEmail } from 'firebase/auth';
-import { auth } from '../../../services/firebase/firebase-config';
-import { AuthStackParamList } from '../../../navigation/auth-navigation';
+import { auth } from '@/services/firebase/firebase-config';
+import { AuthStackParamList } from '@/navigation/auth-navigation';
 import {
     ScreenContainer,
     AppText,
     AppTextInput,
     AppButton,
-} from '../../../components/ui';
+} from '@/components/ui';
 import { styles } from './forgotten-password-screen.styles';
-
-type ForgotPasswordScreenProps = {
-    navigation: NativeStackNavigationProp<AuthStackParamList, 'ForgotPassword'>;
-};
+import { validateEmail } from './helpers';
+import { useAuth } from '@/hooks/useAuth';
+import { ForgotPasswordScreenProps } from '../types';
 
 export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
     navigation,
@@ -25,24 +23,12 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
     const [error, setError] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
 
-    /**
-     * Validates email format
-     */
-    const validateEmail = (email: string): boolean => {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return emailRegex.test(email);
-    };
+    const { resetPassword } = useAuth();
 
-    /**
-     * Handles sending password reset email
-     * Uses Firebase Auth sendPasswordResetEmail
-     */
     const handleSendResetLink = async (): Promise<void> => {
-        // Clear previous messages
         setError('');
         setSuccessMessage('');
 
-        // Validate email
         if (!email.trim()) {
             setError('Please enter your email address');
             return;
@@ -56,22 +42,17 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
         setLoading(true);
 
         try {
-            // Send password reset email using Firebase Auth
-            await sendPasswordResetEmail(auth, email.trim());
+            await resetPassword(email.trim());
 
-            // Show success message
             setSuccessMessage(
                 'If an account exists for this email, a password reset link has been sent.'
             );
 
-            // Clear the email input
             setEmail('');
         } catch (err: any) {
-            // Handle different error types
             let errorMessage = 'Failed to send reset link. Please try again.';
 
             if (err.code === 'auth/user-not-found') {
-                // For security, we show the same message even if user doesn't exist
                 setSuccessMessage(
                     'If an account exists for this email, a password reset link has been sent.'
                 );
@@ -91,9 +72,6 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
         }
     };
 
-    /**
-     * Navigate back to login screen
-     */
     const handleBackToLogin = (): void => {
         navigation.navigate('Login');
     };
@@ -113,8 +91,6 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
                             value={email}
                             onChangeText={setEmail}
                             keyboardType="email-address"
-                            autoCapitalize="none"
-                            autoCorrect={false}
                             editable={!loading}
                         />
                         {error && !successMessage && (
