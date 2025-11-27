@@ -17,23 +17,20 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
 }) => {
     const [email, setEmail] = useState('');
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
 
     const { resetPassword } = useAuth();
 
     const handleSendResetLink = async (): Promise<void> => {
-        setError('');
         setSuccessMessage('');
 
         if (!email.trim()) {
             Alert.alert("Email can't be empty")
-            setError('Please enter your email address');
             return;
         }
 
         if (!validateEmail(email.trim())) {
-            setError('Please enter a valid email address');
+            Alert.alert('Please enter a valid email address');
             return;
         }
 
@@ -56,12 +53,12 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
                 );
             } else if (err.code === 'auth/invalid-email') {
                 errorMessage = 'Please enter a valid email address';
-                setError(errorMessage);
+                Alert.alert(errorMessage);
             } else if (err.code === 'auth/too-many-requests') {
                 errorMessage = 'Too many attempts. Please try again later.';
-                setError(errorMessage);
+                Alert.alert(errorMessage);
             } else {
-                setError(errorMessage);
+                Alert.alert(errorMessage);
             }
 
             console.error('Password reset error:', err);
