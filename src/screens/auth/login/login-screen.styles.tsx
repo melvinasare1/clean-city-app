@@ -4,12 +4,26 @@ import { StyleSheet } from "react-native";
 export const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: COLORS.background,
+        backgroundColor: COLORS.white,
     },
     content: {
         flex: 1,
         justifyContent: 'center',
         paddingHorizontal: VARS.medium,
+    },
+    header: {
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginTop: VARS.large,
+    },
+    headerContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginTop: VARS.large,
+    },
+    contentContainer: {
+        flex: 1,
     },
     title: {
         fontSize: VARS.large,
@@ -25,10 +39,10 @@ export const styles = StyleSheet.create({
         marginBottom: VARS.large,
     },
     form: {
-        width: '100%',
+        flex: 1,
+        justifyContent: 'center',
     },
     input: {
-        backgroundColor: COLORS.white,
         borderRadius: VARS.xxsmall,
         padding: VARS.small,
         fontSize: VARS.small,
@@ -50,6 +64,14 @@ export const styles = StyleSheet.create({
         color: COLORS.white,
         fontSize: VARS.small,
         fontWeight: '600',
+    },
+    forgottenPassword: {
+        color: 'grey',
+        textAlign: 'center',
+        paddingTop: 12
+    },
+    actionLink: {
+        marginTop: 'auto',
     },
     linkText: {
         color: COLORS.textSecondary,

@@ -25,16 +25,14 @@ export const AuthNavigator: React.FC = () => {
                 name="Signup"
                 component={SignupScreen}
                 options={{
-                    headerShown: true,
-                    title: 'Sign Up',
+                    headerShown: false,
                 }}
             />
             <Stack.Screen
                 name="ForgotPassword"
                 component={ForgotPasswordScreen}
                 options={{
-                    headerShown: true,
-                    title: 'Forgot Password',
+                    headerShown: false,
                 }}
             />
         </Stack.Navigator>

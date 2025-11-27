@@ -29,18 +29,12 @@ export const RootNavigator: React.FC = () => {
         return <RoleSelectorScreen onSelectRole={setSelectedRole} />;
     }
 
-    if (selectedRole === 'customer') {
-        return <CustomerNavigator />;
-    }
-
-    if (selectedRole === 'driver') {
+    if (user.role === 'driver') {
         return <DriverNavigator />;
     }
 
     return (
-        <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
-        </View>
+        <CustomerNavigator />
     );
 };
 
