@@ -1,24 +1,16 @@
-/**
- * Login Screen
- * 
- * Simple email/password login form using Firebase Auth
- */
 
 import React, { useState } from 'react';
 import {
     View,
-    Text,
-    TextInput,
     TouchableOpacity,
-    StyleSheet,
     Alert,
     KeyboardAvoidingView,
     Platform,
     ActivityIndicator,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useAuth } from '../../../hooks/useAuth';
-import { COLORS } from '../../../lib/constants';
+import { useAuth } from '@/hooks/useAuth';
+import { COLORS } from '@/lib/constants';
 import { styles } from './login-screen.styles';
 import { AppText, AppTextInput } from '@/components/ui';
 
@@ -93,7 +85,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                         {isLoading ? (
                             <ActivityIndicator color={COLORS.white} />
                         ) : (
-                            <Text style={styles.buttonText}>Login</Text>
+                            <AppText style={styles.buttonText}>Login</AppText>
                         )}
                     </TouchableOpacity>
 
