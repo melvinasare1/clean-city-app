@@ -1,59 +1,87 @@
 import { StyleSheet } from 'react-native';
-import { COLORS, VARS } from '../../../lib/constants';
+import { COLORS, VARS } from '@/lib/constants';
 
 export const styles = StyleSheet.create({
     container: {
         flex: 1,
+        backgroundColor: COLORS.white,
     },
     content: {
         flex: 1,
         justifyContent: 'center',
         paddingHorizontal: VARS.medium,
     },
+    header: {
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginTop: VARS.large,
+    },
+    headerContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginTop: VARS.large,
+    },
     title: {
         fontSize: VARS.large,
         fontWeight: 'bold',
-        color: COLORS.text,
-        marginBottom: VARS.xsmall,
+        color: COLORS.primary,
         textAlign: 'center',
+        marginBottom: VARS.xxsmall,
     },
     subtitle: {
-        fontSize: VARS.xsmall + 2,
+        fontSize: VARS.small,
         color: COLORS.textSecondary,
-        marginBottom: VARS.xlarge,
         textAlign: 'center',
-        lineHeight: VARS.small + 4,
+        marginBottom: VARS.large,
     },
     form: {
-        width: '100%',
+        flex: 1,
+        justifyContent: 'center',
     },
-    inputWrapper: {
+    input: {
+        backgroundColor: COLORS.white,
+        borderRadius: VARS.xxsmall,
+        padding: VARS.small,
+        fontSize: VARS.small,
         marginBottom: VARS.small,
-    },
-    errorText: {
-        color: COLORS.error,
-        fontSize: VARS.xsmall,
-        marginTop: VARS.xxsmall,
-        marginLeft: VARS.xxsmall,
-    },
-    successText: {
-        color: COLORS.success,
-        fontSize: VARS.xsmall + 2,
-        marginTop: VARS.small,
-        textAlign: 'center',
-        lineHeight: VARS.small + 4,
+        borderWidth: 1,
+        borderColor: '#E0E0E0',
     },
     button: {
-        marginTop: VARS.small,
-    },
-    backToLoginContainer: {
-        marginTop: VARS.medium,
+        backgroundColor: COLORS.primary,
+        borderRadius: VARS.xxsmall,
+        padding: VARS.small,
         alignItems: 'center',
+        marginTop: VARS.xxsmall,
     },
-    backToLoginText: {
-        color: COLORS.primary,
-        fontSize: VARS.xsmall + 2,
+    backToLogin: {
+        backgroundColor: COLORS.white,
+        color: 'grey',
+        textAlign: 'center'
+    },
+    buttonDisabled: {
+        opacity: 0.6,
+    },
+    buttonText: {
+        color: COLORS.white,
+        fontSize: VARS.small,
         fontWeight: '600',
     },
+    actionLink: {
+        backgroundColor: 'black',
+        marginTop: 'auto',
+    },
+    linkText: {
+        color: COLORS.textSecondary,
+        textAlign: 'center',
+        marginTop: VARS.medium,
+        fontSize: VARS.xsmall + 2,
+    },
+    linkTextBold: {
+        color: COLORS.primary,
+        fontWeight: '600',
+    },
+    
 });
 

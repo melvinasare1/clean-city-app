@@ -27,7 +27,6 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({ navigation }) => {
     const { signup } = useAuth();
 
     const handleSignup = async (email: string, password: string) => {
-        console.log(email, password);
         if (!email || !password) {
             Alert.alert('Error', 'Please enter both email and password');
             return;

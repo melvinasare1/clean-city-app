@@ -1,41 +1,36 @@
 
 import React, { useState } from 'react';
-import { View, TouchableOpacity } from 'react-native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { auth } from '@/services/firebase/firebase-config';
-import { AuthStackParamList } from '@/navigation/auth-navigation';
+import { View, TouchableOpacity, KeyboardAvoidingView, ActivityIndicator, Platform, Alert } from 'react-native';
 import {
-    ScreenContainer,
     AppText,
     AppTextInput,
-    AppButton,
 } from '@/components/ui';
 import { styles } from './forgotten-password-screen.styles';
 import { validateEmail } from './helpers';
 import { useAuth } from '@/hooks/useAuth';
 import { ForgotPasswordScreenProps } from '../types';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { COLORS } from '@/lib/constants';
 
 export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
     navigation,
 }) => {
     const [email, setEmail] = useState('');
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
 
     const { resetPassword } = useAuth();
 
     const handleSendResetLink = async (): Promise<void> => {
-        setError('');
         setSuccessMessage('');
 
         if (!email.trim()) {
-            setError('Please enter your email address');
+            Alert.alert("Email can't be empty")
             return;
         }
 
         if (!validateEmail(email.trim())) {
-            setError('Please enter a valid email address');
+            Alert.alert('Please enter a valid email address');
             return;
         }
 
@@ -58,12 +53,12 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
                 );
             } else if (err.code === 'auth/invalid-email') {
                 errorMessage = 'Please enter a valid email address';
-                setError(errorMessage);
+                Alert.alert(errorMessage);
             } else if (err.code === 'auth/too-many-requests') {
                 errorMessage = 'Too many attempts. Please try again later.';
-                setError(errorMessage);
+                Alert.alert(errorMessage);
             } else {
-                setError(errorMessage);
+                Alert.alert(errorMessage);
             }
 
             console.error('Password reset error:', err);
@@ -72,51 +67,48 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
         }
     };
 
-    const handleBackToLogin = (): void => {
-        navigation.navigate('Login');
-    };
-
     return (
-        <ScreenContainer style={styles.container}>
-            <View style={styles.content}>
-                <AppText style={styles.title}>Reset your password</AppText>
-                <AppText style={styles.subtitle}>
-                    Enter your email and we'll send you a link to reset your password.
-                </AppText>
+        <SafeAreaView style={styles.container}>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={styles.container}
+            >
 
-                <View style={styles.form}>
-                    <View style={styles.inputWrapper}>
+                <View style={styles.content}>
+                    <View style={styles.form}>
+                        <AppText style={styles.title}>Reset your password</AppText>
+                        <AppText style={styles.subtitle}>You'll get an email with the instructions to reset</AppText>
+
                         <AppTextInput
+                            style={styles.input}
                             placeholder="Email"
                             value={email}
                             onChangeText={setEmail}
                             keyboardType="email-address"
                             editable={!loading}
                         />
-                        {error && !successMessage && (
-                            <AppText style={styles.errorText}>{error}</AppText>
-                        )}
+
+                        <TouchableOpacity
+                            style={[styles.button, loading && styles.buttonDisabled]}
+                            onPress={handleSendResetLink}
+                            disabled={loading}
+                        >
+                            {loading ? (
+                                <ActivityIndicator color={COLORS.white} />
+                            ) : (
+                                <AppText style={styles.buttonText}>Reset your password</AppText>
+                            )}
+                        </TouchableOpacity>
                     </View>
 
-                    <AppButton
-                        title="Send reset link"
-                        onPress={handleSendResetLink}
-                        loading={loading}
-                        buttonStyle={styles.button}
-                    />
-
-                    {successMessage && (
-                        <AppText style={styles.successText}>{successMessage}</AppText>
-                    )}
-                </View>
-
-                <View style={styles.backToLoginContainer}>
-                    <TouchableOpacity onPress={handleBackToLogin} disabled={loading}>
-                        <AppText style={styles.backToLoginText}>Back to login</AppText>
+                    <TouchableOpacity
+                        onPress={() => navigation.goBack()}
+                    >
+                        <AppText style={styles.backToLogin}>Back to Login</AppText>
                     </TouchableOpacity>
                 </View>
-            </View>
-        </ScreenContainer>
+            </KeyboardAvoidingView>
+        </SafeAreaView>
     );
 };
 

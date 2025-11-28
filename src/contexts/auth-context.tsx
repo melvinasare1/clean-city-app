@@ -19,6 +19,7 @@ import {
     serverTimestamp,
 } from 'firebase/firestore';
 import { auth, db } from '@/services/firebase/firebase-config';
+import { setDocAtPath } from '@/lib/utils';
 
 export type AppUserRole = 'customer' | 'driver';
 
@@ -52,7 +53,7 @@ const mapProfile = (firebaseUser: FirebaseUser, data?: { email?: string; role?: 
 };
 
 const fetchUserProfile = async (firebaseUser: FirebaseUser): Promise<AppUser> => {
-    const ref = doc(db, 'users', firebaseUser.uid);
+    const ref = doc(db, 'profiles', firebaseUser.uid);
     const snap = await getDoc(ref);
 
     if (!snap.exists()) {
@@ -102,10 +103,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const result = await createUserWithEmailAndPassword(auth, email, password);
         const firebaseUser = result.user;
 
-        await setDoc(doc(db, 'profiles', firebaseUser.uid), {
+        await setDocAtPath(['profiles', firebaseUser.uid], {
             email,
             role,
-            createdAt: serverTimestamp(),
+        }, {
+            merge: true,
+            addTimestamps: true,
         });
     };
 
