@@ -4,10 +4,7 @@ export interface AppUser {
   id: string;
   email: string;
   role: UserRole;
-  location?: {
-    latitude: number;
-    longitude: number;
-  };
+  location?: string;
   displayName?: string;
   phoneNumber?: string;
   createdAt?: Date;

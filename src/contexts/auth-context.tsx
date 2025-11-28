@@ -27,6 +27,8 @@ export interface AppUser {
     id: string;
     email: string;
     role: AppUserRole | null;
+    phone?: string
+    location?: string
 }
 
 interface AuthContextProps {
@@ -44,10 +46,12 @@ interface AuthContextProps {
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
 
-const mapProfile = (firebaseUser: FirebaseUser, data?: { email?: string; role?: AppUserRole | null }): AppUser => {
+const mapProfile = (firebaseUser: FirebaseUser, data?: { email?: string; role?: AppUserRole | null, phone: string, location: string }): AppUser => {
     return {
         id: firebaseUser.uid,
         email: data?.email ?? firebaseUser.email ?? '',
+        phone: data?.phone,
+        location: data?.location,
         role: data?.role ?? null,
     };
 };
@@ -60,7 +64,7 @@ const fetchUserProfile = async (firebaseUser: FirebaseUser): Promise<AppUser> =>
         return mapProfile(firebaseUser);
     }
 
-    const data = snap.data() as { email?: string; role?: AppUserRole | null };
+    const data = snap.data() as { email?: string; role?: AppUserRole | null, phone: string, location: string };
     return mapProfile(firebaseUser, data);
 };
 
@@ -106,6 +110,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await setDocAtPath(['profiles', firebaseUser.uid], {
             email,
             role,
+            phone: null,
+            location: null,
         }, {
             merge: true,
             addTimestamps: true,

@@ -84,7 +84,7 @@ export const DriverJobDetailScreen: React.FC<DriverJobDetailScreenProps> = ({ ro
 
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>💰 Earnings</Text>
-          <Text style={styles.earnings}>${mockJob.earnings}</Text>
+          <Text style={styles.earnings}>GHS {mockJob.earnings}</Text>
         </View>
 
         {mockJob.notes && (
