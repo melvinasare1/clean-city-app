@@ -1,18 +1,14 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../../../hooks/useAuth';
 import { styles } from './customer-home-screen.styles';
+import { CustomerStackParamList } from '@/navigation/types';
 
-type CustomerStackParamList = {
-  CustomerHome: undefined;
-  NewBooking: undefined;
-  BookingList: undefined;
-};
-
-type CustomerHomeScreenProps = {
-  navigation: NativeStackNavigationProp<CustomerStackParamList, 'CustomerHome'>;
-};
+type CustomerHomeScreenProps = NativeStackScreenProps<
+  CustomerStackParamList,
+  'CustomerHome'
+>;
 
 export const CustomerHomeScreen: React.FC<CustomerHomeScreenProps> = ({ navigation }) => {
   const { user, logout } = useAuth();
@@ -45,7 +41,7 @@ export const CustomerHomeScreen: React.FC<CustomerHomeScreenProps> = ({ navigati
 
           <TouchableOpacity
             style={[styles.actionButton, styles.actionButtonSecondary]}
-            onPress={() => navigation.navigate('BookingList')}
+            onPress={() => navigation.navigate('MyBookings')}
           >
             <Text style={styles.actionButtonTextSecondary}>📋 View My Bookings</Text>
           </TouchableOpacity>

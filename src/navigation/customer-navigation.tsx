@@ -65,9 +65,9 @@ export const CustomerNavigator: React.FC = () => {
         </Tab.Navigator>
     );
 };
-
 // Simple icon component using emoji
 const TabIcon: React.FC<{ icon: string; color: string }> = ({ icon }) => {
     return <>{icon}</>;
 };
+
 

@@ -13,7 +13,8 @@ export type DriverStackParamList = {
 export type CustomerStackParamList = {
   CustomerHome: undefined;
   NewBooking: undefined;
-  BookingList: undefined;
+  MyBookings: undefined;
+  CompleteProfile: undefined;
 };
 
 export type OnboardingStackParamList = {
