@@ -64,7 +64,7 @@ export const BookingListScreen: React.FC = () => {
                 </Text>
               </View>
             </View>
-            <Text style={styles.cardPrice}>Total: ${booking.total}</Text>
+            <Text style={styles.cardPrice}>Total: GHS {booking.total}</Text>
             <Text style={styles.cardNote}>Tap to view details (coming soon)</Text>
           </TouchableOpacity>
         ))}

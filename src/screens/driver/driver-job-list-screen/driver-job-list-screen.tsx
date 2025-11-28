@@ -89,7 +89,7 @@ export const DriverJobListScreen: React.FC<DriverJobListScreenProps> = ({ naviga
               <Text style={styles.cardTime}>
                 ⏰ {job.timeWindow.charAt(0).toUpperCase() + job.timeWindow.slice(1)}
               </Text>
-              <Text style={styles.cardEarnings}>💰 ${job.earnings}</Text>
+              <Text style={styles.cardEarnings}>💰 GHS {job.earnings}</Text>
             </View>
 
             <Text style={styles.cardNote}>Tap to view details</Text>

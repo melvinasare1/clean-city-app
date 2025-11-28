@@ -35,7 +35,7 @@ export const NewBookingScreen: React.FC = () => {
         // TODO: Save booking to Firestore
         Alert.alert(
             'Booking Preview',
-            `Total: $${total}\n\nThis will be saved to Firestore in the next phase.`
+            `Total: GHS ${total}\n\nThis will be saved to Firestore in the next phase.`
         );
     };
 
@@ -47,7 +47,7 @@ export const NewBookingScreen: React.FC = () => {
                 <View style={styles.binCard}>
                     <View style={styles.binInfo}>
                         <Text style={styles.binName}>Small Bags</Text>
-                        <Text style={styles.binPrice}>${PRICES.smallBag} each</Text>
+                        <Text style={styles.binPrice}>GHS {PRICES.smallBag} each</Text>
                     </View>
                     <View style={styles.counter}>
                         <TouchableOpacity
@@ -69,7 +69,7 @@ export const NewBookingScreen: React.FC = () => {
                 <View style={styles.binCard}>
                     <View style={styles.binInfo}>
                         <Text style={styles.binName}>Large Bags</Text>
-                        <Text style={styles.binPrice}>${PRICES.largeBag} each</Text>
+                        <Text style={styles.binPrice}>GHS {PRICES.largeBag} each</Text>
                     </View>
                     <View style={styles.counter}>
                         <TouchableOpacity
@@ -91,7 +91,7 @@ export const NewBookingScreen: React.FC = () => {
                 <View style={styles.binCard}>
                     <View style={styles.binInfo}>
                         <Text style={styles.binName}>Standard Bins</Text>
-                        <Text style={styles.binPrice}>${PRICES.standardBin} each</Text>
+                        <Text style={styles.binPrice}>GHS {PRICES.standardBin} each</Text>
                     </View>
                     <View style={styles.counter}>
                         <TouchableOpacity
@@ -113,7 +113,7 @@ export const NewBookingScreen: React.FC = () => {
                 <View style={styles.binCard}>
                     <View style={styles.binInfo}>
                         <Text style={styles.binName}>Wheelie Bins</Text>
-                        <Text style={styles.binPrice}>${PRICES.wheelieBin} each</Text>
+                        <Text style={styles.binPrice}>GHS {PRICES.wheelieBin} each</Text>
                     </View>
                     <View style={styles.counter}>
                         <TouchableOpacity
@@ -134,7 +134,7 @@ export const NewBookingScreen: React.FC = () => {
 
                 <View style={styles.totalCard}>
                     <Text style={styles.totalLabel}>Total Price:</Text>
-                    <Text style={styles.totalValue}>${calculateTotal()}</Text>
+                    <Text style={styles.totalValue}>GHS {calculateTotal()}</Text>
                 </View>
 
                 <Text style={styles.sectionTitle}>Pickup Details</Text>
