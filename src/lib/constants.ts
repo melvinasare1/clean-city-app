@@ -1,20 +1,10 @@
-
-// Pricing for different bin types (in your currency)
 export const PRICES = {
-  smallBag: 25,
-  largeBag: 40,
-  standardBin: 60,
-  wheelieBin: 100,
+  smallBag: 5,
+  largeBag: 10,
+  standardBin: 25,
+  wheelieBin: 50,
 };
 
-// Time windows for pickup
-export const TIME_WINDOWS = {
-  morning: "8:00 AM - 12:00 PM",
-  afternoon: "12:00 PM - 4:00 PM",
-  evening: "4:00 PM - 8:00 PM",
-};
-
-// App colors (you can expand this later)
 export const COLORS = {
   primary: "#2E7D32",
   secondary: "#66BB6A",

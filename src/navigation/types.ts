@@ -10,10 +10,15 @@ export type DriverStackParamList = {
   DriverJobDetail: { jobId: string };
 };
 
-export type CustomerStackParamList = {
+export type CustomerTabParamList = {
   CustomerHome: undefined;
   NewBooking: undefined;
   MyBookings: undefined;
+};
+
+export type CustomerStackParamList = {
+  CustomerTabs: undefined;
+  CreateBooking: undefined;
   CompleteProfile: undefined;
 };
 

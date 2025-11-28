@@ -1,46 +1,46 @@
-import React from 'react';
-import { View, TouchableOpacity } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import {
+    ActivityIndicator,
+    TouchableOpacity,
+    View,
+} from 'react-native';
+import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import { CompositeScreenProps, useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AppText, ScreenContainer } from '@/components/ui';
 import { useAuth } from '@/hooks/useAuth';
-import { CustomerStackParamList } from '@/navigation/types';
+import {
+    CustomerStackParamList,
+    CustomerTabParamList,
+} from '@/navigation/types';
+import { Booking, getUserBookings } from '@/services/bookingService';
 import { COLORS } from '@/lib/constants';
 import { styles } from './my-bookings-screen.styles';
 
-type MyBookingsScreenProps = NativeStackScreenProps<
-    CustomerStackParamList,
-    'MyBookings'
+type MyBookingsScreenProps = CompositeScreenProps<
+    BottomTabScreenProps<CustomerTabParamList, 'MyBookings'>,
+    NativeStackScreenProps<CustomerStackParamList>
 >;
 
-const mockBookings = [
-    {
-        id: '1',
-        date: 'Nov 25, 2025',
-        status: 'pending',
-        total: 125,
-    },
-    {
-        id: '2',
-        date: 'Nov 20, 2025',
-        status: 'completed',
-        total: 100,
-    },
-];
+const formatDate = (dateStr: string) => {
+    const date = new Date(`${dateStr}T00:00:00`);
+    return date.toLocaleDateString(undefined, {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+    });
+};
 
-const getStatusColor = (status: string) => {
+const getStatusColor = (status: Booking['status']) => {
     switch (status) {
         case 'pending':
             return COLORS.accent;
-        case 'assigned':
-            return '#2196F3';
-        case 'in_progress':
-            return '#FF9800';
         case 'completed':
             return COLORS.success;
         case 'cancelled':
-            return COLORS.error;
         default:
-            return COLORS.textSecondary;
+            return COLORS.error;
     }
 };
 
@@ -48,7 +48,36 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
     navigation,
 }) => {
     const { user } = useAuth();
+    const [bookings, setBookings] = useState<Booking[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
     const needsProfileCompletion = !user?.phone || !user?.location;
+
+    const fetchBookings = useCallback(async () => {
+        if (!user) {
+            setBookings([]);
+            setLoading(false);
+            return;
+        }
+        setLoading(true);
+        try {
+            const data = await getUserBookings(user.id);
+            setBookings(data);
+            setError(null);
+        } catch (err) {
+            console.error('Error loading bookings:', err);
+            setError('We could not load your bookings. Please try again.');
+        } finally {
+            setLoading(false);
+        }
+    }, [user?.id]);
+
+    useFocusEffect(
+        useCallback(() => {
+            fetchBookings();
+        }, [fetchBookings])
+    );
 
     return (
         <ScreenContainer scrollable>
@@ -66,40 +95,70 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
                     </TouchableOpacity>
                 )}
 
-                <AppText style={styles.title}>My Bookings</AppText>
-
-                {mockBookings.map((booking) => (
-                    <TouchableOpacity key={booking.id} style={styles.card}>
-                        <View style={styles.cardHeader}>
-                            <AppText style={styles.cardDate}>{booking.date}</AppText>
-                            <View
-                                style={[
-                                    styles.statusBadge,
-                                    { backgroundColor: getStatusColor(booking.status) },
-                                ]}
-                            >
-                                <AppText style={styles.statusText}>
-                                    {booking.status.toUpperCase()}
-                                </AppText>
-                            </View>
-                        </View>
-                        <AppText style={styles.cardPrice}>
-                            Total: GHS {booking.total}
-                        </AppText>
-                        <AppText style={styles.cardNote}>
-                            Tap to view details (coming soon)
-                        </AppText>
+                <View style={styles.headerRow}>
+                    <AppText style={styles.title}>My Bookings</AppText>
+                    <TouchableOpacity
+                        style={styles.newBookingButton}
+                        onPress={() => navigation.navigate('CreateBooking')}
+                    >
+                        <AppText style={styles.newBookingButtonText}>+ Schedule</AppText>
                     </TouchableOpacity>
-                ))}
-
-                <View style={styles.placeholderCard}>
-                    <AppText style={styles.placeholderText}>
-                        📱 Bookings will be loaded from Firestore in the next phase
-                    </AppText>
                 </View>
+
+                {loading ? (
+                    <View style={styles.loadingState}>
+                        <ActivityIndicator color={COLORS.primary} />
+                        <AppText style={styles.loadingText}>Loading bookings...</AppText>
+                    </View>
+                ) : error ? (
+                    <View style={styles.errorState}>
+                        <AppText style={styles.errorText}>{error}</AppText>
+                        <TouchableOpacity
+                            style={styles.retryButton}
+                            onPress={fetchBookings}
+                        >
+                            <AppText style={styles.retryButtonText}>Try again</AppText>
+                        </TouchableOpacity>
+                    </View>
+                ) : bookings.length === 0 ? (
+                    <View style={styles.emptyState}>
+                        <AppText style={styles.emptyTitle}>No bookings yet</AppText>
+                        <AppText style={styles.emptySubtitle}>
+                            Schedule your first pickup and keep your area clean.
+                        </AppText>
+                        <TouchableOpacity
+                            style={styles.emptyAction}
+                            onPress={() => navigation.navigate('CreateBooking')}
+                        >
+                            <AppText style={styles.emptyActionText}>
+                                Schedule your first pickup
+                            </AppText>
+                        </TouchableOpacity>
+                    </View>
+                ) : (
+                    bookings.map((booking) => (
+                        <View key={booking.id} style={styles.card}>
+                            <View style={styles.cardHeader}>
+                                <AppText style={styles.cardDate}>
+                                    {formatDate(booking.date)}
+                                </AppText>
+                                <View
+                                    style={[
+                                        styles.statusBadge,
+                                        { backgroundColor: getStatusColor(booking.status) },
+                                    ]}
+                                >
+                                    <AppText style={styles.statusText}>
+                                        {booking.status.toUpperCase()}
+                                    </AppText>
+                                </View>
+                            </View>
+                            <AppText style={styles.cardWindow}>{booking.windowLabel}</AppText>
+                            <AppText style={styles.cardLocation}>{booking.location}</AppText>
+                        </View>
+                    ))
+                )}
             </View>
         </ScreenContainer>
     );
 };
-
-
