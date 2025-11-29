@@ -9,6 +9,7 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@paystack/inline-js": "^2.22.7",
     "@react-native-community/datetimepicker": "~8.1.1",
     "@react-navigation/bottom-tabs": "^6.5.11",
     "@react-navigation/native": "^6.1.9",
