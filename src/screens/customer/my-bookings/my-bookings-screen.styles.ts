@@ -6,11 +6,27 @@ export const styles = StyleSheet.create({
     padding: VARS.medium,
     gap: VARS.small,
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: VARS.small,
+  },
   title: {
     fontSize: 24,
     fontWeight: '700',
     marginBottom: VARS.small,
     color: COLORS.text,
+  },
+  newBookingButton: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: 8,
+    paddingHorizontal: VARS.small,
+    borderRadius: VARS.xsmall,
+  },
+  newBookingButtonText: {
+    color: COLORS.white,
+    fontWeight: '600',
   },
   profileBanner: {
     backgroundColor: COLORS.white,
@@ -78,6 +94,27 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.textSecondary,
   },
+  cardWindow: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: 4,
+  },
+  cardLocation: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    marginBottom: 4,
+  },
+  cardSummary: {
+    fontSize: 14,
+    color: COLORS.text,
+    marginBottom: 2,
+  },
+  cardTotal: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
   placeholderCard: {
     backgroundColor: '#F0F4F8',
     padding: VARS.medium,
@@ -88,6 +125,63 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.textSecondary,
     textAlign: 'center',
+  },
+  loadingState: {
+    alignItems: 'center',
+    paddingVertical: VARS.large,
+  },
+  loadingText: {
+    marginTop: VARS.xsmall,
+    color: COLORS.textSecondary,
+  },
+  errorState: {
+    backgroundColor: '#FFEBEE',
+    padding: VARS.medium,
+    borderRadius: VARS.small,
+    gap: VARS.xsmall,
+  },
+  errorText: {
+    color: COLORS.error,
+    fontSize: 14,
+  },
+  retryButton: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: VARS.small,
+    paddingVertical: 6,
+    backgroundColor: COLORS.primary,
+    borderRadius: VARS.xsmall,
+  },
+  retryButtonText: {
+    color: COLORS.white,
+    fontWeight: '600',
+  },
+  emptyState: {
+    backgroundColor: '#E8F5E9',
+    padding: VARS.medium,
+    borderRadius: VARS.small,
+    alignItems: 'center',
+    gap: VARS.xsmall,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    textAlign: 'center',
+    color: COLORS.textSecondary,
+  },
+  emptyAction: {
+    marginTop: VARS.xsmall,
+    paddingHorizontal: VARS.medium,
+    paddingVertical: 8,
+    backgroundColor: COLORS.primary,
+    borderRadius: VARS.xsmall,
+  },
+  emptyActionText: {
+    color: COLORS.white,
+    fontWeight: '600',
   },
 });
 

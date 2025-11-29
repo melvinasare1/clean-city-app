@@ -1,12 +1,12 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { useAuth } from '../../../hooks/useAuth';
 import { styles } from './customer-home-screen.styles';
-import { CustomerStackParamList } from '@/navigation/types';
+import { CustomerTabParamList } from '@/navigation/types';
 
-type CustomerHomeScreenProps = NativeStackScreenProps<
-  CustomerStackParamList,
+type CustomerHomeScreenProps = BottomTabScreenProps<
+  CustomerTabParamList,
   'CustomerHome'
 >;
 
