@@ -103,6 +103,17 @@ export const styles = StyleSheet.create({
   cardLocation: {
     fontSize: 14,
     color: COLORS.textSecondary,
+    marginBottom: 4,
+  },
+  cardSummary: {
+    fontSize: 14,
+    color: COLORS.text,
+    marginBottom: 2,
+  },
+  cardTotal: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.primary,
   },
   placeholderCard: {
     backgroundColor: '#F0F4F8',

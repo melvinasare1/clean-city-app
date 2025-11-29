@@ -5,6 +5,8 @@ export const PRICES = {
   wheelieBin: 50,
 };
 
+export const BOOKINGS_COLLECTION = "bookings";
+
 export const COLORS = {
   primary: "#2E7D32",
   secondary: "#66BB6A",

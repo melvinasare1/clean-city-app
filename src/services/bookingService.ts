@@ -1,93 +1,84 @@
 import {
-  addDoc,
   collection,
+  doc,
   getDocs,
   orderBy,
   query,
-  serverTimestamp,
   where,
-  Timestamp,
-} from 'firebase/firestore';
-import { db } from '@/services/firebase/firebase-config';
-import { TIME_WINDOWS, TimeWindowId } from '@/lib/time-windows';
-
-const BOOKINGS_COLLECTION = 'bookings';
-
-export type BookingStatus = 'pending' | 'completed' | 'cancelled';
-
-export interface Booking {
-  id: string;
-  userId: string;
-  date: string;
-  windowId: TimeWindowId;
-  windowLabel: string;
-  location: string;
-  status: BookingStatus;
-  createdAt: Timestamp | null;
-}
+} from "firebase/firestore";
+import { db } from "@/services/firebase/firebase-config";
+import type { TimeWindowId } from "@/lib/time-windows";
+import type { Booking, BookingBinItem } from "@/types/booking";
+import { BOOKINGS_COLLECTION } from "@/lib/constants"; // whatever you use
+import { setDocAtPath } from "@/lib/utils";
 
 type CreateBookingParams = {
   userId: string;
   date: string;
   windowId: TimeWindowId;
+  windowLabel: string;
   location: string;
+  items: BookingBinItem[];
+  totalPrice: number;
 };
 
 export const createBooking = async ({
   userId,
   date,
   windowId,
+  windowLabel,
   location,
+  items,
+  totalPrice,
 }: CreateBookingParams): Promise<string> => {
-  const windowConfig = TIME_WINDOWS.find((window) => window.id === windowId);
-  if (!windowConfig) {
-    throw new Error(`Invalid time window: ${windowId}`);
-  }
+  const newDocRef = doc(collection(db, BOOKINGS_COLLECTION));
+  const bookingId = newDocRef.id;
 
-  const docRef = await addDoc(collection(db, BOOKINGS_COLLECTION), {
-    userId,
-    date,
-    windowId,
-    windowLabel: windowConfig.label,
-    location,
-    status: 'pending' as BookingStatus,
-    createdAt: serverTimestamp(),
-  });
+  console.log(bookingId);
+  await setDocAtPath(
+    [BOOKINGS_COLLECTION, bookingId],
+    {
+      userId,
+      date,
+      windowId,
+      windowLabel,
+      location,
+      items,
+      totalPrice,
+      status: "pending",
+    },
+    {
+      merge: false,
+      addTimestamps: true,
+    }
+  );
 
-  return docRef.id;
+  return bookingId;
 };
 
 export const getUserBookings = async (userId: string): Promise<Booking[]> => {
   const bookingsQuery = query(
     collection(db, BOOKINGS_COLLECTION),
-    where('userId', '==', userId),
-    orderBy('date', 'asc')
+    where("userId", "==", userId),
+    orderBy("date", "asc"),
+    orderBy("windowId", "asc")
   );
 
   const snapshot = await getDocs(bookingsQuery);
-  const windowOrder = TIME_WINDOWS.map((window) => window.id);
 
-  return snapshot.docs
-    .map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        userId: data.userId as string,
-        date: data.date as string,
-        windowId: data.windowId as TimeWindowId,
-        windowLabel: data.windowLabel as string,
-        location: data.location as string,
-        status: data.status as BookingStatus,
-        createdAt: (data.createdAt as Timestamp) ?? null,
-      };
-    })
-    .sort((a, b) => {
-      if (a.date === b.date) {
-        return (
-          windowOrder.indexOf(a.windowId) - windowOrder.indexOf(b.windowId)
-        );
-      }
-      return a.date.localeCompare(b.date);
-    });
+  return snapshot.docs.map((docSnap) => {
+    const data = docSnap.data() as Partial<Omit<Booking, "id">>;
+    return {
+      id: docSnap.id,
+      userId: data.userId ?? "",
+      date: data.date ?? "",
+      windowId: data.windowId as TimeWindowId,
+      windowLabel: data.windowLabel ?? "",
+      location: data.location ?? "",
+      items: data.items ?? [],
+      totalPrice: data.totalPrice ?? 0,
+      status: (data.status ?? "pending") as Booking["status"],
+      createdAt: (data.createdAt as Booking["createdAt"]) ?? null,
+    };
+  });
 };
-

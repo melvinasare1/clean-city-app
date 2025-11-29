@@ -17,6 +17,61 @@ export const styles = StyleSheet.create({
     marginBottom: VARS.small,
     lineHeight: 22,
   },
+  summaryCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: VARS.small,
+    padding: VARS.medium,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  summaryTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: VARS.xsmall,
+    color: COLORS.text,
+  },
+  summaryItem: {
+    marginTop: VARS.xsmall,
+  },
+  summaryItemType: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  summaryItemMeta: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+  },
+  summaryDivider: {
+    height: 1,
+    backgroundColor: '#E0E0E0',
+    marginVertical: VARS.small,
+  },
+  summaryTotalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  summaryTotalLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  summaryTotalValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.primary,
+  },
+  noItemsNotice: {
+    backgroundColor: '#FFF3E0',
+    borderRadius: VARS.xsmall,
+    padding: VARS.small,
+  },
+  noItemsText: {
+    fontSize: 13,
+    color: COLORS.accent,
+    lineHeight: 18,
+  },
   label: {
     fontSize: 14,
     fontWeight: '600',

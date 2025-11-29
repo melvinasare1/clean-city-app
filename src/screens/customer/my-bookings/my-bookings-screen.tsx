@@ -13,7 +13,8 @@ import {
     CustomerStackParamList,
     CustomerTabParamList,
 } from '@/navigation/types';
-import { Booking, getUserBookings } from '@/services/bookingService';
+import type { Booking } from '@/types/booking';
+import { getUserBookings } from '@/services/bookingService';
 import { COLORS } from '@/lib/constants';
 import { styles } from './my-bookings-screen.styles';
 
@@ -32,6 +33,8 @@ const formatDate = (dateStr: string) => {
     });
 };
 
+const formatPrice = (value: number) => `GHS ${value.toFixed(2)}`;
+
 const getStatusColor = (status: Booking['status']) => {
     switch (status) {
         case 'pending':
@@ -42,6 +45,13 @@ const getStatusColor = (status: Booking['status']) => {
         default:
             return COLORS.error;
     }
+};
+
+const getBinSummary = (items: Booking['items']) => {
+    if (!items?.length) {
+        return 'No bins recorded';
+    }
+    return items.map((item) => `${item.quantity} x ${item.type}`).join(', ');
 };
 
 export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
@@ -99,7 +109,7 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
                     <AppText style={styles.title}>My Bookings</AppText>
                     <TouchableOpacity
                         style={styles.newBookingButton}
-                        onPress={() => navigation.navigate('CreateBooking')}
+                        onPress={() => navigation.navigate('NewBooking')}
                     >
                         <AppText style={styles.newBookingButtonText}>+ Schedule</AppText>
                     </TouchableOpacity>
@@ -128,7 +138,7 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
                         </AppText>
                         <TouchableOpacity
                             style={styles.emptyAction}
-                            onPress={() => navigation.navigate('CreateBooking')}
+                            onPress={() => navigation.navigate('NewBooking')}
                         >
                             <AppText style={styles.emptyActionText}>
                                 Schedule your first pickup
@@ -154,7 +164,15 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
                                 </View>
                             </View>
                             <AppText style={styles.cardWindow}>{booking.windowLabel}</AppText>
-                            <AppText style={styles.cardLocation}>{booking.location}</AppText>
+                            <AppText style={styles.cardLocation}>
+                                Pickup area: {booking.location}
+                            </AppText>
+                            <AppText style={styles.cardSummary}>
+                                {getBinSummary(booking.items)}
+                            </AppText>
+                            <AppText style={styles.cardTotal}>
+                                Total: {formatPrice(booking.totalPrice)}
+                            </AppText>
                         </View>
                     ))
                 )}

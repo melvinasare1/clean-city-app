@@ -1,30 +1,25 @@
+import type { Timestamp } from "firebase/firestore";
+import type { TimeWindowId } from "@/lib/time-windows";
 
-export type BookingStatus =
-  | "pending"
-  | "assigned"
-  | "in_progress"
-  | "completed"
-  | "cancelled";
+export type BookingStatus = "pending" | "completed" | "cancelled";
 
-export type TimeWindow = "morning" | "afternoon" | "evening";
-
-export interface Bins {
-  smallBags: number;
-  largeBags: number;
-  standardBins: number;
-  wheelieBins: number;
-}
-
-export interface Booking {
-  id: string;
-  customerId: string;
-  driverId?: string | null;
-  addressDescription: string;
-  bins: Bins;
+export type BookingBinItem = {
+  id?: string;
+  type: string;
+  quantity: number;
+  unitPrice: number;
   totalPrice: number;
-  pickupDate: Date;
-  timeWindow: TimeWindow;
+};
+
+export type Booking = {
+  id: string;
+  userId: string;
+  date: string;
+  windowId: TimeWindowId;
+  windowLabel: string;
+  location: string;
+  items: BookingBinItem[];
+  totalPrice: number;
   status: BookingStatus;
-  createdAt?: Date;
-  updatedAt?: Date;
-}
+  createdAt: Timestamp | null;
+};

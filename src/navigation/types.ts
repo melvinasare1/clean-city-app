@@ -1,3 +1,5 @@
+import type { BookingBinItem } from '@/types/booking';
+
 export type AuthStackParamList = {
   Login: undefined;
   Signup: undefined;
@@ -18,7 +20,10 @@ export type CustomerTabParamList = {
 
 export type CustomerStackParamList = {
   CustomerTabs: undefined;
-  CreateBooking: undefined;
+  CreateBooking: {
+    items: BookingBinItem[];
+    totalPrice: number;
+  };
   CompleteProfile: undefined;
 };
 

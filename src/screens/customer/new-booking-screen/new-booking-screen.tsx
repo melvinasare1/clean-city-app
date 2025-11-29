@@ -1,152 +1,191 @@
-
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
-    View,
-    Text,
-    ScrollView,
-    TouchableOpacity,
-    Alert,
+  Alert,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { PRICES } from '../../../lib/constants';
+import { CompositeScreenProps } from '@react-navigation/native';
+import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { PRICES } from '@/lib/constants';
+import { BookingBinItem } from '@/types/booking';
+import {
+  CustomerStackParamList,
+  CustomerTabParamList,
+} from '@/navigation/types';
 import { styles } from './new-booking-screen.styles';
 
-export const NewBookingScreen: React.FC = () => {
-    const [smallBags, setSmallBags] = useState(0);
-    const [largeBags, setLargeBags] = useState(0);
-    const [standardBins, setStandardBins] = useState(0);
-    const [wheelieBins, setWheelieBins] = useState(0);
+type NewBookingScreenProps = CompositeScreenProps<
+  BottomTabScreenProps<CustomerTabParamList, 'NewBooking'>,
+  NativeStackScreenProps<CustomerStackParamList>
+>;
 
-    const calculateTotal = () => {
-        return (
-            smallBags * PRICES.smallBag +
-            largeBags * PRICES.largeBag +
-            standardBins * PRICES.standardBin +
-            wheelieBins * PRICES.wheelieBin
-        );
-    };
+const formatPrice = (value: number) => `GHS ${value.toFixed(2)}`;
 
-    const handleSubmit = () => {
-        const total = calculateTotal();
-        if (total === 0) {
-            Alert.alert('Error', 'Please select at least one bin type');
-            return;
-        }
+export const NewBookingScreen: React.FC<NewBookingScreenProps> = ({
+  navigation,
+}) => {
+  const [smallBags, setSmallBags] = useState(0);
+  const [largeBags, setLargeBags] = useState(0);
+  const [standardBins, setStandardBins] = useState(0);
+  const [wheelieBins, setWheelieBins] = useState(0);
 
-        // TODO: Save booking to Firestore
-        Alert.alert(
-            'Booking Preview',
-            `Total: GHS ${total}\n\nThis will be saved to Firestore in the next phase.`
-        );
-    };
+  const buildItems = (): BookingBinItem[] => {
+    const selections: BookingBinItem[] = [
+      {
+        id: 'SMALL_BAG',
+        type: 'Small Bags',
+        quantity: smallBags,
+        unitPrice: PRICES.smallBag,
+        totalPrice: smallBags * PRICES.smallBag,
+      },
+      {
+        id: 'LARGE_BAG',
+        type: 'Large Bags',
+        quantity: largeBags,
+        unitPrice: PRICES.largeBag,
+        totalPrice: largeBags * PRICES.largeBag,
+      },
+      {
+        id: 'STANDARD_BIN',
+        type: 'Standard Bins',
+        quantity: standardBins,
+        unitPrice: PRICES.standardBin,
+        totalPrice: standardBins * PRICES.standardBin,
+      },
+      {
+        id: 'WHEELIE_BIN',
+        type: 'Wheelie Bins',
+        quantity: wheelieBins,
+        unitPrice: PRICES.wheelieBin,
+        totalPrice: wheelieBins * PRICES.wheelieBin,
+      },
+    ];
 
-    return (
-        <ScrollView style={styles.container}>
-            <View style={styles.content}>
-                <Text style={styles.sectionTitle}>Select Bins</Text>
+    return selections.filter((item) => item.quantity > 0);
+  };
 
-                <View style={styles.binCard}>
-                    <View style={styles.binInfo}>
-                        <Text style={styles.binName}>Small Bags</Text>
-                        <Text style={styles.binPrice}>GHS {PRICES.smallBag} each</Text>
-                    </View>
-                    <View style={styles.counter}>
-                        <TouchableOpacity
-                            style={styles.counterButton}
-                            onPress={() => setSmallBags(Math.max(0, smallBags - 1))}
-                        >
-                            <Text style={styles.counterButtonText}>-</Text>
-                        </TouchableOpacity>
-                        <Text style={styles.counterValue}>{smallBags}</Text>
-                        <TouchableOpacity
-                            style={styles.counterButton}
-                            onPress={() => setSmallBags(smallBags + 1)}
-                        >
-                            <Text style={styles.counterButtonText}>+</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
+  const totalPrice = useMemo(() => {
+    return buildItems().reduce((sum, item) => sum + item.totalPrice, 0);
+  }, [smallBags, largeBags, standardBins, wheelieBins]);
 
-                <View style={styles.binCard}>
-                    <View style={styles.binInfo}>
-                        <Text style={styles.binName}>Large Bags</Text>
-                        <Text style={styles.binPrice}>GHS {PRICES.largeBag} each</Text>
-                    </View>
-                    <View style={styles.counter}>
-                        <TouchableOpacity
-                            style={styles.counterButton}
-                            onPress={() => setLargeBags(Math.max(0, largeBags - 1))}
-                        >
-                            <Text style={styles.counterButtonText}>-</Text>
-                        </TouchableOpacity>
-                        <Text style={styles.counterValue}>{largeBags}</Text>
-                        <TouchableOpacity
-                            style={styles.counterButton}
-                            onPress={() => setLargeBags(largeBags + 1)}
-                        >
-                            <Text style={styles.counterButtonText}>+</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
+  const handleProceed = () => {
+    const selectedItems = buildItems();
+    if (!selectedItems.length) {
+      Alert.alert('No bins selected', 'Please select at least one bin to continue.');
+      return;
+    }
 
-                <View style={styles.binCard}>
-                    <View style={styles.binInfo}>
-                        <Text style={styles.binName}>Standard Bins</Text>
-                        <Text style={styles.binPrice}>GHS {PRICES.standardBin} each</Text>
-                    </View>
-                    <View style={styles.counter}>
-                        <TouchableOpacity
-                            style={styles.counterButton}
-                            onPress={() => setStandardBins(Math.max(0, standardBins - 1))}
-                        >
-                            <Text style={styles.counterButtonText}>-</Text>
-                        </TouchableOpacity>
-                        <Text style={styles.counterValue}>{standardBins}</Text>
-                        <TouchableOpacity
-                            style={styles.counterButton}
-                            onPress={() => setStandardBins(standardBins + 1)}
-                        >
-                            <Text style={styles.counterButtonText}>+</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
+    navigation.navigate('CreateBooking', {
+      items: selectedItems,
+      totalPrice,
+    });
+  };
 
-                <View style={styles.binCard}>
-                    <View style={styles.binInfo}>
-                        <Text style={styles.binName}>Wheelie Bins</Text>
-                        <Text style={styles.binPrice}>GHS {PRICES.wheelieBin} each</Text>
-                    </View>
-                    <View style={styles.counter}>
-                        <TouchableOpacity
-                            style={styles.counterButton}
-                            onPress={() => setWheelieBins(Math.max(0, wheelieBins - 1))}
-                        >
-                            <Text style={styles.counterButtonText}>-</Text>
-                        </TouchableOpacity>
-                        <Text style={styles.counterValue}>{wheelieBins}</Text>
-                        <TouchableOpacity
-                            style={styles.counterButton}
-                            onPress={() => setWheelieBins(wheelieBins + 1)}
-                        >
-                            <Text style={styles.counterButtonText}>+</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
+  return (
+    <ScrollView style={styles.container}>
+      <View style={styles.content}>
+        <Text style={styles.sectionTitle}>Select Bins</Text>
 
-                <View style={styles.totalCard}>
-                    <Text style={styles.totalLabel}>Total Price:</Text>
-                    <Text style={styles.totalValue}>GHS {calculateTotal()}</Text>
-                </View>
+        <View style={styles.binCard}>
+          <View style={styles.binInfo}>
+            <Text style={styles.binName}>Small Bags</Text>
+            <Text style={styles.binPrice}>{formatPrice(PRICES.smallBag)} each</Text>
+          </View>
+          <View style={styles.counter}>
+            <TouchableOpacity
+              style={styles.counterButton}
+              onPress={() => setSmallBags(Math.max(0, smallBags - 1))}
+            >
+              <Text style={styles.counterButtonText}>-</Text>
+            </TouchableOpacity>
+            <Text style={styles.counterValue}>{smallBags}</Text>
+            <TouchableOpacity
+              style={styles.counterButton}
+              onPress={() => setSmallBags(smallBags + 1)}
+            >
+              <Text style={styles.counterButtonText}>+</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
 
-                <Text style={styles.sectionTitle}>Pickup Details</Text>
-                <Text style={styles.placeholderText}>
-                    Address input, date picker, and time window selection will be added next
-                </Text>
+        <View style={styles.binCard}>
+          <View style={styles.binInfo}>
+            <Text style={styles.binName}>Large Bags</Text>
+            <Text style={styles.binPrice}>{formatPrice(PRICES.largeBag)} each</Text>
+          </View>
+          <View style={styles.counter}>
+            <TouchableOpacity
+              style={styles.counterButton}
+              onPress={() => setLargeBags(Math.max(0, largeBags - 1))}
+            >
+              <Text style={styles.counterButtonText}>-</Text>
+            </TouchableOpacity>
+            <Text style={styles.counterValue}>{largeBags}</Text>
+            <TouchableOpacity
+              style={styles.counterButton}
+              onPress={() => setLargeBags(largeBags + 1)}
+            >
+              <Text style={styles.counterButtonText}>+</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
 
-                <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-                    <Text style={styles.submitButtonText}>Create Booking</Text>
-                </TouchableOpacity>
-            </View>
-        </ScrollView>
-    );
+        <View style={styles.binCard}>
+          <View style={styles.binInfo}>
+            <Text style={styles.binName}>Standard Bins</Text>
+            <Text style={styles.binPrice}>{formatPrice(PRICES.standardBin)} each</Text>
+          </View>
+          <View style={styles.counter}>
+            <TouchableOpacity
+              style={styles.counterButton}
+              onPress={() => setStandardBins(Math.max(0, standardBins - 1))}
+            >
+              <Text style={styles.counterButtonText}>-</Text>
+            </TouchableOpacity>
+            <Text style={styles.counterValue}>{standardBins}</Text>
+            <TouchableOpacity
+              style={styles.counterButton}
+              onPress={() => setStandardBins(standardBins + 1)}
+            >
+              <Text style={styles.counterButtonText}>+</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={styles.binCard}>
+          <View style={styles.binInfo}>
+            <Text style={styles.binName}>Wheelie Bins</Text>
+            <Text style={styles.binPrice}>{formatPrice(PRICES.wheelieBin)} each</Text>
+          </View>
+          <View style={styles.counter}>
+            <TouchableOpacity
+              style={styles.counterButton}
+              onPress={() => setWheelieBins(Math.max(0, wheelieBins - 1))}
+            >
+              <Text style={styles.counterButtonText}>-</Text>
+            </TouchableOpacity>
+            <Text style={styles.counterValue}>{wheelieBins}</Text>
+            <TouchableOpacity
+              style={styles.counterButton}
+              onPress={() => setWheelieBins(wheelieBins + 1)}
+            >
+              <Text style={styles.counterButtonText}>+</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={styles.totalCard}>
+          <Text style={styles.totalLabel}>Total Price:</Text>
+          <Text style={styles.totalValue}>{formatPrice(totalPrice)}</Text>
+        </View>
+
+        <TouchableOpacity style={styles.submitButton} onPress={handleProceed}>
+          <Text style={styles.submitButtonText}>Continue to schedule</Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
+  );
 };
-

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, TouchableOpacity, Alert } from 'react-native';
 import DateTimePicker, {
   DateTimePickerEvent,
@@ -24,9 +24,13 @@ const formatDate = (date: Date) =>
     year: 'numeric',
   });
 
+const formatPrice = (value: number) => `GHS ${value.toFixed(2)}`;
+
 export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
+  route,
   navigation,
 }) => {
+  const { items, totalPrice } = route.params;
   const { user } = useAuth();
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -36,6 +40,7 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
   const [isSaving, setIsSaving] = useState(false);
 
   const locationMissing = !user?.location;
+  const hasItems = items.length > 0;
 
   const dateLabel = selectedDate
     ? formatDate(selectedDate)
@@ -52,7 +57,8 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
     !user ||
     !selectedDate ||
     !selectedWindowId ||
-    !user.location ||
+    !user?.location ||
+    !hasItems ||
     isSaving;
 
   const selectedWindowLabel = useMemo(() => {
@@ -81,15 +87,31 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
       );
       return;
     }
+    if (!hasItems) {
+      Alert.alert(
+        'Missing bins',
+        'Please go back and select at least one bin before scheduling.'
+      );
+      return;
+    }
 
     try {
       setIsSaving(true);
       const dateStr = selectedDate.toISOString().slice(0, 10);
+      const windowDef = TIME_WINDOWS.find(
+        (window) => window.id === selectedWindowId
+      );
+      if (!windowDef) {
+        throw new Error('Invalid time window');
+      }
       await createBooking({
         userId: user.id,
         date: dateStr,
-        windowId: selectedWindowId,
+        windowId: windowDef.id,
+        windowLabel: windowDef.label,
         location: user.location,
+        items,
+        totalPrice,
       });
       Alert.alert(
         'Booking scheduled',
@@ -116,6 +138,35 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
         <AppText style={styles.subtitle}>
           Choose a date and time window for your waste collection.
         </AppText>
+
+        <View style={styles.summaryCard}>
+          <AppText style={styles.summaryTitle}>Selected bins</AppText>
+          {items.map((item) => (
+            <View key={item.id ?? item.type} style={styles.summaryItem}>
+              <AppText style={styles.summaryItemType}>
+                {item.quantity} x {item.type}
+              </AppText>
+              <AppText style={styles.summaryItemMeta}>
+                {formatPrice(item.unitPrice)} each • {formatPrice(item.totalPrice)}
+              </AppText>
+            </View>
+          ))}
+          <View style={styles.summaryDivider} />
+          <View style={styles.summaryTotalRow}>
+            <AppText style={styles.summaryTotalLabel}>Total</AppText>
+            <AppText style={styles.summaryTotalValue}>
+              {formatPrice(totalPrice)}
+            </AppText>
+          </View>
+        </View>
+
+        {!hasItems && (
+          <View style={styles.noItemsNotice}>
+            <AppText style={styles.noItemsText}>
+              No bins selected. Please go back and add bins before confirming.
+            </AppText>
+          </View>
+        )}
 
         <AppText style={styles.label}>Date</AppText>
         <TouchableOpacity
