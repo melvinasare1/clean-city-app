@@ -8,17 +8,31 @@ import { MyBookingsScreen } from '../screens/customer/my-bookings/my-bookings-sc
 import { CompleteProfileScreen } from '../screens/customer/complete-profile/complete-profile-screen';
 import { CreateBookingScreen } from '../screens/customer/create-booking/create-booking-screen';
 import { COLORS } from '../lib/constants';
+
 import {
     CustomerStackParamList,
     CustomerTabParamList,
 } from './types';
+import { IconsComponent } from '@/components';
 
 const Stack = createNativeStackNavigator<CustomerStackParamList>();
 const Tab = createBottomTabNavigator<CustomerTabParamList>();
 
-const TabIcon: React.FC<{ icon: string; color: string }> = ({ icon }) => (
-    <>{icon}</>
-);
+type TabIconProps = {
+    Icon: React.FC<React.SVGProps<SVGSVGElement>>;
+    color?: string;
+    size?: number;
+};
+
+const TabIcon: React.FC<TabIconProps> = ({
+    Icon,
+    color = "currentColor",
+    size = 24,
+}) => {
+    return <Icon width={size} height={size} fill={color} />;
+};
+
+export default TabIcon;
 
 const CustomerTabs = () => (
     <Tab.Navigator
@@ -45,7 +59,7 @@ const CustomerTabs = () => (
             options={{
                 title: 'Home',
                 tabBarLabel: 'Home',
-                tabBarIcon: ({ color }) => <TabIcon icon="🏠" color={color} />,
+                tabBarIcon: () => <IconsComponent name='HomeIcon' />,
                 headerShown: false,
             }}
         />
@@ -55,7 +69,7 @@ const CustomerTabs = () => (
             options={{
                 title: 'New Booking',
                 tabBarLabel: 'New Booking',
-                tabBarIcon: ({ color }) => <TabIcon icon="📦" color={color} />,
+                tabBarIcon: () => <IconsComponent name='DeliveryIcon' />,
             }}
         />
         <Tab.Screen
@@ -64,7 +78,7 @@ const CustomerTabs = () => (
             options={{
                 title: 'My Bookings',
                 tabBarLabel: 'My Bookings',
-                tabBarIcon: ({ color }) => <TabIcon icon="📋" color={color} />,
+                tabBarIcon: () => <IconsComponent name='BookingIcon' />,
             }}
         />
     </Tab.Navigator>

@@ -7,14 +7,14 @@ import {
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { CompositeScreenProps, useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppText, ScreenContainer } from '@/components/ui';
+import { AppText, ScreenContainer } from '@/components';
 import { useAuth } from '@/hooks/useAuth';
 import {
     CustomerStackParamList,
     CustomerTabParamList,
 } from '@/navigation/types';
 import type { Booking } from '@/types/booking';
-import { getUserBookings } from '@/services/bookingService';
+import { getUserBookings } from '@/services/booking-service';
 import { COLORS } from '@/lib/constants';
 import { styles } from './my-bookings-screen.styles';
 

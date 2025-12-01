@@ -4,10 +4,10 @@ import DateTimePicker, {
   DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { ScreenContainer, AppText, AppButton } from '@/components/ui';
+import { ScreenContainer, AppText, AppButton } from '@/components';
 import { useAuth } from '@/hooks/useAuth';
 import { TIME_WINDOWS, TimeWindowId } from '@/lib/time-windows';
-import { createBooking } from '@/services/bookingService';
+import { createBooking } from '@/services/booking-service';
 import { CustomerStackParamList } from '@/navigation/types';
 import { styles } from './create-booking-screen.styles';
 

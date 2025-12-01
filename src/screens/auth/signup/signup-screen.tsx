@@ -13,7 +13,7 @@ import { styles } from './signup-screen.styles';
 import {
     AppText,
     AppTextInput
-} from '@/components/ui';
+} from '@/components';
 import { useAuth } from '@/hooks/useAuth';
 import { COLORS } from '@/lib/constants';
 import { SafeAreaView } from 'react-native-safe-area-context';

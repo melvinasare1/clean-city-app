@@ -15,13 +15,11 @@ import {
 import {
     doc,
     getDoc,
-    setDoc,
-    serverTimestamp,
 } from 'firebase/firestore';
 import { auth, db } from '@/services/firebase/firebase-config';
 import { setDocAtPath } from '@/lib/utils';
 
-export type AppUserRole = 'customer' | 'driver';
+export type AppUserRole = 'customer' | 'driver' | 'admin';
 
 export interface AppUser {
     id: string;
@@ -102,7 +100,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const signup = async (
         email: string,
         password: string,
-        role: AppUserRole | null = null
+        role: AppUserRole | null = 'customer'
     ) => {
         const result = await createUserWithEmailAndPassword(auth, email, password);
         const firebaseUser = result.user;

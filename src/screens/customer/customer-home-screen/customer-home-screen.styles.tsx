@@ -4,7 +4,6 @@ import { StyleSheet } from "react-native";
 export const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: COLORS.background,
     },
     header: {
         backgroundColor: COLORS.primary,
@@ -25,6 +24,7 @@ export const styles = StyleSheet.create({
     },
     content: {
         padding: VARS.small,
+        backgroundColor: 'blue'
     },
     card: {
         backgroundColor: COLORS.white,
@@ -70,10 +70,17 @@ export const styles = StyleSheet.create({
         fontSize: VARS.xsmall + 2,
         fontStyle: 'italic',
     },
+    testStyle: {
+        flex: 1,
+        backgroundColor: 'green'
+
+    },
     logoutButton: {
+        flex: 1,
         marginTop: VARS.small,
         padding: VARS.small,
         alignItems: 'center',
+        backgroundColor: 'red'
     },
     logoutButtonText: {
         color: COLORS.error,

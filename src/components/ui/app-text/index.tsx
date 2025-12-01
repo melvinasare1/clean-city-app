@@ -1,1 +1,0 @@
-export { AppText } from './app-test';

@@ -1,5 +1,5 @@
-import { StyleSheet } from 'react-native';
-import { COLORS, VARS } from '@/lib/constants';
+import { StyleSheet } from "react-native";
+import { COLORS, VARS } from "@/lib/constants";
 
 export const styles = StyleSheet.create({
   content: {
@@ -7,14 +7,14 @@ export const styles = StyleSheet.create({
     gap: VARS.small,
   },
   headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: VARS.small,
   },
   title: {
     fontSize: 24,
-    fontWeight: '700',
+    fontWeight: "700",
     marginBottom: VARS.small,
     color: COLORS.text,
   },
@@ -26,15 +26,15 @@ export const styles = StyleSheet.create({
   },
   newBookingButtonText: {
     color: COLORS.white,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   profileBanner: {
     backgroundColor: COLORS.white,
     padding: VARS.medium,
     borderRadius: VARS.small,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
-    shadowColor: '#000',
+    borderColor: "#E0E0E0",
+    shadowColor: "#000",
     shadowOpacity: 0.05,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
@@ -43,7 +43,7 @@ export const styles = StyleSheet.create({
   },
   bannerTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: VARS.xsmall,
     color: COLORS.primary,
   },
@@ -57,21 +57,21 @@ export const styles = StyleSheet.create({
     padding: VARS.medium,
     borderRadius: VARS.small,
     marginBottom: VARS.small,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOpacity: 0.05,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
   cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: VARS.xsmall,
   },
   cardDate: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     color: COLORS.text,
   },
   statusBadge: {
@@ -81,12 +81,12 @@ export const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
     color: COLORS.white,
   },
   cardPrice: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     color: COLORS.text,
     marginBottom: 4,
   },
@@ -96,7 +96,7 @@ export const styles = StyleSheet.create({
   },
   cardWindow: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     color: COLORS.text,
     marginBottom: 4,
   },
@@ -112,11 +112,11 @@ export const styles = StyleSheet.create({
   },
   cardTotal: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: "600",
     color: COLORS.primary,
   },
   placeholderCard: {
-    backgroundColor: '#F0F4F8',
+    backgroundColor: "#F0F4F8",
     padding: VARS.medium,
     borderRadius: VARS.small,
     marginTop: VARS.medium,
@@ -124,10 +124,10 @@ export const styles = StyleSheet.create({
   placeholderText: {
     fontSize: 14,
     color: COLORS.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
   },
   loadingState: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: VARS.large,
   },
   loadingText: {
@@ -135,7 +135,7 @@ export const styles = StyleSheet.create({
     color: COLORS.textSecondary,
   },
   errorState: {
-    backgroundColor: '#FFEBEE',
+    backgroundColor: "#FFEBEE",
     padding: VARS.medium,
     borderRadius: VARS.small,
     gap: VARS.xsmall,
@@ -145,7 +145,7 @@ export const styles = StyleSheet.create({
     fontSize: 14,
   },
   retryButton: {
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
     paddingHorizontal: VARS.small,
     paddingVertical: 6,
     backgroundColor: COLORS.primary,
@@ -153,23 +153,23 @@ export const styles = StyleSheet.create({
   },
   retryButtonText: {
     color: COLORS.white,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   emptyState: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: "#E8F5E9",
     padding: VARS.medium,
     borderRadius: VARS.small,
-    alignItems: 'center',
+    alignItems: "center",
     gap: VARS.xsmall,
   },
   emptyTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     color: COLORS.text,
   },
   emptySubtitle: {
     fontSize: 14,
-    textAlign: 'center',
+    textAlign: "center",
     color: COLORS.textSecondary,
   },
   emptyAction: {
@@ -181,8 +181,6 @@ export const styles = StyleSheet.create({
   },
   emptyActionText: {
     color: COLORS.white,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 });
-
-

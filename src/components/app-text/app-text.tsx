@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, TextProps, StyleSheet } from 'react-native';
-import { COLORS } from '../../../lib/constants';
+import { COLORS } from '../../lib/constants';
 
 interface AppTextProps extends TextProps {
   variant?: 'default' | 'title' | 'subtitle' | 'caption';
