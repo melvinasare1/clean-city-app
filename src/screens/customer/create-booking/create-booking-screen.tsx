@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { View, TouchableOpacity, Alert } from 'react-native';
+import { View, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import DateTimePicker, {
   DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
@@ -132,7 +132,7 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
   };
 
   return (
-    <ScreenContainer scrollable>
+    <ScrollView>
       <View style={styles.form}>
         <AppText style={styles.title}>Schedule a pickup</AppText>
         <AppText style={styles.subtitle}>
@@ -245,7 +245,7 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
           textStyle={styles.confirmButtonText}
         />
       </View>
-    </ScreenContainer>
+    </ScrollView>
   );
 };
 

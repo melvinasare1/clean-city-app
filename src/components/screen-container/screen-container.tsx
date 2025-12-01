@@ -34,7 +34,7 @@ export const ScreenContainer: React.FC<ScreenContainerProps> = ({
       >
         {scrollable ? (
           <ScrollView
-            contentContainerStyle={styles.scrollContent}
+            contentContainerStyle={styles.container}
             keyboardShouldPersistTaps="handled"
           >
             {content}

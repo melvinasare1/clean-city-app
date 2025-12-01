@@ -1,13 +1,14 @@
 import React, { useCallback, useState } from 'react';
 import {
     ActivityIndicator,
+    ScrollView,
     TouchableOpacity,
     View,
 } from 'react-native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { CompositeScreenProps, useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppText, ScreenContainer } from '@/components';
+import { AppText } from '@/components';
 import { useAuth } from '@/hooks/useAuth';
 import {
     CustomerStackParamList,
@@ -90,93 +91,91 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
     );
 
     return (
-        <ScreenContainer scrollable>
-            <View style={styles.content}>
-                {needsProfileCompletion && (
-                    <TouchableOpacity
-                        style={styles.profileBanner}
-                        onPress={() => navigation.navigate('CompleteProfile')}
-                    >
-                        <AppText style={styles.bannerTitle}>Complete your profile</AppText>
-                        <AppText style={styles.bannerSubtitle}>
-                            Add your contact number and service area so we can handle your
-                            bookings smoothly.
-                        </AppText>
-                    </TouchableOpacity>
-                )}
+        <ScrollView style={styles.content}>
+            {needsProfileCompletion && (
+                <TouchableOpacity
+                    style={styles.profileBanner}
+                    onPress={() => navigation.navigate('CompleteProfile')}
+                >
+                    <AppText style={styles.bannerTitle}>Complete your profile</AppText>
+                    <AppText style={styles.bannerSubtitle}>
+                        Add your contact number and service area so we can handle your
+                        bookings smoothly.
+                    </AppText>
+                </TouchableOpacity>
+            )}
 
-                <View style={styles.headerRow}>
-                    <AppText style={styles.title}>My Bookings</AppText>
+            <View style={styles.headerRow}>
+                <AppText style={styles.title}>My Bookings</AppText>
+                <TouchableOpacity
+                    style={styles.newBookingButton}
+                    onPress={() => navigation.navigate('NewBooking')}
+                >
+                    <AppText style={styles.newBookingButtonText}>+ Schedule</AppText>
+                </TouchableOpacity>
+            </View>
+
+            {loading ? (
+                <View style={styles.loadingState}>
+                    <ActivityIndicator color={COLORS.primary} />
+                    <AppText style={styles.loadingText}>Loading bookings...</AppText>
+                </View>
+            ) : error ? (
+                <View style={styles.errorState}>
+                    <AppText style={styles.errorText}>{error}</AppText>
                     <TouchableOpacity
-                        style={styles.newBookingButton}
-                        onPress={() => navigation.navigate('NewBooking')}
+                        style={styles.retryButton}
+                        onPress={fetchBookings}
                     >
-                        <AppText style={styles.newBookingButtonText}>+ Schedule</AppText>
+                        <AppText style={styles.retryButtonText}>Try again</AppText>
                     </TouchableOpacity>
                 </View>
-
-                {loading ? (
-                    <View style={styles.loadingState}>
-                        <ActivityIndicator color={COLORS.primary} />
-                        <AppText style={styles.loadingText}>Loading bookings...</AppText>
-                    </View>
-                ) : error ? (
-                    <View style={styles.errorState}>
-                        <AppText style={styles.errorText}>{error}</AppText>
-                        <TouchableOpacity
-                            style={styles.retryButton}
-                            onPress={fetchBookings}
-                        >
-                            <AppText style={styles.retryButtonText}>Try again</AppText>
-                        </TouchableOpacity>
-                    </View>
-                ) : bookings.length === 0 ? (
-                    <View style={styles.emptyState}>
-                        <AppText style={styles.emptyTitle}>No bookings yet</AppText>
-                        <AppText style={styles.emptySubtitle}>
-                            Schedule your first pickup and keep your area clean.
+            ) : bookings.length === 0 ? (
+                <View style={styles.emptyState}>
+                    <AppText style={styles.emptyTitle}>No bookings yet</AppText>
+                    <AppText style={styles.emptySubtitle}>
+                        Schedule your first pickup and keep your area clean.
+                    </AppText>
+                    <TouchableOpacity
+                        style={styles.emptyAction}
+                        onPress={() => navigation.navigate('NewBooking')}
+                    >
+                        <AppText style={styles.emptyActionText}>
+                            Schedule your first pickup
                         </AppText>
-                        <TouchableOpacity
-                            style={styles.emptyAction}
-                            onPress={() => navigation.navigate('NewBooking')}
-                        >
-                            <AppText style={styles.emptyActionText}>
-                                Schedule your first pickup
+                    </TouchableOpacity>
+                </View>
+            ) : (
+                bookings.map((booking) => (
+                    <View key={booking.id} style={styles.card}>
+                        <View style={styles.cardHeader}>
+                            <AppText style={styles.cardDate}>
+                                {formatDate(booking.date)}
                             </AppText>
-                        </TouchableOpacity>
-                    </View>
-                ) : (
-                    bookings.map((booking) => (
-                        <View key={booking.id} style={styles.card}>
-                            <View style={styles.cardHeader}>
-                                <AppText style={styles.cardDate}>
-                                    {formatDate(booking.date)}
+                            <View
+                                style={[
+                                    styles.statusBadge,
+                                    { backgroundColor: getStatusColor(booking.status) },
+                                ]}
+                            >
+                                <AppText style={styles.statusText}>
+                                    {booking.status.toUpperCase()}
                                 </AppText>
-                                <View
-                                    style={[
-                                        styles.statusBadge,
-                                        { backgroundColor: getStatusColor(booking.status) },
-                                    ]}
-                                >
-                                    <AppText style={styles.statusText}>
-                                        {booking.status.toUpperCase()}
-                                    </AppText>
-                                </View>
                             </View>
-                            <AppText style={styles.cardWindow}>{booking.windowLabel}</AppText>
-                            <AppText style={styles.cardLocation}>
-                                Pickup area: {booking.location}
-                            </AppText>
-                            <AppText style={styles.cardSummary}>
-                                {getBinSummary(booking.items)}
-                            </AppText>
-                            <AppText style={styles.cardTotal}>
-                                Total: {formatPrice(booking.totalPrice)}
-                            </AppText>
                         </View>
-                    ))
-                )}
-            </View>
-        </ScreenContainer>
+                        <AppText style={styles.cardWindow}>{booking.windowLabel}</AppText>
+                        <AppText style={styles.cardLocation}>
+                            Pickup area: {booking.location}
+                        </AppText>
+                        <AppText style={styles.cardSummary}>
+                            {getBinSummary(booking.items)}
+                        </AppText>
+                        <AppText style={styles.cardTotal}>
+                            Total: {formatPrice(booking.totalPrice)}
+                        </AppText>
+                    </View>
+                ))
+            )}
+        </ScrollView>
     );
 };

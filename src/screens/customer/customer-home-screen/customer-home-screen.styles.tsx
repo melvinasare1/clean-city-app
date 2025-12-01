@@ -24,7 +24,6 @@ export const styles = StyleSheet.create({
     },
     content: {
         padding: VARS.small,
-        backgroundColor: 'blue'
     },
     card: {
         backgroundColor: COLORS.white,
@@ -72,15 +71,12 @@ export const styles = StyleSheet.create({
     },
     testStyle: {
         flex: 1,
-        backgroundColor: 'green'
-
+        justifyContent: 'flex-end'
     },
     logoutButton: {
-        flex: 1,
         marginTop: VARS.small,
         padding: VARS.small,
         alignItems: 'center',
-        backgroundColor: 'red'
     },
     logoutButtonText: {
         color: COLORS.error,

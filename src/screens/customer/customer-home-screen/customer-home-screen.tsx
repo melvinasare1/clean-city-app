@@ -12,18 +12,10 @@ type CustomerHomeScreenProps = BottomTabScreenProps<
 >;
 
 export const CustomerHomeScreen: React.FC<CustomerHomeScreenProps> = ({ navigation }) => {
-  const { user, logout } = useAuth();
-
-  const handleLogout = async () => {
-    try {
-      await logout();
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
-  };
+  const { user } = useAuth();
 
   return (
-    <ScrollView style={styles.container}>
+    <View style={styles.container}>
       <View style={styles.header}>
         <AppText style={styles.title}>Welcome back!</AppText>
         <AppText style={styles.subtitle}>{user?.email}</AppText>
@@ -55,11 +47,6 @@ export const CustomerHomeScreen: React.FC<CustomerHomeScreenProps> = ({ navigati
           </AppText>
         </View>
       </View>
-      <View style={styles.testStyle}>
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <AppText style={styles.logoutButtonText}>Logout</AppText>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+    </View>
   );
 };
