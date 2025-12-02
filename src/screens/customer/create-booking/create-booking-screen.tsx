@@ -8,6 +8,8 @@ import { AppText, AppButton } from '@/components';
 import { useAuth } from '@/hooks/useAuth';
 import { TIME_WINDOWS, TimeWindowId } from '@/lib/time-windows';
 import { createBooking } from '@/services/booking-service';
+import * as Linking from 'expo-linking';
+import { initializePayment } from '@/services/payments';
 import { CustomerStackParamList } from '@/navigation/types';
 import { styles } from './create-booking-screen.styles';
 
@@ -104,7 +106,7 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
       if (!windowDef) {
         throw new Error('Invalid time window');
       }
-      await createBooking({
+      const bookingId = await createBooking({
         userId: user.id,
         date: dateStr,
         windowId: windowDef.id,
@@ -113,13 +115,34 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
         items,
         totalPrice,
       });
-      Alert.alert(
-        'Booking scheduled',
-        `Your ${selectedWindowLabel.toLowerCase()} pickup on ${formatDate(
-          selectedDate
-        )} has been scheduled.`,
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
-      );
+      // After booking is created, initialize payment via backend
+      try {
+        const paymentInit = await initializePayment({
+          email: user.email ?? '',
+          amount: totalPrice,
+          metadata: {
+            userId: user.id,
+            bookingId,
+          },
+        });
+
+        // Open Paystack payment page in browser
+        await Linking.openURL(paymentInit.authorization_url);
+
+        Alert.alert(
+          'Booking scheduled',
+          `Your ${selectedWindowLabel.toLowerCase()} pickup on ${formatDate(
+            selectedDate
+          )} has been scheduled. Complete payment in the opened page.`,
+          [{ text: 'OK', onPress: () => navigation.goBack() }]
+        );
+      } catch (paymentError) {
+        console.error('Error starting payment:', paymentError);
+        Alert.alert(
+          'Payment error',
+          'Booking created but payment could not be started. You can try again from your bookings.'
+        );
+      }
     } catch (error) {
       console.error('Error creating booking:', error);
       Alert.alert(
