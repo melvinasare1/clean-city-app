@@ -21,7 +21,7 @@ export const ScreenContainer: React.FC<ScreenContainerProps> = ({
   scrollable = false,
 }) => {
   const content = (
-    <View style={[styles.container, style]}>
+    <View style={[styles.container, style]} testID="screen-content-container">
       {children}
     </View>
   );
@@ -34,6 +34,7 @@ export const ScreenContainer: React.FC<ScreenContainerProps> = ({
       >
         {scrollable ? (
           <ScrollView
+            testID="screen-scroll-view"
             contentContainerStyle={styles.container}
             keyboardShouldPersistTaps="handled"
           >
