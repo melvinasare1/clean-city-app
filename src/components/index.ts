@@ -1,4 +1,5 @@
-export { AppText } from "./app-text/app-test";
+export { IconsComponent } from "./icons/icons";
+export { AppText } from "./app-text/app-text";
 export { AppButton } from "./app-button/app-button";
 export { ScreenContainer } from "./screen-container/screen-container";
 export { AppTextInput } from "./app-text-input/app-text-input";

@@ -1,17 +1,14 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
 import { AuthNavigator } from './auth-navigation';
 import { CustomerNavigator } from './customer-navigation';
 import { DriverNavigator } from './driver-navigation';
-import { RoleSelectorScreen } from '../screens/role-selector/role-selector-screen';
 import { COLORS } from '../lib/constants';
-import { UserRole } from '../types/user';
 
 export const RootNavigator: React.FC = () => {
     const { user, loading } = useAuth();
-    const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
 
     if (loading) {
         return (
@@ -23,10 +20,6 @@ export const RootNavigator: React.FC = () => {
 
     if (!user) {
         return <AuthNavigator />;
-    }
-
-    if (!selectedRole) {
-        return <RoleSelectorScreen onSelectRole={setSelectedRole} />;
     }
 
     if (user.role === 'driver') {

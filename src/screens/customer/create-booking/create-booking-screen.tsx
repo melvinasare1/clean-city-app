@@ -1,13 +1,13 @@
 import React, { useMemo, useState } from 'react';
-import { View, TouchableOpacity, Alert } from 'react-native';
+import { View, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import DateTimePicker, {
   DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { ScreenContainer, AppText, AppButton } from '@/components/ui';
+import { ScreenContainer, AppText, AppButton } from '@/components';
 import { useAuth } from '@/hooks/useAuth';
 import { TIME_WINDOWS, TimeWindowId } from '@/lib/time-windows';
-import { createBooking } from '@/services/bookingService';
+import { createBooking } from '@/services/booking-service';
 import { CustomerStackParamList } from '@/navigation/types';
 import { styles } from './create-booking-screen.styles';
 
@@ -132,7 +132,7 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
   };
 
   return (
-    <ScreenContainer scrollable>
+    <ScrollView>
       <View style={styles.form}>
         <AppText style={styles.title}>Schedule a pickup</AppText>
         <AppText style={styles.subtitle}>
@@ -245,7 +245,7 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
           textStyle={styles.confirmButtonText}
         />
       </View>
-    </ScreenContainer>
+    </ScrollView>
   );
 };
 

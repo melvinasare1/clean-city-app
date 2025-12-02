@@ -11,7 +11,7 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { COLORS } from '@/lib/constants';
 import { styles } from './login-screen.styles';
-import { AppText, AppTextInput } from '@/components/ui';
+import { AppText, AppTextInput } from '@/components';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LoginScreenProps } from '../types';
 

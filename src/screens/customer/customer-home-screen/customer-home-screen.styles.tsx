@@ -4,7 +4,6 @@ import { StyleSheet } from "react-native";
 export const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: COLORS.background,
     },
     header: {
         backgroundColor: COLORS.primary,
@@ -69,6 +68,10 @@ export const styles = StyleSheet.create({
         color: COLORS.textSecondary,
         fontSize: VARS.xsmall + 2,
         fontStyle: 'italic',
+    },
+    testStyle: {
+        flex: 1,
+        justifyContent: 'flex-end'
     },
     logoutButton: {
         marginTop: VARS.small,

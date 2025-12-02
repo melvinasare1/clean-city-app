@@ -1,5 +1,5 @@
-import { StyleSheet } from 'react-native';
-import { COLORS, VARS } from '@/lib/constants';
+import { StyleSheet } from "react-native";
+import { COLORS, VARS } from "@/lib/constants";
 
 export const styles = StyleSheet.create({
   form: {
@@ -8,7 +8,7 @@ export const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: '700',
+    fontWeight: "700",
     color: COLORS.text,
   },
   subtitle: {
@@ -22,11 +22,11 @@ export const styles = StyleSheet.create({
     borderRadius: VARS.small,
     padding: VARS.medium,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: "#E0E0E0",
   },
   summaryTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: VARS.xsmall,
     color: COLORS.text,
   },
@@ -35,7 +35,7 @@ export const styles = StyleSheet.create({
   },
   summaryItemType: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: "600",
     color: COLORS.text,
   },
   summaryItemMeta: {
@@ -44,26 +44,26 @@ export const styles = StyleSheet.create({
   },
   summaryDivider: {
     height: 1,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: "#E0E0E0",
     marginVertical: VARS.small,
   },
   summaryTotalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   summaryTotalLabel: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     color: COLORS.textSecondary,
   },
   summaryTotalValue: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: "700",
     color: COLORS.primary,
   },
   noItemsNotice: {
-    backgroundColor: '#FFF3E0',
+    backgroundColor: "#FFF3E0",
     borderRadius: VARS.xsmall,
     padding: VARS.small,
   },
@@ -74,7 +74,7 @@ export const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     color: COLORS.text,
     marginTop: VARS.small,
   },
@@ -82,7 +82,7 @@ export const styles = StyleSheet.create({
     marginTop: VARS.xsmall,
     borderRadius: VARS.xsmall,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: "#E0E0E0",
     paddingVertical: VARS.small,
     paddingHorizontal: VARS.small,
     backgroundColor: COLORS.white,
@@ -100,12 +100,12 @@ export const styles = StyleSheet.create({
     paddingHorizontal: VARS.small,
     borderRadius: VARS.xsmall,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: "#E0E0E0",
     backgroundColor: COLORS.white,
   },
   windowButtonSelected: {
     borderColor: COLORS.primary,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: "#E8F5E9",
   },
   windowButtonText: {
     fontSize: 16,
@@ -113,7 +113,7 @@ export const styles = StyleSheet.create({
   },
   windowButtonTextSelected: {
     color: COLORS.primary,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   locationText: {
     fontSize: 16,
@@ -121,7 +121,7 @@ export const styles = StyleSheet.create({
     marginTop: VARS.xsmall,
   },
   locationWarningContainer: {
-    backgroundColor: '#FFF3E0',
+    backgroundColor: "#FFF3E0",
     borderRadius: VARS.xsmall,
     padding: VARS.small,
     marginTop: VARS.xsmall,
@@ -132,23 +132,21 @@ export const styles = StyleSheet.create({
     marginBottom: VARS.xsmall,
   },
   completeProfileLink: {
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
   },
   completeProfileText: {
     fontSize: 14,
     color: COLORS.primary,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   confirmButton: {
     marginTop: VARS.medium,
-    width: '100%',
+    width: "100%",
   },
   confirmButtonDisabled: {
     opacity: 0.7,
   },
   confirmButtonText: {
-    fontWeight: '600',
+    fontWeight: "600",
   },
 });
-
-

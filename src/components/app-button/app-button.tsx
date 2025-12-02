@@ -3,13 +3,12 @@ import {
   TouchableOpacity,
   Text,
   ActivityIndicator,
-  StyleSheet,
   TouchableOpacityProps,
   ViewStyle,
   TextStyle,
 } from 'react-native';
 import { styles } from './app-button.styles';
-import { COLORS } from '@/lib/constants';
+import { COLORS } from '@/lib/constants'
 
 interface AppButtonProps extends TouchableOpacityProps {
   title: string;

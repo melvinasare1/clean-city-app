@@ -6,7 +6,7 @@ import {
     ActivityIndicator,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppText, AppTextInput, ScreenContainer } from '@/components/ui';
+import { AppText, AppTextInput, ScreenContainer } from '@/components';
 import { useAuth } from '@/hooks/useAuth';
 import { setDocAtPath } from '@/lib/utils';
 import { SERVICE_AREAS, ServiceArea } from '@/lib/service-areas';

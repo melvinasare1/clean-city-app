@@ -3,19 +3,19 @@ import { StyleSheet } from 'react-native';
 
 export const styles = StyleSheet.create({
     base: {
-        fontSize: 16,
+        fontSize: VARS.small,
         color: COLORS.text,
     },
     title: {
-        fontSize: 28,
+        fontSize: VARS.medium + 8,
         fontWeight: 'bold',
     },
     subtitle: {
-        fontSize: 14,
+        fontSize: VARS.small - 2,
         color: COLORS.textSecondary,
     },
     caption: {
-        fontSize: 12,
+        fontSize: VARS.xsmall,
         color: COLORS.textSecondary,
     },
 });

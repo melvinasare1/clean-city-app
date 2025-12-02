@@ -4,7 +4,7 @@ import { View, TouchableOpacity, KeyboardAvoidingView, ActivityIndicator, Platfo
 import {
     AppText,
     AppTextInput,
-} from '@/components/ui';
+} from '@/components';
 import { styles } from './forgotten-password-screen.styles';
 import { validateEmail } from './helpers';
 import { useAuth } from '@/hooks/useAuth';
