@@ -25,6 +25,9 @@ export type CustomerStackParamList = {
     totalPrice: number;
   };
   CompleteProfile: undefined;
+  PaymentCallback: {
+    reference: string;
+  };
 };
 
 export type OnboardingStackParamList = {

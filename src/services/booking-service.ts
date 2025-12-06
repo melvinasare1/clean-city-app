@@ -34,7 +34,6 @@ export const createBooking = async ({
   const newDocRef = doc(collection(db, BOOKINGS_COLLECTION));
   const bookingId = newDocRef.id;
 
-  console.log(bookingId);
   await setDocAtPath(
     [BOOKINGS_COLLECTION, bookingId],
     {

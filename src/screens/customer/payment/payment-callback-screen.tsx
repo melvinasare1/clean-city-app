@@ -1,0 +1,109 @@
+import React, { useEffect, useState } from "react";
+import { View, ActivityIndicator, Alert } from "react-native";
+import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { AppText, AppButton } from "@/components";
+import { CustomerStackParamList } from "@/navigation/types";
+import { verifyPayment, VerifyPaymentResponse } from "@/services/payments";
+import { COLORS } from "@/lib/constants";
+
+type Props = NativeStackScreenProps<CustomerStackParamList, "PaymentCallback">;
+
+export const PaymentCallbackScreen: React.FC<Props> = ({
+  route,
+  navigation,
+}) => {
+  const { reference } = route.params;
+  const [loading, setLoading] = useState(true);
+  const [result, setResult] = useState<VerifyPaymentResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const run = async () => {
+      try {
+        const verifyResult = await verifyPayment(reference);
+        setResult(verifyResult);
+
+        if (verifyResult.status === "success") {
+          Alert.alert("Payment successful", "Your payment has been confirmed.");
+        } else {
+          Alert.alert(
+            "Payment not successful",
+            `Status: ${verifyResult.status}`
+          );
+        }
+      } catch (err: any) {
+        console.error("Error verifying payment:", err);
+        setError(err?.message || "Failed to verify payment");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    run();
+  }, [reference]);
+
+  if (loading) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          padding: 24,
+        }}
+      >
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <AppText style={{ marginTop: 16 }}>Verifying your payment...</AppText>
+      </View>
+    );
+  }
+
+  if (error || !result) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", padding: 24 }}>
+        <AppText style={{ marginBottom: 8, color: COLORS.error, fontSize: 18 }}>
+          Payment verification failed
+        </AppText>
+        <AppText style={{ marginBottom: 24 }}>
+          {error ?? "Unknown error"}
+        </AppText>
+        <AppButton
+          title="Go back"
+          onPress={() => navigation.navigate("CustomerTabs")}
+        />
+      </View>
+    );
+  }
+
+  const isSuccess = result.status === "success";
+
+  return (
+    <View style={{ flex: 1, justifyContent: "center", padding: 24 }}>
+      <AppText
+        style={{
+          fontSize: 22,
+          fontWeight: "600",
+          marginBottom: 12,
+          color: isSuccess ? COLORS.success : COLORS.error,
+        }}
+      >
+        {isSuccess ? "Payment successful" : "Payment not successful"}
+      </AppText>
+
+      <AppText style={{ marginBottom: 4 }}>
+        Reference: {result.reference}
+      </AppText>
+      <AppText style={{ marginBottom: 4 }}>
+        Amount: {result.amount.toFixed(2)} {result.currency}
+      </AppText>
+      <AppText style={{ marginBottom: 24 }}>Status: {result.status}</AppText>
+
+      <AppButton
+        title="Back to bookings"
+        onPress={() => navigation.navigate("MyBookings")}
+      />
+    </View>
+  );
+};
+
+
