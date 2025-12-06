@@ -1,9 +1,6 @@
 import axios from "axios";
 import crypto from "crypto";
-import {
-  PAYSTACK_SECRET_KEY,
-  CLIENT_APP_URL,
-} from "../config/env";
+import { PAYSTACK_SECRET_KEY, CLIENT_APP_URL } from "../config/env";
 import {
   InitializeTransactionBody,
   InitializeTransactionResponse,
@@ -31,7 +28,7 @@ export async function initializePaystackTransaction(
       email,
       amount: amountInKobo,
       metadata,
-      callback_url: `${CLIENT_APP_URL}/payment/callback`,
+      callback_url: `${CLIENT_APP_URL}/payment/success`,
     },
     {
       headers: {
@@ -43,7 +40,9 @@ export async function initializePaystackTransaction(
 
   const data = response.data;
   if (!data.status) {
-    throw new Error(data.message || "Failed to initialize Paystack transaction");
+    throw new Error(
+      data.message || "Failed to initialize Paystack transaction"
+    );
   }
 
   const authData = data.data;
@@ -130,5 +129,3 @@ export async function handlePaystackWebhookEvent(event: any): Promise<void> {
       break;
   }
 }
-
-
