@@ -12,41 +12,33 @@ import type {
 
 export const paymentsRouter = Router();
 
-/**
- * POST /api/payments/initialize
- * Body: { email, amount, metadata? }
- */
-paymentsRouter.post(
-  "/initialize",
-  async (
-    req: Request<unknown, InitializeTransactionResponse, InitializeTransactionBody>,
-    res: Response
-  ) => {
-    try {
-      const { email, amount, metadata } = req.body;
+paymentsRouter.post("/initialize", async (req, res) => {
+  try {
+    const { email, metadata } = req.body;
+    const amount = Number(req.body.amount);
 
-      if (!email || typeof amount !== "number") {
-        return res.status(400).json({
-          error: "email and amount are required (amount must be a number)",
-        });
-      }
-
-      const result = await initializePaystackTransaction({
-        email,
-        amount,
-        metadata,
-      });
-
-      return res.status(201).json(result);
-    } catch (error: any) {
-      console.error("Error initializing Paystack transaction:", error?.message);
-      return res.status(500).json({
-        error: "Failed to initialize transaction",
-        details: error?.message,
+    if (!email || Number.isNaN(amount)) {
+      return res.status(400).json({
+        error: "email and amount are required (amount must be a valid number)",
       });
     }
+
+    const result = await initializePaystackTransaction({
+      email,
+      amount,
+      metadata,
+    });
+
+    return res.status(201).json(result);
+  } catch (error: any) {
+    console.error("Error initializing Paystack transaction:", error?.message);
+    return res.status(500).json({
+      error: "Failed to initialize transaction",
+      details: error?.message,
+    });
   }
-);
+});
+
 
 /**
  * GET /api/payments/verify?reference=...

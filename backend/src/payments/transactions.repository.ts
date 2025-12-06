@@ -52,6 +52,22 @@ export async function upsertTransactionFromPaystack(
     },
     { merge: true }
   );
+
+  // If payment was successful, mark the related booking as completed.
+  if (status === "success" && metadata?.bookingId) {
+    try {
+      await firestore
+        .collection("bookings")
+        .doc(metadata.bookingId)
+        .set({ status: "completed" }, { merge: true });
+    } catch (err) {
+      console.error(
+        "Failed to update booking status for bookingId:",
+        metadata.bookingId,
+        err
+      );
+    }
+  }
 }
 
 

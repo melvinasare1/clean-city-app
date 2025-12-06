@@ -106,6 +106,7 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
       if (!windowDef) {
         throw new Error('Invalid time window');
       }
+
       const bookingId = await createBooking({
         userId: user.id,
         date: dateStr,
@@ -115,44 +116,67 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
         items,
         totalPrice,
       });
-      // After booking is created, initialize payment via backend
-      try {
-        const paymentInit = await initializePayment({
-          email: user.email ?? '',
-          amount: totalPrice,
-          metadata: {
-            userId: user.id,
-            bookingId,
-          },
-        });
 
-        // Open Paystack payment page in browser
-        await Linking.openURL(paymentInit.authorization_url);
+      console.log('Booking created with id:', bookingId);
 
+      // ✅ Make sure email and amount are valid
+      if (!user.email) {
         Alert.alert(
-          'Booking scheduled',
-          `Your ${selectedWindowLabel.toLowerCase()} pickup on ${formatDate(
-            selectedDate
-          )} has been scheduled. Complete payment in the opened page.`,
-          [{ text: 'OK', onPress: () => navigation.goBack() }]
+          'Missing email',
+          'We need your email address to process the payment. Please update your profile.'
         );
-      } catch (paymentError) {
-        console.error('Error starting payment:', paymentError);
+        return;
+      }
+
+      console.log('Initializing payment with:', {
+        email: user.email,
+        amount: Number(totalPrice),
+        metadata: { userId: user.id, bookingId },
+      });
+
+      const paymentInit = await initializePayment({
+        email: user.email,
+        amount: Number(totalPrice),
+        metadata: {
+          userId: user.id,
+          bookingId,
+        },
+      });
+
+      console.log('Payment init result:', paymentInit);
+
+      if (!paymentInit?.authorization_url) {
         Alert.alert(
           'Payment error',
-          'Booking created but payment could not be started. You can try again from your bookings.'
+          'Payment could not be started because no authorization URL was returned.'
         );
+        return;
       }
-    } catch (error) {
-      console.error('Error creating booking:', error);
+
+      // ✅ Open Paystack payment page in browser
+      const url = paymentInit.authorization_url;
+      console.log('Opening Paystack URL:', url);
+
+      await Linking.openURL(url);
+
+      Alert.alert(
+        'Complete payment to confirm',
+        `Your ${selectedWindowLabel.toLowerCase()} pickup on ${formatDate(
+          selectedDate
+        )} is almost ready. Please complete your payment in the opened page to confirm your booking.`,
+        [{ text: 'OK', onPress: () => navigation.goBack() }]
+      );
+    } catch (paymentError: any) {
+      console.error('Error during booking + payment flow:', paymentError);
       Alert.alert(
         'Error',
-        'Could not schedule your pickup. Please try again shortly.'
+        `Something went wrong: ${paymentError?.message ?? String(paymentError)}`
       );
     } finally {
       setIsSaving(false);
     }
-  };
+  }
+
 
   return (
     <ScrollView>

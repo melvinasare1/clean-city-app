@@ -1,7 +1,9 @@
 // src/services/payments.ts
 
-// TODO: Move this base URL to a config/env (e.g. EXPO_PUBLIC_API_BASE_URL)
-const API_BASE_URL = "http://localhost:4000"; // or your deployed backend URL
+// Base URL for the backend API. Prefer configuring via Expo env:
+// EXPO_PUBLIC_API_BASE_URL=http://192.168.0.45:4000 (your machine IP)
+const API_BASE_URL =
+  process.env.EXPO_PUBLIC_API_BASE_URL || "http://192.168.0.45:4000"; // fallback for simulators
 
 export type PaymentStatus = "success" | "failed" | "abandoned" | "pending";
 
@@ -32,6 +34,9 @@ export interface VerifyPaymentResponse {
 export async function initializePayment(
   body: InitializePaymentRequest
 ): Promise<InitializePaymentResponse> {
+  console.log("API_BASE_URL:", API_BASE_URL);
+
+  console.log("Initializing payment with body:", body);
   const response = await fetch(`${API_BASE_URL}/api/payments/initialize`, {
     method: "POST",
     headers: {
@@ -41,12 +46,14 @@ export async function initializePayment(
   });
 
   const data = await response.json();
+  console.log("Initialize payment response:", data);
 
   if (!response.ok) {
     console.log("Initialize payment error:", data);
     throw new Error(data?.error || "Failed to initialize payment");
   }
 
+  console.log("Initialize payment response:", data);
   return data as InitializePaymentResponse;
 }
 
@@ -72,4 +79,3 @@ export async function verifyPayment(
 
   return data as VerifyPaymentResponse;
 }
-
