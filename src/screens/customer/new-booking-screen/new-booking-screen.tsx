@@ -31,6 +31,7 @@ export const NewBookingScreen: React.FC<NewBookingScreenProps> = ({
   const [largeBags, setLargeBags] = useState(0);
   const [standardBins, setStandardBins] = useState(0);
   const [wheelieBins, setWheelieBins] = useState(0);
+  const [showBinInfoSheet, setShowBinInfoSheet] = useState(false);
 
   const buildItems = (): BookingBinItem[] => {
     const selections: BookingBinItem[] = [
@@ -177,6 +178,12 @@ export const NewBookingScreen: React.FC<NewBookingScreenProps> = ({
           </View>
         </View>
 
+        <View style={styles.binInfoStandaloneContainer}>
+          <TouchableOpacity onPress={() => setShowBinInfoSheet(true)}>
+            <Text style={styles.binInfoLink}>See bin size examples</Text>
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.totalCard}>
           <Text style={styles.totalLabel}>Total Price:</Text>
           <Text style={styles.totalValue}>{formatPrice(totalPrice)}</Text>
@@ -186,6 +193,51 @@ export const NewBookingScreen: React.FC<NewBookingScreenProps> = ({
           <Text style={styles.submitButtonText}>Continue to schedule</Text>
         </TouchableOpacity>
       </View>
+
+      {showBinInfoSheet && (
+        <View style={styles.bottomSheetOverlay}>
+          <View style={styles.bottomSheetContainer}>
+            <View style={styles.bottomSheetHandle} />
+            <Text style={styles.bottomSheetTitle}>Bin size guide</Text>
+
+            <View style={styles.bottomSheetRow}>
+              <Text style={styles.bottomSheetRowTitle}>Small Bags</Text>
+              <Text style={styles.bottomSheetRowSubtitle}>
+                About the size of a regular grocery bag. Good for small household waste.
+              </Text>
+            </View>
+
+            <View style={styles.bottomSheetRow}>
+              <Text style={styles.bottomSheetRowTitle}>Large Bags</Text>
+              <Text style={styles.bottomSheetRowSubtitle}>
+                Roughly twice a small bag. Ideal for weekly household rubbish or light yard waste.
+              </Text>
+            </View>
+
+            <View style={styles.bottomSheetRow}>
+              <Text style={styles.bottomSheetRowTitle}>Standard Bins</Text>
+              <Text style={styles.bottomSheetRowSubtitle}>
+                Similar to a typical dustbin kept outside homes. Fits multiple large bags.
+              </Text>
+            </View>
+
+            <View style={styles.bottomSheetRow}>
+              <Text style={styles.bottomSheetRowTitle}>Wheelie Bins</Text>
+              <Text style={styles.bottomSheetRowSubtitle}>
+                Large wheeled bin, like those used for weekly council collections. Best for
+                big clean‑ups or businesses.
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.bottomSheetCloseButton}
+              onPress={() => setShowBinInfoSheet(false)}
+            >
+              <Text style={styles.bottomSheetCloseButtonText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </ScrollView>
   );
 };
