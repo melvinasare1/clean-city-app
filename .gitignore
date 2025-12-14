@@ -21,3 +21,4 @@ web-build/
 .env.local
 .env.*
 backend/.env
+package-lock.json
