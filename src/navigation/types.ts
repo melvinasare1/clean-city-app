@@ -28,6 +28,7 @@ export type CustomerStackParamList = {
   PaymentCallback: {
     reference: string;
   };
+  PrivacyPolicy: undefined;
 };
 
 export type OnboardingStackParamList = {
