@@ -5,11 +5,14 @@ import { useAuth } from '../../../hooks/useAuth';
 import { styles } from './customer-home-screen.styles';
 import { CustomerTabParamList } from '@/navigation/types';
 import { AppText } from '@/components';
+import { trackEvent } from '@/services/analytics';
 
 type CustomerHomeScreenProps = BottomTabScreenProps<
   CustomerTabParamList,
   'CustomerHome'
 >;
+
+const SCREEN = 'customer_home';
 
 export const CustomerHomeScreen: React.FC<CustomerHomeScreenProps> = ({ navigation }) => {
   const { user } = useAuth();
@@ -27,7 +30,13 @@ export const CustomerHomeScreen: React.FC<CustomerHomeScreenProps> = ({ navigati
 
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => navigation.navigate('NewBooking')}
+            onPress={() => {
+              trackEvent('activation_started', {
+                screen: SCREEN,
+                source: 'quick_action_button',
+              });
+              navigation.navigate('NewBooking');
+            }}
           >
             <AppText style={styles.actionButtonText}>📦 Schedule New Pickup</AppText>
           </TouchableOpacity>

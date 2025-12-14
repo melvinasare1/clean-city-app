@@ -1,14 +1,35 @@
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
 import { AuthNavigator } from './auth-navigation';
 import { CustomerNavigator } from './customer-navigation';
 import { DriverNavigator } from './driver-navigation';
 import { COLORS } from '../lib/constants';
+import { trackEvent } from '@/services/analytics';
 
 export const RootNavigator: React.FC = () => {
     const { user, loading } = useAuth();
+    const hasTrackedAppOpen = useRef(false);
+
+    useEffect(() => {
+        if (loading || hasTrackedAppOpen.current) {
+            return;
+        }
+
+        let initialScreen: string;
+
+        if (!user) {
+            initialScreen = 'login';
+        } else if (user.role === 'driver') {
+            initialScreen = 'driver_home';
+        } else {
+            initialScreen = 'customer_home';
+        }
+
+        hasTrackedAppOpen.current = true;
+        trackEvent('app_open', { screen: initialScreen });
+    }, [loading, user?.role]);
 
     if (loading) {
         return (

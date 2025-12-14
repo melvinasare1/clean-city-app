@@ -22,6 +22,7 @@ import type { Booking } from '@/types/booking';
 import { getUserBookings } from '@/services/booking-service';
 import { COLORS } from '@/lib/constants';
 import { styles } from './my-bookings-screen.styles';
+import { trackEvent } from '@/services/analytics';
 
 type MyBookingsScreenProps = CompositeScreenProps<
     BottomTabScreenProps<CustomerTabParamList, 'MyBookings'>,
@@ -58,6 +59,8 @@ const getBinSummary = (items: Booking['items']) => {
     }
     return items.map((item) => `${item.quantity} x ${item.type}`).join(', ');
 };
+
+const SCREEN = 'my_bookings';
 
 export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
     navigation,
@@ -104,6 +107,7 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
             } else if (index === 2) {
                 try {
                     await logout();
+                    await trackEvent('logout', { screen: 'settings' });
                 } catch (err) {
                     console.error('Error during logout:', err);
                     Alert.alert(
@@ -204,7 +208,13 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
                 <AppText style={styles.title}>My Bookings</AppText>
                 <TouchableOpacity
                     style={styles.newBookingButton}
-                    onPress={() => navigation.navigate('NewBooking')}
+                    onPress={() => {
+                        trackEvent('activation_started', {
+                            screen: SCREEN,
+                            source: 'header_button',
+                        });
+                        navigation.navigate('NewBooking');
+                    }}
                 >
                     <AppText style={styles.newBookingButtonText}>+ Schedule</AppText>
                 </TouchableOpacity>
@@ -233,7 +243,13 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
                     </AppText>
                     <TouchableOpacity
                         style={styles.emptyAction}
-                        onPress={() => navigation.navigate('NewBooking')}
+                        onPress={() => {
+                            trackEvent('activation_started', {
+                                screen: SCREEN,
+                                source: 'empty_state_cta',
+                            });
+                            navigation.navigate('NewBooking');
+                        }}
                     >
                         <AppText style={styles.emptyActionText}>
                             Schedule your first pickup

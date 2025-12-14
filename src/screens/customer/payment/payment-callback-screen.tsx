@@ -5,8 +5,24 @@ import { AppText, AppButton } from "@/components";
 import { CustomerStackParamList } from "@/navigation/types";
 import { verifyPayment, VerifyPaymentResponse } from "@/services/payments";
 import { COLORS } from "@/lib/constants";
+import { trackEvent } from "@/services/analytics";
 
 type Props = NativeStackScreenProps<CustomerStackParamList, "PaymentCallback">;
+
+const SCREEN = "checkout";
+
+const getPaymentFailureReason = (status: VerifyPaymentResponse["status"]): string => {
+  switch (status) {
+    case "failed":
+      return "declined";
+    case "abandoned":
+      return "cancelled";
+    case "pending":
+      return "timeout";
+    default:
+      return "unknown";
+  }
+};
 
 export const PaymentCallbackScreen: React.FC<Props> = ({
   route,
@@ -24,8 +40,23 @@ export const PaymentCallbackScreen: React.FC<Props> = ({
         setResult(verifyResult);
 
         if (verifyResult.status === "success") {
+          await trackEvent("payment_completed", {
+            screen: SCREEN,
+            amount: verifyResult.amount,
+            currency: verifyResult.currency,
+            provider: "paystack",
+          });
+
           Alert.alert("Payment successful", "Your payment has been confirmed.");
         } else {
+          const reason = getPaymentFailureReason(verifyResult.status);
+
+          await trackEvent("payment_failed", {
+            screen: SCREEN,
+            provider: "paystack",
+            reason,
+          });
+
           Alert.alert(
             "Payment not successful",
             `Status: ${verifyResult.status}`
@@ -34,6 +65,15 @@ export const PaymentCallbackScreen: React.FC<Props> = ({
       } catch (err: any) {
         console.error("Error verifying payment:", err);
         setError(err?.message || "Failed to verify payment");
+
+        const message = (err?.message as string | undefined)?.toLowerCase() ?? "";
+        const reason = message.includes("network") ? "network_error" : "unknown";
+
+        await trackEvent("payment_failed", {
+          screen: SCREEN,
+          provider: "paystack",
+          reason,
+        });
       } finally {
         setLoading(false);
       }
