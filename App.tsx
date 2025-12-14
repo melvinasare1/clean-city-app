@@ -5,7 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { RootNavigator } from './src/navigation/root-navigation';
 import { AuthProvider } from '@/contexts/auth-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { BottomSheetModalProvider, BottomSheetView } from '@gorhom/bottom-sheet';
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 
 export default function App() {
     return (

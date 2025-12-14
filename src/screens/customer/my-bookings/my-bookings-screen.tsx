@@ -247,18 +247,39 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
                             <AppText style={styles.cardDate}>
                                 {formatDate(booking.date)}
                             </AppText>
-                            <View
-                                style={[
-                                    styles.statusBadge,
-                                    { backgroundColor: getStatusColor(booking.status) },
-                                ]}
-                            >
-                                <AppText style={styles.statusText}>
-                                    {booking.status.toUpperCase()}
-                                </AppText>
+                            <View style={{ flexDirection: "row", alignItems: "center" }}>
+                                {booking.type === "subscription" && (
+                                    <View style={styles.statusBadge}>
+                                        <AppText style={styles.statusText}>
+                                            SUBSCRIPTION
+                                        </AppText>
+                                    </View>
+                                )}
+                                <View
+                                    style={[
+                                        styles.statusBadge,
+                                        { backgroundColor: getStatusColor(booking.status) },
+                                    ]}
+                                >
+                                    <AppText style={styles.statusText}>
+                                        {booking.status.toUpperCase()}
+                                    </AppText>
+                                </View>
                             </View>
                         </View>
-                        <AppText style={styles.cardWindow}>{booking.windowLabel}</AppText>
+                        <AppText style={styles.cardWindow}>
+                            {booking.windowLabel}
+                            {booking.type === "subscription" &&
+                                booking.recurrence?.intervalWeeks && (
+                                    <>
+                                        {" "}
+                                        •{" "}
+                                        {booking.recurrence.intervalWeeks === 1
+                                            ? "Every week"
+                                            : `Every ${booking.recurrence.intervalWeeks} weeks`}
+                                    </>
+                                )}
+                        </AppText>
                         <AppText style={styles.cardLocation}>
                             Pickup area: {booking.location}
                         </AppText>

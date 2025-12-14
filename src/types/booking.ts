@@ -11,6 +11,16 @@ export type BookingBinItem = {
   totalPrice: number;
 };
 
+export type BookingType = "one_off" | "subscription";
+
+export type BookingRecurrence = {
+  /**
+   * Interval in weeks between pickups.
+   * 1 = weekly, 2 = every 2 weeks, etc.
+   */
+  intervalWeeks: number;
+};
+
 export type Booking = {
   id: string;
   userId: string;
@@ -22,4 +32,14 @@ export type Booking = {
   totalPrice: number;
   status: BookingStatus;
   createdAt: Timestamp | null;
+  /**
+   * Whether this is a one-off pickup or a recurring subscription.
+   * Existing bookings without this field are treated as "one_off".
+   */
+  type: BookingType;
+  /**
+   * Recurrence information for subscription bookings.
+   * Undefined for one-off bookings.
+   */
+  recurrence?: BookingRecurrence;
 };
