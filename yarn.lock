@@ -3225,17 +3225,9 @@ expo-build-properties@~1.0.10:
     ajv "^8.11.0"
     semver "^7.6.0"
 
-expo-constants@~18.0.11:
-  version "18.0.11"
-  resolved "https://registry.npmjs.org/expo-constants/-/expo-constants-18.0.11.tgz"
-  integrity sha512-xnfrfZ7lHjb+03skhmDSYeFF7OU2K3Xn/lAeP+7RhkV2xp2f5RCKtOUYajCnYeZesvMrsUxOsbGOP2JXSOH3NA==
-  dependencies:
-    "@expo/config" "~12.0.11"
-    "@expo/env" "~2.0.8"
-
-expo-constants@~18.0.12:
+expo-constants@18.0.12, expo-constants@~18.0.11, expo-constants@~18.0.12:
   version "18.0.12"
-  resolved "https://registry.npmjs.org/expo-constants/-/expo-constants-18.0.12.tgz"
+  resolved "https://registry.yarnpkg.com/expo-constants/-/expo-constants-18.0.12.tgz#3e67f7109ffd03eaa5514c19875a767c39f5a2ca"
   integrity sha512-WzcKYMVNRRu4NcSzfIVRD5aUQFnSpTZgXFrlWmm19xJoDa4S3/PQNi6PNTBRc49xz9h8FT7HMxRKaC8lr0gflA==
   dependencies:
     "@expo/config" "~12.0.12"
