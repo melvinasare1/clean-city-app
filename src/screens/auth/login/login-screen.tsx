@@ -15,6 +15,7 @@ import { AppText, AppTextInput } from '@/components';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LoginScreenProps } from '../types';
 import { trackEvent } from '@/services/analytics';
+import { registerForPushNotifications } from '@/services/notifications';
 
 const SCREEN = 'login';
 const AUTH_METHOD = 'email_password';
@@ -70,6 +71,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         setIsLoading(true);
         try {
             await login(email, password);
+            await registerForPushNotifications();
             await trackEvent('login_success', {
                 screen: SCREEN,
                 method: AUTH_METHOD,
