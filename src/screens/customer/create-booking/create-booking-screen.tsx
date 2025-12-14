@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import DateTimePicker, {
   DateTimePickerEvent,
@@ -13,11 +13,14 @@ import * as Linking from 'expo-linking';
 import { initializePayment } from '@/services/payments';
 import { CustomerStackParamList } from '@/navigation/types';
 import { styles } from './create-booking-screen.styles';
+import { trackEvent } from '@/services/analytics';
 
 type CreateBookingScreenProps = NativeStackScreenProps<
   CustomerStackParamList,
   'CreateBooking'
 >;
+
+const SCREEN = 'create_booking';
 
 const formatDate = (date: Date) =>
   date.toLocaleDateString(undefined, {
@@ -89,6 +92,10 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
     return totalPrice - discountedTotal;
   }, [isSubscription, totalPrice, discountedTotal]);
 
+  useEffect(() => {
+    trackEvent('checkout_viewed', { screen: 'checkout' });
+  }, []);
+
   const handleConfirm = async () => {
     if (!user) {
       Alert.alert('Error', 'You need to be logged in to schedule a pickup.');
@@ -142,10 +149,11 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
             }
             : undefined,
       });
+      await trackEvent('activation_completed', {
+        screen: SCREEN,
+        type: bookingType,
+      });
 
-      console.log('Booking created with id:', bookingId);
-
-      // ✅ Make sure email and amount are valid
       if (!user.email) {
         Alert.alert(
           'Missing email',
@@ -183,6 +191,18 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
       const url = paymentInit.authorization_url;
       console.log('Opening Paystack URL:', url);
 
+      await trackEvent('payment_started', {
+        screen: 'checkout',
+        amount: Number(discountedTotal),
+        currency: 'GHS',
+        provider: 'paystack',
+      });
+
+      await trackEvent('payment_provider_opened', {
+        screen: 'checkout',
+        provider: 'paystack',
+      });
+
       await Linking.openURL(url);
 
       Alert.alert(
@@ -194,6 +214,15 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
       );
     } catch (paymentError: any) {
       console.error('Error during booking + payment flow:', paymentError);
+
+      const message = (paymentError?.message as string | undefined)?.toLowerCase() ?? '';
+      const reason = message.includes('network') ? 'network_error' : 'unknown';
+
+      await trackEvent('activation_failed', {
+        screen: SCREEN,
+        reason,
+      });
+
       Alert.alert(
         'Error',
         `Something went wrong: ${paymentError?.message ?? String(paymentError)}`
@@ -219,7 +248,13 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
               styles.windowButton,
               bookingType === "one_off" && styles.windowButtonSelected,
             ]}
-            onPress={() => setBookingType("one_off")}
+            onPress={() => {
+              setBookingType("one_off");
+              trackEvent('payment_plan_selected', {
+                screen: SCREEN,
+                type: 'one_off',
+              });
+            }}
           >
             <AppText
               style={[
@@ -235,7 +270,13 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
               styles.windowButton,
               bookingType === "subscription" && styles.windowButtonSelected,
             ]}
-            onPress={() => setBookingType("subscription")}
+            onPress={() => {
+              setBookingType("subscription");
+              trackEvent('payment_plan_selected', {
+                screen: SCREEN,
+                type: 'subscription',
+              });
+            }}
           >
             <AppText
               style={[

@@ -1,33 +1,28 @@
-import * as FirebaseAnalytics from 'expo-firebase-analytics';
-import { useCallback } from 'react';
-import { useFocusEffect } from '@react-navigation/native';
+import * as FirebaseAnalytics from "expo-firebase-analytics";
+import { useCallback } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 
-export type AnalyticsParamValue =
-  | string
-  | number
-  | boolean
-  | null
-  | undefined;
+export type AnalyticsParamValue = string | number | boolean | null | undefined;
 
 export type AnalyticsParams = Record<string, AnalyticsParamValue>;
 
 const MAX_EVENT_NAME_LENGTH = 40;
 
 const BLOCKED_PII_KEYS = [
-  'email',
-  'phone',
-  'name',
-  'address',
-  'dob',
-  'card',
-  'pan',
-  'token',
-  'password',
+  "email",
+  "phone",
+  "name",
+  "address",
+  "dob",
+  "card",
+  "pan",
+  "token",
+  "password",
 ] as const;
 
 const isDev =
-  (typeof __DEV__ !== 'undefined' && __DEV__) ||
-  process.env.NODE_ENV !== 'production';
+  (typeof __DEV__ !== "undefined" && __DEV__) ||
+  process.env.NODE_ENV !== "production";
 
 class AnalyticsService {
   private initialized = false;
@@ -48,12 +43,12 @@ class AnalyticsService {
     this.initializing = (async () => {
       try {
         // Optional: reduce noisy logging when analytics is unavailable.
-        if (typeof FirebaseAnalytics.setUnavailabilityLogging === 'function') {
+        if (typeof FirebaseAnalytics.setUnavailabilityLogging === "function") {
           await FirebaseAnalytics.setUnavailabilityLogging(false);
         }
         this.initialized = true;
       } catch (error) {
-        this.handleError(error, 'Analytics init failed');
+        this.handleError(error, "Analytics init failed");
       } finally {
         this.initializing = null;
       }
@@ -67,7 +62,7 @@ class AnalyticsService {
    */
   public async track(
     eventName: string,
-    params?: AnalyticsParams,
+    params?: AnalyticsParams
   ): Promise<void> {
     try {
       await this.init();
@@ -75,7 +70,7 @@ class AnalyticsService {
       const safeEventName = this.normalizeEventName(eventName);
       const sanitizedParams = this.sanitizeParams(params);
 
-      if (typeof FirebaseAnalytics.logEvent === 'function') {
+      if (typeof FirebaseAnalytics.logEvent === "function") {
         await FirebaseAnalytics.logEvent(safeEventName, sanitizedParams);
       }
     } catch (error) {
@@ -88,7 +83,7 @@ class AnalyticsService {
    */
   public async screen(
     screenName: string,
-    params?: AnalyticsParams,
+    params?: AnalyticsParams
   ): Promise<void> {
     try {
       await this.init();
@@ -99,8 +94,8 @@ class AnalyticsService {
         ...sanitizedParams,
       };
 
-      if (typeof FirebaseAnalytics.logEvent === 'function') {
-        await FirebaseAnalytics.logEvent('screen_view', baseParams);
+      if (typeof FirebaseAnalytics.logEvent === "function") {
+        await FirebaseAnalytics.logEvent("screen_view", baseParams);
       }
     } catch (error) {
       this.handleError(error, `Failed to track screen "${screenName}"`);
@@ -114,30 +109,28 @@ class AnalyticsService {
     try {
       await this.init();
 
-      if (typeof FirebaseAnalytics.setUserId === 'function') {
+      if (typeof FirebaseAnalytics.setUserId === "function") {
         await FirebaseAnalytics.setUserId(userId);
       }
     } catch (error) {
-      this.handleError(error, 'Failed to identify user');
+      this.handleError(error, "Failed to identify user");
     }
   }
 
   /**
    * Set user properties (GA4 expects string values, so we stringify).
    */
-  public async setUserProperties(
-    props: AnalyticsParams,
-  ): Promise<void> {
+  public async setUserProperties(props: AnalyticsParams): Promise<void> {
     try {
       await this.init();
 
       const sanitizedProps = this.sanitizeParams(props);
 
-      if (typeof FirebaseAnalytics.setUserProperties === 'function') {
+      if (typeof FirebaseAnalytics.setUserProperties === "function") {
         await FirebaseAnalytics.setUserProperties(sanitizedProps);
       }
     } catch (error) {
-      this.handleError(error, 'Failed to set user properties');
+      this.handleError(error, "Failed to set user properties");
     }
   }
 
@@ -148,11 +141,11 @@ class AnalyticsService {
     try {
       await this.init();
 
-      if (typeof (FirebaseAnalytics as any).setEnabled === 'function') {
+      if (typeof (FirebaseAnalytics as any).setEnabled === "function") {
         await (FirebaseAnalytics as any).setEnabled(enabled);
       }
     } catch (error) {
-      this.handleError(error, 'Failed to set analytics enabled state');
+      this.handleError(error, "Failed to set analytics enabled state");
     }
   }
 
@@ -161,9 +154,7 @@ class AnalyticsService {
    * - Removes blocked PII keys.
    * - Stringifies values to comply with GA4 expectations.
    */
-  private sanitizeParams(
-    params?: AnalyticsParams,
-  ): Record<string, string> {
+  private sanitizeParams(params?: AnalyticsParams): Record<string, string> {
     if (!params) {
       return {};
     }
@@ -177,8 +168,8 @@ class AnalyticsService {
       }
 
       const lowerKey = key.toLowerCase();
-      const isBlocked = BLOCKED_PII_KEYS.some((blocked) =>
-        lowerKey === blocked || lowerKey.includes(blocked),
+      const isBlocked = BLOCKED_PII_KEYS.some(
+        (blocked) => lowerKey === blocked || lowerKey.includes(blocked)
       );
 
       if (isBlocked) {
@@ -188,8 +179,8 @@ class AnalyticsService {
 
       // Stringify values for GA4.
       if (value === null) {
-        sanitized[key] = 'null';
-      } else if (typeof value === 'string') {
+        sanitized[key] = "null";
+      } else if (typeof value === "string") {
         sanitized[key] = value;
       } else {
         sanitized[key] = String(value);
@@ -197,10 +188,7 @@ class AnalyticsService {
     }
 
     if (blockedFound.length > 0 && isDev) {
-      console.warn(
-        '[Analytics] Blocked PII params:',
-        blockedFound.join(', '),
-      );
+      console.warn("[Analytics] Blocked PII params:", blockedFound.join(", "));
     }
 
     return sanitized;
@@ -217,20 +205,20 @@ class AnalyticsService {
     if (!name) {
       if (isDev) {
         console.warn(
-          '[Analytics] Empty event name provided, falling back to "event"',
+          '[Analytics] Empty event name provided, falling back to "event"'
         );
       }
-      return 'event';
+      return "event";
     }
 
     // Replace non-alphanumeric characters with underscores.
-    name = name.replace(/[^a-zA-Z0-9]+/g, '_');
+    name = name.replace(/[^a-zA-Z0-9]+/g, "_");
 
     // Insert underscore before camelCase transitions.
-    name = name.replace(/([a-z0-9])([A-Z])/g, '$1_$2');
+    name = name.replace(/([a-z0-9])([A-Z])/g, "$1_$2");
 
     // Collapse multiple underscores and trim.
-    name = name.replace(/_+/g, '_').replace(/^_+|_+$/g, '');
+    name = name.replace(/_+/g, "_").replace(/^_+|_+$/g, "");
 
     // GA4 requires lowercase.
     name = name.toLowerCase();
@@ -245,7 +233,7 @@ class AnalyticsService {
       const truncated = name.slice(0, MAX_EVENT_NAME_LENGTH);
       if (isDev) {
         console.warn(
-          `[Analytics] Event name "${name}" exceeds ${MAX_EVENT_NAME_LENGTH} chars, truncating to "${truncated}"`,
+          `[Analytics] Event name "${name}" exceeds ${MAX_EVENT_NAME_LENGTH} chars, truncating to "${truncated}"`
         );
       }
       name = truncated;
@@ -253,7 +241,7 @@ class AnalyticsService {
 
     if (name !== original && isDev) {
       console.warn(
-        `[Analytics] Normalized event name from "${original}" to "${name}"`,
+        `[Analytics] Normalized event name from "${original}" to "${name}"`
       );
     }
 
@@ -265,7 +253,7 @@ class AnalyticsService {
    */
   private handleError(error: unknown, context: string): void {
     if (isDev) {
-      console.warn('[Analytics] Error:', context, error);
+      console.warn("[Analytics] Error:", context, error);
     }
     // In production, silently no-op. Do not throw.
   }
@@ -281,7 +269,7 @@ export const Analytics = new AnalyticsService();
  */
 export const trackEvent = (
   eventName: string,
-  params?: AnalyticsParams,
+  params?: AnalyticsParams
 ): Promise<void> => {
   return Analytics.track(eventName, params);
 };
@@ -295,14 +283,14 @@ export const trackEvent = (
  */
 export const useTrackScreenOnFocus = (
   screenName: string,
-  params?: AnalyticsParams,
+  params?: AnalyticsParams
 ): void => {
   useFocusEffect(
     useCallback(() => {
       Analytics.screen(screenName, params).catch(() => {
         // Errors are already handled internally.
       });
-    }, [screenName, JSON.stringify(params)]),
+    }, [screenName, JSON.stringify(params)])
   );
 };
 
@@ -335,5 +323,3 @@ export const trackScreenOnFocus = useTrackScreenOnFocus;
 //
 // // Clear on logout
 // await Analytics.identify(null);
-
-

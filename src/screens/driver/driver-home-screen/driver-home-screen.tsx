@@ -4,6 +4,7 @@ import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../../hooks/useAuth';
 import { styles } from './driver-home-screen.styles';
+import { trackEvent } from '@/services/analytics';
 
 type DriverStackParamList = {
   DriverHome: undefined;
@@ -15,12 +16,15 @@ type DriverHomeScreenProps = {
   navigation: NativeStackNavigationProp<DriverStackParamList, 'DriverHome'>;
 };
 
+const SCREEN = 'driver_home';
+
 export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }) => {
   const { user, logout } = useAuth();
 
   const handleLogout = async () => {
     try {
       await logout();
+      await trackEvent('logout', { screen: 'settings' });
     } catch (error) {
       console.error('Logout error:', error);
     }

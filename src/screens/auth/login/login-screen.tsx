@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     View,
     TouchableOpacity,
@@ -14,6 +14,37 @@ import { styles } from './login-screen.styles';
 import { AppText, AppTextInput } from '@/components';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LoginScreenProps } from '../types';
+import { trackEvent } from '@/services/analytics';
+
+const SCREEN = 'login';
+const AUTH_METHOD = 'email_password';
+
+const getAuthErrorReason = (error: any): string => {
+    const code = error?.code as string | undefined;
+    const message = (error?.message as string | undefined)?.toLowerCase() ?? '';
+
+    if (code) {
+        if (
+            code === 'auth/invalid-credential' ||
+            code === 'auth/wrong-password' ||
+            code === 'auth/user-not-found'
+        ) {
+            return 'invalid_credentials';
+        }
+        if (code === 'auth/network-request-failed') {
+            return 'network_error';
+        }
+        if (code === 'auth/too-many-requests') {
+            return 'timeout';
+        }
+    }
+
+    if (message.includes('network')) {
+        return 'network_error';
+    }
+
+    return 'unknown';
+};
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     const [email, setEmail] = useState('');
@@ -21,16 +52,34 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     const [isLoading, setIsLoading] = useState(false);
     const { login } = useAuth();
 
+    useEffect(() => {
+        trackEvent('auth_screen_viewed', { screen: SCREEN });
+    }, []);
+
     const handleLogin = async () => {
         if (!email || !password) {
             Alert.alert('Error', 'Please enter both email and password');
             return;
         }
 
+        await trackEvent('login_started', {
+            screen: SCREEN,
+            method: AUTH_METHOD,
+        });
+
         setIsLoading(true);
         try {
             await login(email, password);
+            await trackEvent('login_success', {
+                screen: SCREEN,
+                method: AUTH_METHOD,
+            });
         } catch (error: any) {
+            const reason = getAuthErrorReason(error);
+            await trackEvent('auth_error', {
+                screen: SCREEN,
+                reason,
+            });
             Alert.alert('Login Failed', error.message || 'An error occurred during login');
         } finally {
             setIsLoading(false);

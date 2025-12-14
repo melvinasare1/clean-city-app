@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     View,
     Text,
@@ -18,6 +18,36 @@ import { useAuth } from '@/hooks/useAuth';
 import { COLORS } from '@/lib/constants';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SignupScreenProps } from '../types';
+import { trackEvent } from '@/services/analytics';
+
+const SCREEN = 'signup';
+const AUTH_METHOD = 'email_password';
+
+const getSignupErrorReason = (error: any): string => {
+    const code = error?.code as string | undefined;
+    const message = (error?.message as string | undefined)?.toLowerCase() ?? '';
+
+    if (code) {
+        if (code === 'auth/email-already-in-use') {
+            return 'email_in_use';
+        }
+        if (code === 'auth/weak-password') {
+            return 'weak_password';
+        }
+        if (code === 'auth/invalid-email') {
+            return 'invalid_email';
+        }
+        if (code === 'auth/network-request-failed') {
+            return 'network_error';
+        }
+    }
+
+    if (message.includes('network')) {
+        return 'network_error';
+    }
+
+    return 'unknown';
+};
 
 export const SignupScreen: React.FC<SignupScreenProps> = ({ navigation }) => {
 
@@ -26,14 +56,44 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({ navigation }) => {
     const [isLoading, setIsLoading] = useState(false);
     const { signup } = useAuth();
 
-    const handleSignup = async (email: string, password: string) => {
+    useEffect(() => {
+        trackEvent('auth_screen_viewed', { screen: SCREEN });
+    }, []);
+
+    const handleSignup = async () => {
         if (!email || !password) {
             Alert.alert('Error', 'Please enter both email and password');
             return;
         }
 
-        await signup(email, password);
         setIsLoading(true);
+
+        try {
+            await trackEvent('signup_started', {
+                screen: SCREEN,
+                method: AUTH_METHOD,
+            });
+
+            await signup(email, password);
+
+            await trackEvent('signup_completed', {
+                screen: SCREEN,
+                method: AUTH_METHOD,
+            });
+        } catch (error: any) {
+            const reason = getSignupErrorReason(error);
+            await trackEvent('auth_error', {
+                screen: SCREEN,
+                reason,
+            });
+
+            Alert.alert(
+                'Signup Failed',
+                error?.message || 'An error occurred during signup'
+            );
+        } finally {
+            setIsLoading(false);
+        }
     }
 
     return (
@@ -68,7 +128,7 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({ navigation }) => {
 
                         <TouchableOpacity
                             style={[styles.button, isLoading && styles.buttonDisabled]}
-                            onPress={() => handleSignup(email, password)}
+                            onPress={handleSignup}
                             disabled={isLoading}
                         >
                             {isLoading ? (
