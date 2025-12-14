@@ -1,6 +1,10 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useLayoutEffect, useState } from 'react';
 import {
     ActivityIndicator,
+    ActionSheetIOS,
+    Alert,
+    Linking,
+    Platform,
     ScrollView,
     TouchableOpacity,
     View,
@@ -58,7 +62,7 @@ const getBinSummary = (items: Booking['items']) => {
 export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
     navigation,
 }) => {
-    const { user } = useAuth();
+    const { user, logout } = useAuth();
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -84,11 +88,102 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
         }
     }, [user?.id]);
 
+    const handleActionSelection = useCallback(
+        async (index: number) => {
+            // 0: Leave feedback, 1: Get support, 2: Log out, 3: Cancel
+            if (index === 0) {
+                Linking.openURL('mailto:support@cleancitygh.com').catch((err) =>
+                    console.warn('Failed to open mail client', err)
+                );
+            } else if (index === 1) {
+                // Open WhatsApp chat with business number
+                const whatsappUrl = 'https://wa.me/233241735474';
+                Linking.openURL(whatsappUrl).catch((err) =>
+                    console.warn('Failed to open WhatsApp', err)
+                );
+            } else if (index === 2) {
+                try {
+                    await logout();
+                } catch (err) {
+                    console.error('Error during logout:', err);
+                    Alert.alert(
+                        'Logout failed',
+                        'We could not log you out. Please try again.'
+                    );
+                }
+            }
+        },
+        [logout]
+    );
+
+    const showOptionsSheet = useCallback(() => {
+        const options = ['Leave feedback', 'Get support', 'Log out', 'Cancel'];
+        const destructiveButtonIndex = 2;
+        const cancelButtonIndex = 3;
+
+        if (Platform.OS === 'ios') {
+            ActionSheetIOS.showActionSheetWithOptions(
+                {
+                    options,
+                    destructiveButtonIndex,
+                    cancelButtonIndex,
+                },
+                (buttonIndex) => {
+                    if (typeof buttonIndex === 'number') {
+                        handleActionSelection(buttonIndex);
+                    }
+                }
+            );
+        } else {
+            Alert.alert(
+                'Options',
+                undefined,
+                [
+                    {
+                        text: 'Leave feedback',
+                        onPress: () => handleActionSelection(0),
+                    },
+                    {
+                        text: 'Get support',
+                        onPress: () => handleActionSelection(1),
+                    },
+                    {
+                        text: 'Log out',
+                        style: 'destructive',
+                        onPress: () => handleActionSelection(2),
+                    },
+                    {
+                        text: 'Cancel',
+                        style: 'cancel',
+                    },
+                ]
+            );
+        }
+    }, [handleActionSelection]);
+
     useFocusEffect(
         useCallback(() => {
             fetchBookings();
         }, [fetchBookings])
     );
+
+    useLayoutEffect(() => {
+        navigation.setOptions({
+            headerRight: () => (
+                <TouchableOpacity
+                    style={styles.headerOptionsButton}
+                    onPress={showOptionsSheet}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                    <View style={styles.headerOptionsDots}>
+                        <View style={styles.headerDot} />
+                        <View style={styles.headerDot} />
+                        <View style={styles.headerDot} />
+                    </View>
+                </TouchableOpacity>
+            ),
+        });
+    }, [navigation, showOptionsSheet]);
 
     return (
         <ScrollView style={styles.content}>

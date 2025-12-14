@@ -12,6 +12,23 @@ export const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: VARS.small,
   },
+  headerOptionsButton: {
+    marginRight: VARS.small,
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+  },
+  headerOptionsDots: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 2,
+  },
+  headerDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: COLORS.white,
+  },
   title: {
     fontSize: 24,
     fontWeight: "700",
