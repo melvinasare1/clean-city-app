@@ -8,6 +8,7 @@ import { MyBookingsScreen } from '../screens/customer/my-bookings/my-bookings-sc
 import { CompleteProfileScreen } from '../screens/customer/complete-profile/complete-profile-screen';
 import { CreateBookingScreen } from '../screens/customer/create-booking/create-booking-screen';
 import { PaymentCallbackScreen } from '../screens/customer/payment/payment-callback-screen';
+import { PrivacyPolicyScreen } from '../screens/privacy-policy/privacy-policy-screen';
 import { COLORS } from '../lib/constants';
 
 import {
@@ -117,6 +118,11 @@ export const CustomerNavigator: React.FC = () => {
                 name="PaymentCallback"
                 component={PaymentCallbackScreen}
                 options={{ title: 'Payment Status' }}
+            />
+            <Stack.Screen
+                name="PrivacyPolicy"
+                component={PrivacyPolicyScreen}
+                options={{ title: 'Privacy Policy' }}
             />
         </Stack.Navigator>
     );
