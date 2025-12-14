@@ -9,6 +9,8 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@react-native-firebase/app": "^20.5.0",
+    "@react-native-firebase/analytics": "^20.5.0",
     "@gorhom/bottom-sheet": "^5",
     "@paystack/inline-js": "^2.22.7",
     "@react-native-async-storage/async-storage": "2.2.0",
