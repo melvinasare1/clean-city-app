@@ -62,6 +62,15 @@ export const styles = StyleSheet.create({
     fontWeight: "700",
     color: COLORS.primary,
   },
+  summaryOriginalValue: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    textDecorationLine: "line-through",
+  },
+  summarySavingsText: {
+    fontSize: 13,
+    color: COLORS.primary,
+  },
   noItemsNotice: {
     backgroundColor: "#FFF3E0",
     borderRadius: VARS.xsmall,

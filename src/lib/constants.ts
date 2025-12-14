@@ -1,6 +1,5 @@
 export const PRICES = {
-  smallBag: 5,
-  largeBag: 10,
+  smallBag: 15,
   standardBin: 25,
   wheelieBin: 50,
 };

@@ -8,7 +8,12 @@ import {
 } from "firebase/firestore";
 import { db } from "@/services/firebase/firebase-config";
 import type { TimeWindowId } from "@/lib/time-windows";
-import type { Booking, BookingBinItem } from "@/types/booking";
+import type {
+  Booking,
+  BookingBinItem,
+  BookingRecurrence,
+  BookingType,
+} from "@/types/booking";
 import { BOOKINGS_COLLECTION } from "@/lib/constants"; // whatever you use
 import { setDocAtPath } from "@/lib/utils";
 
@@ -20,6 +25,8 @@ type CreateBookingParams = {
   location: string;
   items: BookingBinItem[];
   totalPrice: number;
+  type?: BookingType;
+  recurrence?: BookingRecurrence;
 };
 
 export const createBooking = async ({
@@ -30,6 +37,8 @@ export const createBooking = async ({
   location,
   items,
   totalPrice,
+  type = "one_off",
+  recurrence,
 }: CreateBookingParams): Promise<string> => {
   const newDocRef = doc(collection(db, BOOKINGS_COLLECTION));
   const bookingId = newDocRef.id;
@@ -45,6 +54,8 @@ export const createBooking = async ({
       items,
       totalPrice,
       status: "pending",
+      type,
+      ...(recurrence ? { recurrence } : {}),
     },
     {
       merge: false,
@@ -78,6 +89,8 @@ export const getUserBookings = async (userId: string): Promise<Booking[]> => {
       totalPrice: data.totalPrice ?? 0,
       status: (data.status ?? "pending") as Booking["status"],
       createdAt: (data.createdAt as Booking["createdAt"]) ?? null,
+      type: (data.type ?? "one_off") as BookingType,
+      recurrence: data.recurrence as BookingRecurrence | undefined,
     };
   });
 };

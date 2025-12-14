@@ -7,6 +7,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AppText, AppButton } from '@/components';
 import { useAuth } from '@/hooks/useAuth';
 import { TIME_WINDOWS, TimeWindowId } from '@/lib/time-windows';
+import type { BookingType } from '@/types/booking';
 import { createBooking } from '@/services/booking-service';
 import * as Linking from 'expo-linking';
 import { initializePayment } from '@/services/payments';
@@ -40,6 +41,8 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
     null
   );
   const [isSaving, setIsSaving] = useState(false);
+  const [bookingType, setBookingType] = useState<BookingType>("one_off");
+  const [intervalWeeks, setIntervalWeeks] = useState<number>(1);
 
   const locationMissing = !user?.location;
   const hasItems = items.length > 0;
@@ -69,6 +72,22 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
     }
     return TIME_WINDOWS.find((window) => window.id === selectedWindowId)?.label;
   }, [selectedWindowId]);
+
+  const isSubscription = bookingType === "subscription";
+
+  const discountedTotal = useMemo(() => {
+    if (!isSubscription) {
+      return totalPrice;
+    }
+    return totalPrice * 0.9;
+  }, [isSubscription, totalPrice]);
+
+  const savings = useMemo(() => {
+    if (!isSubscription) {
+      return 0;
+    }
+    return totalPrice - discountedTotal;
+  }, [isSubscription, totalPrice, discountedTotal]);
 
   const handleConfirm = async () => {
     if (!user) {
@@ -114,7 +133,14 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
         windowLabel: windowDef.label,
         location: user.location,
         items,
-        totalPrice,
+        totalPrice: discountedTotal,
+        type: bookingType,
+        recurrence:
+          isSubscription
+            ? {
+              intervalWeeks,
+            }
+            : undefined,
       });
 
       console.log('Booking created with id:', bookingId);
@@ -130,13 +156,13 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
 
       console.log('Initializing payment with:', {
         email: user.email,
-        amount: Number(totalPrice),
+        amount: Number(discountedTotal),
         metadata: { userId: user.id, bookingId },
       });
 
       const paymentInit = await initializePayment({
         email: user.email,
-        amount: Number(totalPrice),
+        amount: Number(discountedTotal),
         metadata: {
           userId: user.id,
           bookingId,
@@ -175,7 +201,7 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
     } finally {
       setIsSaving(false);
     }
-  }
+  };
 
 
   return (
@@ -185,6 +211,102 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
         <AppText style={styles.subtitle}>
           Choose a date and time window for your waste collection.
         </AppText>
+
+        <AppText style={styles.label}>Pickup type</AppText>
+        <View style={styles.windowButtonsContainer}>
+          <TouchableOpacity
+            style={[
+              styles.windowButton,
+              bookingType === "one_off" && styles.windowButtonSelected,
+            ]}
+            onPress={() => setBookingType("one_off")}
+          >
+            <AppText
+              style={[
+                styles.windowButtonText,
+                bookingType === "one_off" && styles.windowButtonTextSelected,
+              ]}
+            >
+              One-off pickup
+            </AppText>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.windowButton,
+              bookingType === "subscription" && styles.windowButtonSelected,
+            ]}
+            onPress={() => setBookingType("subscription")}
+          >
+            <AppText
+              style={[
+                styles.windowButtonText,
+                bookingType === "subscription" && styles.windowButtonTextSelected,
+              ]}
+            >
+              Recurring subscription
+            </AppText>
+          </TouchableOpacity>
+        </View>
+
+        {bookingType === "subscription" && (
+          <>
+            <AppText style={styles.subtitle}>
+              This pickup will repeat automatically. You can contact support to
+              update or cancel your subscription.
+            </AppText>
+            <AppText style={styles.label}>Recurrence</AppText>
+            <View style={styles.windowButtonsContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.windowButton,
+                  intervalWeeks === 1 && styles.windowButtonSelected,
+                ]}
+                onPress={() => setIntervalWeeks(1)}
+              >
+                <AppText
+                  style={[
+                    styles.windowButtonText,
+                    intervalWeeks === 1 && styles.windowButtonTextSelected,
+                  ]}
+                >
+                  Every week
+                </AppText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.windowButton,
+                  intervalWeeks === 2 && styles.windowButtonSelected,
+                ]}
+                onPress={() => setIntervalWeeks(2)}
+              >
+                <AppText
+                  style={[
+                    styles.windowButtonText,
+                    intervalWeeks === 2 && styles.windowButtonTextSelected,
+                  ]}
+                >
+                  Every 2 weeks
+                </AppText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.windowButton,
+                  intervalWeeks === 4 && styles.windowButtonSelected,
+                ]}
+                onPress={() => setIntervalWeeks(4)}
+              >
+                <AppText
+                  style={[
+                    styles.windowButtonText,
+                    intervalWeeks === 4 && styles.windowButtonTextSelected,
+                  ]}
+                >
+                  Every 4 weeks
+                </AppText>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
 
         <View style={styles.summaryCard}>
           <AppText style={styles.summaryTitle}>Selected bins</AppText>
@@ -200,11 +322,33 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
           ))}
           <View style={styles.summaryDivider} />
           <View style={styles.summaryTotalRow}>
-            <AppText style={styles.summaryTotalLabel}>Total</AppText>
-            <AppText style={styles.summaryTotalValue}>
-              {formatPrice(totalPrice)}
+            <AppText style={styles.summaryTotalLabel}>
+              {isSubscription ? 'Subscription total' : 'Total'}
             </AppText>
+            {isSubscription ? (
+              <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+                <AppText
+                  style={[styles.summaryOriginalValue, { marginRight: 8 }]}
+                >
+                  {formatPrice(totalPrice)}
+                </AppText>
+                <AppText style={styles.summaryTotalValue}>
+                  {formatPrice(discountedTotal)}
+                </AppText>
+              </View>
+            ) : (
+              <AppText style={styles.summaryTotalValue}>
+                {formatPrice(totalPrice)}
+              </AppText>
+            )}
           </View>
+          {isSubscription && savings > 0 && (
+            <View style={{ marginTop: 4 }}>
+              <AppText style={styles.summarySavingsText}>
+                You’re saving {formatPrice(savings)} with a 10% subscription discount.
+              </AppText>
+            </View>
+          )}
         </View>
 
         {!hasItems && (
@@ -285,10 +429,12 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
           onPress={handleConfirm}
           disabled={isConfirmDisabled || locationMissing}
           loading={isSaving}
-          buttonStyle={[
-            styles.confirmButton,
-            (isConfirmDisabled || locationMissing) && styles.confirmButtonDisabled,
-          ]}
+          buttonStyle={{
+            ...styles.confirmButton,
+            ...(isConfirmDisabled || locationMissing
+              ? styles.confirmButtonDisabled
+              : {}),
+          }}
           textStyle={styles.confirmButtonText}
         />
       </View>

@@ -40,12 +40,12 @@ export const CustomerHomeScreen: React.FC<CustomerHomeScreenProps> = ({ navigati
           </TouchableOpacity>
         </View>
 
-        <View style={styles.card}>
+        {/* <View style={styles.card}>
           <AppText style={styles.cardTitle}>Recent Activity</AppText>
           <AppText style={styles.placeholderText}>
             Your recent bookings will appear here
           </AppText>
-        </View>
+        </View> */}
       </View>
     </View>
   );
