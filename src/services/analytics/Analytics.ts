@@ -1,6 +1,7 @@
-import * as FirebaseAnalytics from "expo-firebase-analytics";
 import { useCallback } from "react";
 import { useFocusEffect } from "@react-navigation/native";
+import { Platform } from "react-native";
+import firebaseApp from "@/services/firebase/firebase-config";
 
 export type AnalyticsParamValue = string | number | boolean | null | undefined;
 
@@ -27,6 +28,8 @@ const isDev =
 class AnalyticsService {
   private initialized = false;
   private initializing: Promise<void> | null = null;
+  // Firebase Analytics instance (web-only)
+  private analyticsInstance: unknown | null = null;
 
   /**
    * Idempotent initialization.
@@ -42,10 +45,39 @@ class AnalyticsService {
 
     this.initializing = (async () => {
       try {
-        // Optional: reduce noisy logging when analytics is unavailable.
-        if (typeof FirebaseAnalytics.setUnavailabilityLogging === "function") {
-          await FirebaseAnalytics.setUnavailabilityLogging(false);
+        if (Platform.OS !== "web") {
+          if (isDev) {
+            console.warn(
+              "[Analytics] Firebase Analytics (web SDK) is only available on web; native will no-op."
+            );
+          }
+          this.initialized = true;
+          return;
         }
+
+        const analyticsModule = await import("firebase/analytics");
+
+        // Some environments may not support analytics (e.g. missing window)
+        let supported = true;
+        if (typeof analyticsModule.isSupported === "function") {
+          try {
+            supported = await analyticsModule.isSupported();
+          } catch {
+            supported = false;
+          }
+        }
+
+        if (!supported) {
+          if (isDev) {
+            console.warn(
+              "[Analytics] Firebase Analytics is not supported in this environment."
+            );
+          }
+          this.initialized = true;
+          return;
+        }
+
+        this.analyticsInstance = analyticsModule.getAnalytics(firebaseApp);
         this.initialized = true;
       } catch (error) {
         this.handleError(error, "Analytics init failed");
@@ -67,12 +99,19 @@ class AnalyticsService {
     try {
       await this.init();
 
+      if (Platform.OS !== "web" || !this.analyticsInstance) {
+        return;
+      }
+
       const safeEventName = this.normalizeEventName(eventName);
       const sanitizedParams = this.sanitizeParams(params);
 
-      if (typeof FirebaseAnalytics.logEvent === "function") {
-        await FirebaseAnalytics.logEvent(safeEventName, sanitizedParams);
-      }
+      const { logEvent } = await import("firebase/analytics");
+      await logEvent(
+        this.analyticsInstance as any,
+        safeEventName,
+        sanitizedParams
+      );
     } catch (error) {
       this.handleError(error, `Failed to track event "${eventName}"`);
     }
@@ -88,15 +127,22 @@ class AnalyticsService {
     try {
       await this.init();
 
+      if (Platform.OS !== "web" || !this.analyticsInstance) {
+        return;
+      }
+
       const sanitizedParams = this.sanitizeParams(params);
       const baseParams = {
         screen_name: screenName,
         ...sanitizedParams,
       };
 
-      if (typeof FirebaseAnalytics.logEvent === "function") {
-        await FirebaseAnalytics.logEvent("screen_view", baseParams);
-      }
+      const { logEvent } = await import("firebase/analytics");
+      await logEvent(
+        this.analyticsInstance as any,
+        "screen_view" as any,
+        baseParams
+      );
     } catch (error) {
       this.handleError(error, `Failed to track screen "${screenName}"`);
     }
@@ -109,9 +155,12 @@ class AnalyticsService {
     try {
       await this.init();
 
-      if (typeof FirebaseAnalytics.setUserId === "function") {
-        await FirebaseAnalytics.setUserId(userId);
+      if (Platform.OS !== "web" || !this.analyticsInstance) {
+        return;
       }
+
+      const { setUserId } = await import("firebase/analytics");
+      await setUserId(this.analyticsInstance as any, userId ?? null);
     } catch (error) {
       this.handleError(error, "Failed to identify user");
     }
@@ -124,11 +173,14 @@ class AnalyticsService {
     try {
       await this.init();
 
+      if (Platform.OS !== "web" || !this.analyticsInstance) {
+        return;
+      }
+
       const sanitizedProps = this.sanitizeParams(props);
 
-      if (typeof FirebaseAnalytics.setUserProperties === "function") {
-        await FirebaseAnalytics.setUserProperties(sanitizedProps);
-      }
+      const { setUserProperties } = await import("firebase/analytics");
+      await setUserProperties(this.analyticsInstance as any, sanitizedProps);
     } catch (error) {
       this.handleError(error, "Failed to set user properties");
     }
@@ -141,9 +193,17 @@ class AnalyticsService {
     try {
       await this.init();
 
-      if (typeof (FirebaseAnalytics as any).setEnabled === "function") {
-        await (FirebaseAnalytics as any).setEnabled(enabled);
+      if (Platform.OS !== "web" || !this.analyticsInstance) {
+        return;
       }
+
+      const { setAnalyticsCollectionEnabled } = await import(
+        "firebase/analytics"
+      );
+      await setAnalyticsCollectionEnabled(
+        this.analyticsInstance as any,
+        enabled
+      );
     } catch (error) {
       this.handleError(error, "Failed to set analytics enabled state");
     }
