@@ -4,19 +4,17 @@ import React, {
     useEffect,
     useState,
 } from 'react';
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore - native-only module types
+import firestore from '@react-native-firebase/firestore';
 import {
-    onAuthStateChanged,
-    signInWithEmailAndPassword,
-    createUserWithEmailAndPassword,
-    signOut,
-    User as FirebaseUser,
-    sendPasswordResetEmail,
-} from 'firebase/auth';
-import {
-    doc,
-    getDoc,
-} from 'firebase/firestore';
-import { auth, db } from '@/services/firebase/firebase-config';
+    firebaseAuth,
+    signIn,
+    signUp,
+    signOutUser,
+    onUserChanged,
+    type RNFirebaseUser,
+} from '@/lib/firebase';
 import { setDocAtPath } from '@/lib/utils';
 
 export type AppUserRole = 'customer' | 'driver' | 'admin';
@@ -44,7 +42,14 @@ interface AuthContextProps {
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
 
-const mapProfile = (firebaseUser: FirebaseUser, data?: { email?: string; role?: AppUserRole | null, phone: string, location: string }): AppUser => {
+const mapProfile = (firebaseUser: RNFirebaseUser, data?: { email?: string; role?: AppUserRole | null, phone: string | null, location: string | null }): AppUser => {
+    if (!firebaseUser) {
+        return {
+            id: '',
+            email: '',
+            role: null,
+        };
+    }
     return {
         id: firebaseUser.uid,
         email: data?.email ?? firebaseUser.email ?? '',
@@ -54,15 +59,23 @@ const mapProfile = (firebaseUser: FirebaseUser, data?: { email?: string; role?: 
     };
 };
 
-const fetchUserProfile = async (firebaseUser: FirebaseUser): Promise<AppUser> => {
-    const ref = doc(db, 'profiles', firebaseUser.uid);
-    const snap = await getDoc(ref);
+const fetchUserProfile = async (firebaseUser: RNFirebaseUser): Promise<AppUser> => {
+    if (!firebaseUser) {
+        return {
+            id: '',
+            email: '',
+            role: null,
+        };
+    }
+
+    const ref = firestore().collection('profiles').doc(firebaseUser.uid);
+    const snap = await ref.get();
 
     if (!snap.exists()) {
         return mapProfile(firebaseUser);
     }
 
-    const data = snap.data() as { email?: string; role?: AppUserRole | null, phone: string, location: string };
+    const data = snap.data() as { email?: string; role?: AppUserRole | null, phone: string | null, location: string | null } | undefined;
     return mapProfile(firebaseUser, data);
 };
 
@@ -71,7 +84,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        const unsubscribe = onUserChanged(async (firebaseUser) => {
             if (firebaseUser) {
                 try {
                     const profile = await fetchUserProfile(firebaseUser);
@@ -94,7 +107,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, []);
 
     const login = async (email: string, password: string) => {
-        await signInWithEmailAndPassword(auth, email, password);
+        await signIn(email, password);
     };
 
     const signup = async (
@@ -102,7 +115,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         password: string,
         role: AppUserRole | null = 'customer'
     ) => {
-        const result = await createUserWithEmailAndPassword(auth, email, password);
+        const result = await signUp(email, password);
         const firebaseUser = result.user;
 
         await setDocAtPath(['profiles', firebaseUser.uid], {
@@ -117,11 +130,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const resetPassword = async (email: string) => {
-        await sendPasswordResetEmail(auth, email);
+        await firebaseAuth.sendPasswordResetEmail(email);
     };
 
     const logout = async () => {
-        await signOut(auth);
+        await signOutUser();
     };
 
     return (

@@ -1,12 +1,6 @@
-import {
-  collection,
-  doc,
-  getDocs,
-  orderBy,
-  query,
-  where,
-} from "firebase/firestore";
-import { db } from "@/services/firebase/firebase-config";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore - native-only module types
+import firestore from "@react-native-firebase/firestore";
 import type { TimeWindowId } from "@/lib/time-windows";
 import type {
   Booking,
@@ -40,7 +34,7 @@ export const createBooking = async ({
   type = "one_off",
   recurrence,
 }: CreateBookingParams): Promise<string> => {
-  const newDocRef = doc(collection(db, BOOKINGS_COLLECTION));
+  const newDocRef = firestore().collection(BOOKINGS_COLLECTION).doc();
   const bookingId = newDocRef.id;
 
   await setDocAtPath(
@@ -67,14 +61,12 @@ export const createBooking = async ({
 };
 
 export const getUserBookings = async (userId: string): Promise<Booking[]> => {
-  const bookingsQuery = query(
-    collection(db, BOOKINGS_COLLECTION),
-    where("userId", "==", userId),
-    orderBy("date", "asc"),
-    orderBy("windowId", "asc")
-  );
-
-  const snapshot = await getDocs(bookingsQuery);
+  const snapshot = await firestore()
+    .collection(BOOKINGS_COLLECTION)
+    .where("userId", "==", userId)
+    .orderBy("date", "asc")
+    .orderBy("windowId", "asc")
+    .get();
 
   return snapshot.docs.map((docSnap) => {
     const data = docSnap.data() as Partial<Omit<Booking, "id">>;
