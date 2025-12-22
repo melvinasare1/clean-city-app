@@ -7,8 +7,7 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "node": "20.11.1",
-      "npm": "10.2.4"
+      "node": "20.11.1"
     },
     "preview": {
       "distribution": "internal",
