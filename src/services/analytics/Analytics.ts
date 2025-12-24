@@ -2,8 +2,8 @@
  * AnalyticsService
  *
  * Cross-platform analytics wrapper:
- * - Web: Firebase Web SDK (`firebase/analytics`)
  * - iOS/Android: React Native Firebase (`@react-native-firebase/analytics`)
+ * - Web: currently no-ops (analytics is native-only in this setup)
  *
  * NOTE:
  * - Native analytics requires a custom dev/EAS build (NOT Expo Go).
@@ -16,7 +16,6 @@
 import { useCallback } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 import { Platform } from "react-native";
-import firebaseApp from "@/services/firebase/firebase-config";
 
 export type AnalyticsParamValue = string | number | boolean | null | undefined;
 
@@ -43,8 +42,6 @@ const isDev =
 class AnalyticsService {
   private initialized = false;
   private initializing: Promise<void> | null = null;
-  // Firebase Analytics instance (web)
-  private webAnalytics: unknown | null = null;
   // React Native Firebase analytics instance (native)
   private nativeAnalytics: any | null = null;
 
@@ -63,29 +60,11 @@ class AnalyticsService {
     this.initializing = (async () => {
       try {
         if (Platform.OS === "web") {
-          const analyticsModule = await import("firebase/analytics");
-
-          // Some environments may not support analytics (e.g. missing window)
-          let supported = true;
-          if (typeof analyticsModule.isSupported === "function") {
-            try {
-              supported = await analyticsModule.isSupported();
-            } catch {
-              supported = false;
-            }
+          if (isDev) {
+            console.warn(
+              "[Analytics] Analytics is currently native-only; web will no-op."
+            );
           }
-
-          if (!supported) {
-            if (isDev) {
-              console.warn(
-                "[Analytics] Firebase Analytics is not supported in this environment."
-              );
-            }
-            this.initialized = true;
-            return;
-          }
-
-          this.webAnalytics = analyticsModule.getAnalytics(firebaseApp);
           this.initialized = true;
           return;
         }
@@ -132,18 +111,7 @@ class AnalyticsService {
       await this.init();
       const safeEventName = this.normalizeEventName(eventName);
 
-      if (Platform.OS === "web" && this.webAnalytics) {
-        const { logEvent } = await import("firebase/analytics");
-        const sanitizedParams = this.sanitizeParamsForWeb(params);
-        await logEvent(
-          this.webAnalytics as any,
-          safeEventName,
-          sanitizedParams
-        );
-        return;
-      }
-
-      if (this.nativeAnalytics) {
+      if (Platform.OS !== "web" && this.nativeAnalytics) {
         const sanitizedParams = this.sanitizeParamsForNative(params);
         await this.nativeAnalytics.logEvent(safeEventName, sanitizedParams);
         return;
@@ -164,22 +132,7 @@ class AnalyticsService {
       await this.init();
       const normalizedName = screenName;
 
-      if (Platform.OS === "web" && this.webAnalytics) {
-        const { logEvent } = await import("firebase/analytics");
-        const sanitizedParams = this.sanitizeParamsForWeb(params);
-        const baseParams = {
-          screen_name: normalizedName,
-          ...sanitizedParams,
-        };
-        await logEvent(
-          this.webAnalytics as any,
-          "screen_view" as any,
-          baseParams
-        );
-        return;
-      }
-
-      if (this.nativeAnalytics) {
+      if (Platform.OS !== "web" && this.nativeAnalytics) {
         await this.nativeAnalytics.logScreenView({
           screen_name: normalizedName,
           screen_class: normalizedName,
@@ -199,13 +152,7 @@ class AnalyticsService {
       await this.init();
       const id = userId ?? null;
 
-      if (Platform.OS === "web" && this.webAnalytics) {
-        const { setUserId } = await import("firebase/analytics");
-        await setUserId(this.webAnalytics as any, id);
-        return;
-      }
-
-      if (this.nativeAnalytics) {
+      if (Platform.OS !== "web" && this.nativeAnalytics) {
         await this.nativeAnalytics.setUserId(id);
         return;
       }
@@ -222,16 +169,7 @@ class AnalyticsService {
       await this.init();
       const sanitizedPropsForUsers = this.sanitizeUserProperties(props);
 
-      if (Platform.OS === "web" && this.webAnalytics) {
-        const { setUserProperties } = await import("firebase/analytics");
-        await setUserProperties(
-          this.webAnalytics as any,
-          sanitizedPropsForUsers
-        );
-        return;
-      }
-
-      if (this.nativeAnalytics) {
+      if (Platform.OS !== "web" && this.nativeAnalytics) {
         await this.nativeAnalytics.setUserProperties(sanitizedPropsForUsers);
         return;
       }
@@ -246,15 +184,7 @@ class AnalyticsService {
   public async setEnabled(enabled: boolean): Promise<void> {
     try {
       await this.init();
-      if (Platform.OS === "web" && this.webAnalytics) {
-        const { setAnalyticsCollectionEnabled } = await import(
-          "firebase/analytics"
-        );
-        await setAnalyticsCollectionEnabled(this.webAnalytics as any, enabled);
-        return;
-      }
-
-      if (this.nativeAnalytics) {
+      if (Platform.OS !== "web" && this.nativeAnalytics) {
         await this.nativeAnalytics.setAnalyticsCollectionEnabled(enabled);
         return;
       }
@@ -304,28 +234,6 @@ class AnalyticsService {
     }
 
     return filtered;
-  }
-
-  /**
-   * Web sanitization: stringifies everything (GA4 limitation for params).
-   */
-  private sanitizeParamsForWeb(
-    params?: AnalyticsParams
-  ): Record<string, string> {
-    const filtered = this.filterAndReportParams(params);
-    const sanitized: Record<string, string> = {};
-
-    for (const [key, value] of Object.entries(filtered)) {
-      if (value === null) {
-        sanitized[key] = "null";
-      } else if (typeof value === "string") {
-        sanitized[key] = value;
-      } else {
-        sanitized[key] = String(value);
-      }
-    }
-
-    return sanitized;
   }
 
   /**
