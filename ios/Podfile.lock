@@ -1,4 +1,6 @@
 PODS:
+  - aptabase-react-native (0.4.0):
+    - React
   - EASClient (1.0.8):
     - ExpoModulesCore
   - EXApplication (7.0.8):
@@ -2283,6 +2285,7 @@ PODS:
   - Yoga (0.0.0)
 
 DEPENDENCIES:
+  - "aptabase-react-native (from `../node_modules/@aptabase/react-native`)"
   - EASClient (from `../node_modules/expo-eas-client/ios`)
   - EXApplication (from `../node_modules/expo-application/ios`)
   - EXConstants (from `../node_modules/expo-constants/ios`)
@@ -2387,6 +2390,8 @@ SPEC REPOS:
     - ReachabilitySwift
 
 EXTERNAL SOURCES:
+  aptabase-react-native:
+    :path: "../node_modules/@aptabase/react-native"
   EASClient:
     :path: "../node_modules/expo-eas-client/ios"
   EXApplication:
@@ -2584,6 +2589,7 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon/yoga"
 
 SPEC CHECKSUMS:
+  aptabase-react-native: e8f64770d82b8593356c09b956707d449e5a0a9a
   EASClient: 40dd9e740684782610c49becab2643782ea1a20c
   EXApplication: 1e98d4b1dccdf30627f92917f4b2c5a53c330e5f
   EXConstants: 805f35b1b295c542ca6acce836f21a1f9ee104d5
