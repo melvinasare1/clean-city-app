@@ -3,19 +3,50 @@
 //
 // NOTE:
 // - Works with Expo (including Expo Go) - no native modules required.
-// - Auth persistence is handled automatically by Firebase Web SDK.
+// - Auth persistence uses AsyncStorage on React Native, default on web.
 
+import { Platform } from "react-native";
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
 import {
   getAuth,
+  initializeAuth,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
   type Auth,
+  type Persistence,
 } from "firebase/auth";
 import { getFirestore, type Firestore } from "firebase/firestore";
 import { getStorage, type FirebaseStorage } from "firebase/storage";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+// Create a custom persistence adapter for React Native using AsyncStorage
+// This implements the Firebase Persistence interface
+const createReactNativePersistence = (asyncStorage: typeof AsyncStorage): Persistence => {
+  return {
+    type: "LOCAL" as const,
+    _isAvailable: async () => {
+      try {
+        await asyncStorage.setItem("__test__", "test");
+        await asyncStorage.removeItem("__test__");
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    _set: async (key: string, value: string) => {
+      await asyncStorage.setItem(key, value);
+    },
+    _get: async (key: string) => {
+      const value = await asyncStorage.getItem(key);
+      return value;
+    },
+    _remove: async (key: string) => {
+      await asyncStorage.removeItem(key);
+    },
+  } as Persistence;
+};
 
 // Firebase configuration
 // Note: These are client-side credentials and are safe to include in the app bundle.
@@ -39,9 +70,27 @@ if (getApps().length === 0) {
   firebaseApp = getApps()[0];
 }
 
-// Initialize Auth
-// Note: Firebase Web SDK handles persistence automatically on both web and React Native
-const auth: Auth = getAuth(firebaseApp);
+// Initialize Auth with AsyncStorage persistence on React Native
+let auth: Auth;
+if (Platform.OS === "web") {
+  // Web: use default persistence
+  auth = getAuth(firebaseApp);
+} else {
+  // React Native: use AsyncStorage for persistence
+  try {
+    // Try to initialize with AsyncStorage persistence
+    auth = initializeAuth(firebaseApp, {
+      persistence: createReactNativePersistence(AsyncStorage),
+    });
+  } catch (error: any) {
+    // If already initialized, get the existing instance
+    if (error.code === "auth/already-initialized") {
+      auth = getAuth(firebaseApp);
+    } else {
+      throw error;
+    }
+  }
+}
 
 // Initialize Firestore
 const db: Firestore = getFirestore(firebaseApp);
