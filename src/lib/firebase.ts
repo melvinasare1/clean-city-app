@@ -3,21 +3,11 @@
 //
 // NOTE:
 // - Works with Expo (including Expo Go) - no native modules required.
-// - Auth persistence uses AsyncStorage on native, default on web.
-// - Requires environment variables:
-//   - EXPO_PUBLIC_FIREBASE_API_KEY
-//   - EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN
-//   - EXPO_PUBLIC_FIREBASE_PROJECT_ID
-//   - EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET
-//   - EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
-//   - EXPO_PUBLIC_FIREBASE_APP_ID
+// - Auth persistence is handled automatically by Firebase Web SDK.
 
-import { Platform } from "react-native";
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
 import {
   getAuth,
-  initializeAuth,
-  getReactNativePersistence,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
@@ -26,28 +16,20 @@ import {
 } from "firebase/auth";
 import { getFirestore, type Firestore } from "firebase/firestore";
 import { getStorage, type FirebaseStorage } from "firebase/storage";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// Firebase configuration from environment variables
+// Firebase configuration
+// Note: These are client-side credentials and are safe to include in the app bundle.
+// For production, consider using environment variables for easier management across environments.
 const firebaseConfig = {
-  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
+  apiKey: "AIzaSyA4ACR0egzLljVyn-hJJOKVmejz2hnhMio",
+  authDomain: "clean-city-app-f9d73.firebaseapp.com",
+  databaseURL: "https://clean-city-app-f9d73-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "clean-city-app-f9d73",
+  storageBucket: "clean-city-app-f9d73.firebasestorage.app",
+  messagingSenderId: "430221189966",
+  appId: "1:430221189966:web:72e3149c238f4f6557b41f",
+  measurementId: "G-YETSFL2EMK", // Analytics (not used, but included for completeness)
 };
-
-// Validate required config
-if (
-  !firebaseConfig.apiKey ||
-  !firebaseConfig.authDomain ||
-  !firebaseConfig.projectId
-) {
-  throw new Error(
-    "Missing required Firebase config. Please set EXPO_PUBLIC_FIREBASE_* environment variables."
-  );
-}
 
 // Initialize Firebase app (singleton)
 let firebaseApp: FirebaseApp;
@@ -57,25 +39,9 @@ if (getApps().length === 0) {
   firebaseApp = getApps()[0];
 }
 
-// Initialize Auth with AsyncStorage persistence on native
-let auth: Auth;
-if (Platform.OS === "web") {
-  auth = getAuth(firebaseApp);
-} else {
-  // Use initializeAuth for native to set persistence
-  try {
-    auth = initializeAuth(firebaseApp, {
-      persistence: getReactNativePersistence(AsyncStorage),
-    });
-  } catch (error: any) {
-    // If already initialized, get the existing instance
-    if (error.code === "auth/already-initialized") {
-      auth = getAuth(firebaseApp);
-    } else {
-      throw error;
-    }
-  }
-}
+// Initialize Auth
+// Note: Firebase Web SDK handles persistence automatically on both web and React Native
+const auth: Auth = getAuth(firebaseApp);
 
 // Initialize Firestore
 const db: Firestore = getFirestore(firebaseApp);

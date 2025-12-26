@@ -40,7 +40,7 @@ export const createBooking = async ({
   totalPrice,
   type = "one_off",
   recurrence,
-}: CreateBookingParams): Promise<string> {
+}: CreateBookingParams): Promise<string> => {
   const bookingsRef = collection(db, BOOKINGS_COLLECTION);
   const newDocRef = doc(bookingsRef);
   const bookingId = newDocRef.id;
