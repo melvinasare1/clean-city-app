@@ -1,10 +1,16 @@
 /**
  * AnalyticsService
  *
- * No-op analytics wrapper (Firebase Analytics removed).
- * All analytics calls are logged to console for debugging.
+ * Aptabase analytics wrapper for CleanCityApp.
+ * Uses @aptabase/react-native for event tracking.
+ *
+ * NOTE:
+ * - Only strings and numbers are allowed in custom properties (Aptabase requirement)
+ * - Events are sent asynchronously in the background
+ * - The SDK automatically enhances events with OS, app version, etc.
  */
 
+import { trackEvent as aptabaseTrackEvent } from "@aptabase/react-native";
 import { useCallback } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 
@@ -16,61 +22,143 @@ const isDev =
   (typeof __DEV__ !== "undefined" && __DEV__) ||
   process.env.NODE_ENV !== "production";
 
+/**
+ * Filter and sanitize parameters to only include strings and numbers
+ * (Aptabase requirement: only strings and numbers allowed)
+ */
+function sanitizeParams(
+  params?: AnalyticsParams
+): Record<string, string | number> | undefined {
+  if (!params) {
+    return undefined;
+  }
+
+  const sanitized: Record<string, string | number> = {};
+
+  for (const [key, value] of Object.entries(params)) {
+    if (value === null || value === undefined) {
+      continue; // Skip null/undefined values
+    }
+
+    if (typeof value === "string" || typeof value === "number") {
+      sanitized[key] = value;
+    } else if (typeof value === "boolean") {
+      // Convert boolean to number (0 or 1)
+      sanitized[key] = value ? 1 : 0;
+    }
+    // Arrays and objects are skipped (Aptabase doesn't support them)
+  }
+
+  return Object.keys(sanitized).length > 0 ? sanitized : undefined;
+}
+
 class AnalyticsService {
+  private initialized = false;
+
   /**
-   * Idempotent initialization (no-op).
+   * Idempotent initialization.
    */
   public async init(): Promise<void> {
-    // No-op: analytics removed
+    if (this.initialized) {
+      return;
+    }
+    // Aptabase is initialized in App.tsx, so we just mark as initialized
+    this.initialized = true;
     return Promise.resolve();
   }
 
   /**
-   * Track a custom event (no-op, logs to console).
+   * Track a custom event.
    */
   public async track(
     eventName: string,
     params?: AnalyticsParams
   ): Promise<void> {
-    console.log("[Analytics] trackEvent:", eventName, params || {});
-    return Promise.resolve();
+    try {
+      await this.init();
+      const sanitizedParams = sanitizeParams(params);
+      aptabaseTrackEvent(eventName, sanitizedParams);
+      // trackEvent runs in the background, no need to await
+    } catch (error) {
+      if (isDev) {
+        console.warn("[Analytics] Error tracking event:", eventName, error);
+      }
+      // Silently fail in production
+    }
   }
 
   /**
-   * Track a screen view (no-op, logs to console).
+   * Track a screen view using a screen_view event.
    */
   public async screen(
     screenName: string,
     params?: AnalyticsParams
   ): Promise<void> {
-    console.log("[Analytics] screen:", screenName, params || {});
-    return Promise.resolve();
+    try {
+      await this.init();
+      const screenParams = {
+        screen_name: screenName,
+        screen_class: screenName,
+        ...sanitizeParams(params),
+      };
+      aptabaseTrackEvent("screen_view", screenParams);
+    } catch (error) {
+      if (isDev) {
+        console.warn("[Analytics] Error tracking screen:", screenName, error);
+      }
+    }
   }
 
   /**
-   * Set or clear the current user ID (no-op, logs to console).
+   * Set or clear the current user ID.
+   * Note: Aptabase doesn't have a direct identify method, so we track it as an event.
    */
   public async identify(userId: string | null): Promise<void> {
-    console.log("[Analytics] identifyUser:", userId);
-    return Promise.resolve();
+    try {
+      await this.init();
+      if (userId) {
+        aptabaseTrackEvent("user_identified", { userId });
+      } else {
+        aptabaseTrackEvent("user_logged_out");
+      }
+    } catch (error) {
+      if (isDev) {
+        console.warn("[Analytics] Error identifying user:", error);
+      }
+    }
   }
 
   /**
-   * Set user properties (no-op, logs to console).
+   * Set user properties.
+   * Note: Aptabase doesn't have a direct setUserProperties method,
+   * so we track it as an event with user properties.
    */
   public async setUserProperties(props: AnalyticsParams): Promise<void> {
-    console.log("[Analytics] setUserProperties:", props);
-    return Promise.resolve();
+    try {
+      await this.init();
+      const sanitizedProps = sanitizeParams(props);
+      if (sanitizedProps && Object.keys(sanitizedProps).length > 0) {
+        aptabaseTrackEvent("user_properties_updated", sanitizedProps);
+      }
+    } catch (error) {
+      if (isDev) {
+        console.warn("[Analytics] Error setting user properties:", error);
+      }
+    }
   }
 
   /**
-   * Enable or disable analytics collection (no-op, logs to console).
+   * Enable or disable analytics collection.
+   * Note: Aptabase doesn't have a direct enable/disable method.
+   * This is a no-op for now, but you could implement a flag to skip tracking.
    */
   public async setEnabled(enabled: boolean): Promise<void> {
-    console.log("[Analytics] setEnabled:", enabled);
-    return Promise.resolve();
+    // No-op: Aptabase doesn't have a built-in enable/disable method
+    // You could implement a flag here to conditionally skip tracking if needed
+    if (isDev && !enabled) {
+      console.log("[Analytics] Analytics collection disabled (no-op)");
+    }
   }
-
 }
 
 export const Analytics = new AnalyticsService();
