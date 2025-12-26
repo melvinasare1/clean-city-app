@@ -5,10 +5,7 @@ require 'json'
 podfile_properties = JSON.parse(File.read(File.join(__dir__, 'Podfile.properties.json'))) rescue {}
 
 def ccache_enabled?(podfile_properties)
-  # Environment variable takes precedence
   return ENV['USE_CCACHE'] == '1' if ENV['USE_CCACHE']
-  
-  # Fall back to Podfile properties
   podfile_properties['apple.ccacheEnabled'] == 'true'
 end
 
@@ -38,13 +35,12 @@ target 'CleanCityApp' do
 
   config = use_native_modules!(config_command)
 
-  use_frameworks! :linkage => podfile_properties['ios.useFrameworks'].to_sym if podfile_properties['ios.useFrameworks']
-  use_frameworks! :linkage => ENV['USE_FRAMEWORKS'].to_sym if ENV['USE_FRAMEWORKS']
+  # 1. Use Static Frameworks: Fixes the Swift/FirebaseAuth "cannot be integrated" error
+  use_frameworks! :linkage => :static
 
   use_react_native!(
     :path => config[:reactNativePath],
     :hermes_enabled => podfile_properties['expo.jsEngine'] == nil || podfile_properties['expo.jsEngine'] == 'hermes',
-    # An absolute path to your application root.
     :app_path => "#{Pod::Config.instance.installation_root}/..",
     :privacy_file_aggregation_enabled => podfile_properties['apple.privacyManifestAggregationEnabled'] != 'false',
   )
@@ -56,5 +52,26 @@ target 'CleanCityApp' do
       :mac_catalyst_enabled => false,
       :ccache_enabled => ccache_enabled?(podfile_properties),
     )
+
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |c|
+        # 2. Fixes gRPC / BoringSSL module map errors
+        c.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+        c.build_settings['CLANG_WARN_NON_MODULAR_INCLUDE_IN_FRAMEWORK_MODULE'] = 'NO'
+        c.build_settings['DEFINES_MODULE'] = 'YES'
+        
+        # 3. Suppress secondary warnings
+        c.build_settings['GCC_TREAT_WARNINGS_AS_ERRORS'] = 'NO'
+        c.build_settings['SWIFT_TREAT_WARNINGS_AS_ERRORS'] = 'NO'
+
+        # 4. Fixes the "RCT_EXPORT_MODULE" error (Missing React Headers)
+        # This forces the React-Core path into any React Native Firebase module
+        if target.name.start_with?('RNFB')
+          c.build_settings['HEADER_SEARCH_PATHS'] ||= '$(inherited)'
+          c.build_settings['HEADER_SEARCH_PATHS'] += ' "$(PODS_ROOT)/Headers/Public/React-Core"'
+          c.build_settings['HEADER_SEARCH_PATHS'] += ' "$(PODS_XCFRAMEWORKS_BUILD_DIR)/React-Core/React.framework/Headers"'
+        end
+      end
+    end
   end
 end
