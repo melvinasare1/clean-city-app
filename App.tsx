@@ -3,7 +3,7 @@ import 'react-native-get-random-values';
 import 'react-native-url-polyfill/auto';
 import 'react-native-gesture-handler';
 import React, { useEffect } from 'react';
-import Aptabase, { trackEvent } from '@aptabase/react-native';
+import Aptabase from '@aptabase/react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { RootNavigator } from './src/navigation/root-navigation';
@@ -12,6 +12,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import '@/services/notifications/notificationHandler';
 import { useNotificationListeners } from '@/services/notifications';
+import { trackEvent } from '@/services/analytics';
 
 // Initialize Aptabase analytics
 Aptabase.init('A-EU-6592512622');
