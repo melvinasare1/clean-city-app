@@ -1,6 +1,4 @@
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore - native-only module types
-import type { FirebaseFirestoreTypes } from "@react-native-firebase/firestore";
+import type { Timestamp } from "firebase/firestore";
 import type { TimeWindowId } from "@/lib/time-windows";
 
 export type BookingStatus = "pending" | "completed" | "cancelled";
@@ -33,7 +31,7 @@ export type Booking = {
   items: BookingBinItem[];
   totalPrice: number;
   status: BookingStatus;
-  createdAt: FirebaseFirestoreTypes.Timestamp | null;
+  createdAt: Timestamp | null;
   /**
    * Whether this is a one-off pickup or a recurring subscription.
    * Existing bookings without this field are treated as "one_off".

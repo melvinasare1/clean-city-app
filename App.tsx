@@ -1,4 +1,6 @@
-
+// Polyfills for Firebase Web SDK on React Native
+import 'react-native-get-random-values';
+import 'react-native-url-polyfill/auto';
 import 'react-native-gesture-handler';
 import { NavigationContainer } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';

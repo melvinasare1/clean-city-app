@@ -1,7 +1,11 @@
-// src/lib/fsSet.ts
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore - native-only module types
-import firestore from "@react-native-firebase/firestore";
+// src/lib/utils.ts
+import {
+  doc,
+  setDoc,
+  serverTimestamp,
+  type Firestore,
+} from "firebase/firestore";
+import { db } from "./firebase";
 
 export const PROFILES_COLLECTION = "profiles";
 
@@ -23,7 +27,7 @@ export async function setDocAtPath<T extends Record<string, any>>(
   options?: { merge?: boolean; addTimestamps?: boolean }
 ) {
   const { merge = true, addTimestamps = true } = options ?? {};
-  const ref = firestore().doc(path.join("/"));
+  const docRef = doc(db, ...path);
 
   // Remove undefined fields before writing to Firestore
   const cleanedData = removeUndefinedFields(data);
@@ -31,16 +35,16 @@ export async function setDocAtPath<T extends Record<string, any>>(
   const payload = addTimestamps
     ? {
         createdAt:
-          (data as any).createdAt ?? firestore.FieldValue.serverTimestamp(),
-        updatedAt: firestore.FieldValue.serverTimestamp(),
+          (data as any).createdAt ?? serverTimestamp(),
+        updatedAt: serverTimestamp(),
         ...cleanedData,
       }
     : cleanedData;
 
   if (merge) {
-    await ref.set(payload, { merge: true });
+    await setDoc(docRef, payload, { merge: true });
   } else {
-    await ref.set(payload);
+    await setDoc(docRef, payload);
   }
-  return ref;
+  return docRef;
 }

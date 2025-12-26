@@ -1,6 +1,13 @@
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore - native-only module types
-import firestore from "@react-native-firebase/firestore";
+import {
+  collection,
+  doc,
+  getDocs,
+  query,
+  where,
+  orderBy,
+  type Firestore,
+} from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import type { TimeWindowId } from "@/lib/time-windows";
 import type {
   Booking,
@@ -8,7 +15,7 @@ import type {
   BookingRecurrence,
   BookingType,
 } from "@/types/booking";
-import { BOOKINGS_COLLECTION } from "@/lib/constants"; // whatever you use
+import { BOOKINGS_COLLECTION } from "@/lib/constants";
 import { setDocAtPath } from "@/lib/utils";
 
 type CreateBookingParams = {
@@ -33,8 +40,9 @@ export const createBooking = async ({
   totalPrice,
   type = "one_off",
   recurrence,
-}: CreateBookingParams): Promise<string> => {
-  const newDocRef = firestore().collection(BOOKINGS_COLLECTION).doc();
+}: CreateBookingParams): Promise<string> {
+  const bookingsRef = collection(db, BOOKINGS_COLLECTION);
+  const newDocRef = doc(bookingsRef);
   const bookingId = newDocRef.id;
 
   await setDocAtPath(
@@ -61,12 +69,14 @@ export const createBooking = async ({
 };
 
 export const getUserBookings = async (userId: string): Promise<Booking[]> => {
-  const snapshot = await firestore()
-    .collection(BOOKINGS_COLLECTION)
-    .where("userId", "==", userId)
-    .orderBy("date", "asc")
-    .orderBy("windowId", "asc")
-    .get();
+  const bookingsRef = collection(db, BOOKINGS_COLLECTION);
+  const q = query(
+    bookingsRef,
+    where("userId", "==", userId),
+    orderBy("date", "asc"),
+    orderBy("windowId", "asc")
+  );
+  const snapshot = await getDocs(q);
 
   return snapshot.docs.map((docSnap) => {
     const data = docSnap.data() as Partial<Omit<Booking, "id">>;
