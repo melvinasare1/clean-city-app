@@ -1,6 +1,6 @@
 // Centralized React Native Firebase setup for CleanCityApp.
 // Uses @react-native-firebase/app, @react-native-firebase/auth,
-// @react-native-firebase/analytics and @react-native-firebase/firestore.
+// and @react-native-firebase/firestore.
 //
 // NOTE:
 // - Requires an Expo dev client / EAS build (does NOT work in Expo Go).
@@ -12,17 +12,11 @@
 import auth, { FirebaseAuthTypes } from "@react-native-firebase/auth";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-import analytics, {
-  FirebaseAnalyticsTypes,
-} from "@react-native-firebase/analytics";
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore
 import firestore, {
   FirebaseFirestoreTypes,
 } from "@react-native-firebase/firestore";
 
 export const firebaseAuth = auth();
-export const firebaseAnalytics = analytics();
 export const firebaseDb = firestore();
 
 export type RNFirebaseUser = FirebaseAuthTypes.User | null;
@@ -40,19 +34,5 @@ export const signOutUser = () => firebaseAuth.signOut();
 export const onUserChanged = (
   cb: (user: RNFirebaseUser) => void
 ): RNFirebaseUnsubscribe => firebaseAuth.onAuthStateChanged(cb);
-
-export const trackScreen = async (screenName: string) => {
-  await firebaseAnalytics.logScreenView({
-    screen_name: screenName,
-    screen_class: screenName,
-  });
-};
-
-export const trackEvent = async (
-  name: string,
-  params?: Record<string, any>
-) => {
-  await firebaseAnalytics.logEvent(name as any, params);
-};
 
 
