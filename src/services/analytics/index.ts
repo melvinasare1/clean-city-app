@@ -1,6 +1,7 @@
 export {
   Analytics,
   trackEvent,
+  identifyUser,
   trackScreenOnFocus,
   useTrackScreenOnFocus,
 } from "./Analytics";

@@ -4,17 +4,20 @@ import React, {
     useEffect,
     useState,
 } from 'react';
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore - native-only module types
-import firestore from '@react-native-firebase/firestore';
 import {
-    firebaseAuth,
-    signIn,
-    signUp,
-    signOutUser,
-    onUserChanged,
-    type RNFirebaseUser,
-} from '@/lib/firebase';
+    doc,
+    getDoc,
+    type User,
+} from 'firebase/firestore';
+import {
+    signInWithEmailAndPassword,
+    createUserWithEmailAndPassword,
+    signOut,
+    onAuthStateChanged,
+    sendPasswordResetEmail,
+    type User as FirebaseUser,
+} from 'firebase/auth';
+import { auth, db } from '@/lib/firebase';
 import { setDocAtPath } from '@/lib/utils';
 
 export type AppUserRole = 'customer' | 'driver' | 'admin';
@@ -42,7 +45,7 @@ interface AuthContextProps {
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
 
-const mapProfile = (firebaseUser: RNFirebaseUser, data?: { email?: string; role?: AppUserRole | null, phone: string | null, location: string | null }): AppUser => {
+const mapProfile = (firebaseUser: FirebaseUser | null, data?: { email?: string; role?: AppUserRole | null, phone: string | null, location: string | null }): AppUser => {
     if (!firebaseUser) {
         return {
             id: '',
@@ -59,7 +62,7 @@ const mapProfile = (firebaseUser: RNFirebaseUser, data?: { email?: string; role?
     };
 };
 
-const fetchUserProfile = async (firebaseUser: RNFirebaseUser): Promise<AppUser> => {
+const fetchUserProfile = async (firebaseUser: FirebaseUser | null): Promise<AppUser> => {
     if (!firebaseUser) {
         return {
             id: '',
@@ -68,8 +71,8 @@ const fetchUserProfile = async (firebaseUser: RNFirebaseUser): Promise<AppUser> 
         };
     }
 
-    const ref = firestore().collection('profiles').doc(firebaseUser.uid);
-    const snap = await ref.get();
+    const docRef = doc(db, 'profiles', firebaseUser.uid);
+    const snap = await getDoc(docRef);
 
     if (!snap.exists()) {
         return mapProfile(firebaseUser);
@@ -84,7 +87,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const unsubscribe = onUserChanged(async (firebaseUser) => {
+        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
             if (firebaseUser) {
                 try {
                     const profile = await fetchUserProfile(firebaseUser);
@@ -107,7 +110,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, []);
 
     const login = async (email: string, password: string) => {
-        await signIn(email, password);
+        await signInWithEmailAndPassword(auth, email, password);
     };
 
     const signup = async (
@@ -115,7 +118,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         password: string,
         role: AppUserRole | null = 'customer'
     ) => {
-        const result = await signUp(email, password);
+        const result = await createUserWithEmailAndPassword(auth, email, password);
         const firebaseUser = result.user;
 
         await setDocAtPath(['profiles', firebaseUser.uid], {
@@ -130,11 +133,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const resetPassword = async (email: string) => {
-        await firebaseAuth.sendPasswordResetEmail(email);
+        await sendPasswordResetEmail(auth, email);
     };
 
     const logout = async () => {
-        await signOutUser();
+        await signOut(auth);
     };
 
     return (

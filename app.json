@@ -17,7 +17,6 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.cleancity.app",
-      "googleServicesFile": "./firebase/GoogleService-Info.plist",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -27,8 +26,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.cleancity.app",
-      "googleServicesFile": "./firebase/google-services.json"
+      "package": "com.cleancity.app"
     },
     "web": {
       "favicon": "./assets/favicon.png"
