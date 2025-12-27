@@ -8,27 +8,25 @@
 
 /* Begin PBXBuildFile section */
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
-		1ED2970E0E36BAE13AE91A3C /* libPods-CleanCityApp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 8E4723F05CF2F7B7F38508A8 /* libPods-CleanCityApp.a */; };
+		1E8D411C45A721E07F9EC509 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EFC78BE8C6BA552B7E8D616 /* ExpoModulesProvider.swift */; };
+		31B7BCC9F631E63E73FFD68A /* libPods-CleanCityApp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = B813CCD7ACDE9DA212955D0D /* libPods-CleanCityApp.a */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
-		B5FCC9E707C4470FA08DB556 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 611F228367894F54805AD6FF /* GoogleService-Info.plist */; };
+		87FD6B0440896841DEB72920 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 6F1B0B6BB10C9F7A2C53C58B /* PrivacyInfo.xcprivacy */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
-		BFD6F6D31B47FFC246D61885 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 065718F56BCCDCDAE4DCA3FA /* PrivacyInfo.xcprivacy */; };
-		C83D76A4A866D3497C2D65C9 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 602FA6F44E8049B6A5F7A6EA /* ExpoModulesProvider.swift */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		065718F56BCCDCDAE4DCA3FA /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = CleanCityApp/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* CleanCityApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CleanCityApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = CleanCityApp/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = CleanCityApp/Info.plist; sourceTree = "<group>"; };
-		602FA6F44E8049B6A5F7A6EA /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-CleanCityApp/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
-		611F228367894F54805AD6FF /* GoogleService-Info.plist */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = text.plist.xml; name = "GoogleService-Info.plist"; path = "CleanCityApp/GoogleService-Info.plist"; sourceTree = "<group>"; };
-		8E4723F05CF2F7B7F38508A8 /* libPods-CleanCityApp.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-CleanCityApp.a"; sourceTree = BUILT_PRODUCTS_DIR; };
-		8FD14481BFE56318C0BB06A8 /* Pods-CleanCityApp.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CleanCityApp.debug.xcconfig"; path = "Target Support Files/Pods-CleanCityApp/Pods-CleanCityApp.debug.xcconfig"; sourceTree = "<group>"; };
+		6EFC78BE8C6BA552B7E8D616 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-CleanCityApp/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		6F1B0B6BB10C9F7A2C53C58B /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = CleanCityApp/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		74038CE5C4F72CBF9BD7EAD5 /* Pods-CleanCityApp.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CleanCityApp.release.xcconfig"; path = "Target Support Files/Pods-CleanCityApp/Pods-CleanCityApp.release.xcconfig"; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = CleanCityApp/SplashScreen.storyboard; sourceTree = "<group>"; };
+		B813CCD7ACDE9DA212955D0D /* libPods-CleanCityApp.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-CleanCityApp.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
-		DE3F2A623F6095EE1581BFC0 /* Pods-CleanCityApp.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CleanCityApp.release.xcconfig"; path = "Target Support Files/Pods-CleanCityApp/Pods-CleanCityApp.release.xcconfig"; sourceTree = "<group>"; };
+		E8C57004FB8CC18667E7CB96 /* Pods-CleanCityApp.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CleanCityApp.debug.xcconfig"; path = "Target Support Files/Pods-CleanCityApp/Pods-CleanCityApp.debug.xcconfig"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = CleanCityApp/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* CleanCityApp-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "CleanCityApp-Bridging-Header.h"; path = "CleanCityApp/CleanCityApp-Bridging-Header.h"; sourceTree = "<group>"; };
@@ -39,7 +37,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1ED2970E0E36BAE13AE91A3C /* libPods-CleanCityApp.a in Frameworks */,
+				31B7BCC9F631E63E73FFD68A /* libPods-CleanCityApp.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -55,8 +53,7 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				611F228367894F54805AD6FF /* GoogleService-Info.plist */,
-				065718F56BCCDCDAE4DCA3FA /* PrivacyInfo.xcprivacy */,
+				6F1B0B6BB10C9F7A2C53C58B /* PrivacyInfo.xcprivacy */,
 			);
 			name = CleanCityApp;
 			sourceTree = "<group>";
@@ -65,27 +62,9 @@
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				8E4723F05CF2F7B7F38508A8 /* libPods-CleanCityApp.a */,
+				B813CCD7ACDE9DA212955D0D /* libPods-CleanCityApp.a */,
 			);
 			name = Frameworks;
-			sourceTree = "<group>";
-		};
-		465C6A81526056296C152BAA /* CleanCityApp */ = {
-			isa = PBXGroup;
-			children = (
-				602FA6F44E8049B6A5F7A6EA /* ExpoModulesProvider.swift */,
-			);
-			name = CleanCityApp;
-			sourceTree = "<group>";
-		};
-		7D393F830A4186EE1698186B /* Pods */ = {
-			isa = PBXGroup;
-			children = (
-				8FD14481BFE56318C0BB06A8 /* Pods-CleanCityApp.debug.xcconfig */,
-				DE3F2A623F6095EE1581BFC0 /* Pods-CleanCityApp.release.xcconfig */,
-			);
-			name = Pods;
-			path = Pods;
 			sourceTree = "<group>";
 		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
@@ -102,8 +81,8 @@
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
-				7D393F830A4186EE1698186B /* Pods */,
-				FDB0E5BA17F3101F2573E921 /* ExpoModulesProviders */,
+				8F7180D80634A763376B9C99 /* Pods */,
+				8EDE70A98683BFC6143F3E06 /* ExpoModulesProviders */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -118,6 +97,24 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		8EDE70A98683BFC6143F3E06 /* ExpoModulesProviders */ = {
+			isa = PBXGroup;
+			children = (
+				C4F852F312EF07266ABA306B /* CleanCityApp */,
+			);
+			name = ExpoModulesProviders;
+			sourceTree = "<group>";
+		};
+		8F7180D80634A763376B9C99 /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				E8C57004FB8CC18667E7CB96 /* Pods-CleanCityApp.debug.xcconfig */,
+				74038CE5C4F72CBF9BD7EAD5 /* Pods-CleanCityApp.release.xcconfig */,
+			);
+			name = Pods;
+			path = Pods;
+			sourceTree = "<group>";
+		};
 		BB2F792B24A3F905000567C9 /* Supporting */ = {
 			isa = PBXGroup;
 			children = (
@@ -127,12 +124,12 @@
 			path = CleanCityApp/Supporting;
 			sourceTree = "<group>";
 		};
-		FDB0E5BA17F3101F2573E921 /* ExpoModulesProviders */ = {
+		C4F852F312EF07266ABA306B /* CleanCityApp */ = {
 			isa = PBXGroup;
 			children = (
-				465C6A81526056296C152BAA /* CleanCityApp */,
+				6EFC78BE8C6BA552B7E8D616 /* ExpoModulesProvider.swift */,
 			);
-			name = ExpoModulesProviders;
+			name = CleanCityApp;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -143,13 +140,13 @@
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "CleanCityApp" */;
 			buildPhases = (
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
-				CFF545BFEF8066562FB38772 /* [Expo] Configure project */,
+				B33AC0CB25B3BECB616C9024 /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				12FBD84CA765554E7AE05687 /* [CP] Embed Pods Frameworks */,
+				ABF7305A322B68D0AF24C99D /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -199,8 +196,7 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				B5FCC9E707C4470FA08DB556 /* GoogleService-Info.plist in Resources */,
-				BFD6F6D31B47FFC246D61885 /* PrivacyInfo.xcprivacy in Resources */,
+				87FD6B0440896841DEB72920 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -244,28 +240,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
-			showEnvVarsInLog = 0;
-		};
-		12FBD84CA765554E7AE05687 /* [CP] Embed Pods Frameworks */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-CleanCityApp/Pods-CleanCityApp-frameworks.sh",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/React-Core-prebuilt/React.framework/React",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ReactNativeDependencies/ReactNativeDependencies.framework/ReactNativeDependencies",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermes.framework/hermes",
-			);
-			name = "[CP] Embed Pods Frameworks";
-			outputPaths = (
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/React.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ReactNativeDependencies.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-CleanCityApp/Pods-CleanCityApp-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
 		800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */ = {
@@ -312,7 +286,29 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-CleanCityApp/Pods-CleanCityApp-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		CFF545BFEF8066562FB38772 /* [Expo] Configure project */ = {
+		ABF7305A322B68D0AF24C99D /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-CleanCityApp/Pods-CleanCityApp-frameworks.sh",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/React-Core-prebuilt/React.framework/React",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ReactNativeDependencies/ReactNativeDependencies.framework/ReactNativeDependencies",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermes.framework/hermes",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputPaths = (
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/React.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ReactNativeDependencies.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-CleanCityApp/Pods-CleanCityApp-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		B33AC0CB25B3BECB616C9024 /* [Expo] Configure project */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -344,7 +340,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				C83D76A4A866D3497C2D65C9 /* ExpoModulesProvider.swift in Sources */,
+				1E8D411C45A721E07F9EC509 /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -353,7 +349,7 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 8FD14481BFE56318C0BB06A8 /* Pods-CleanCityApp.debug.xcconfig */;
+			baseConfigurationReference = E8C57004FB8CC18667E7CB96 /* Pods-CleanCityApp.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -389,7 +385,7 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = DE3F2A623F6095EE1581BFC0 /* Pods-CleanCityApp.release.xcconfig */;
+			baseConfigurationReference = 74038CE5C4F72CBF9BD7EAD5 /* Pods-CleanCityApp.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;

@@ -33,12 +33,6 @@
       <dict>
         <key>CFBundleURLSchemes</key>
         <array>
-          <string>com.googleusercontent.apps.430221189966-modpfqh3d92cl92ib4hq59ad2lpqoac0</string>
-        </array>
-      </dict>
-      <dict>
-        <key>CFBundleURLSchemes</key>
-        <array>
           <string>exp+clean-city-app</string>
         </array>
       </dict>
