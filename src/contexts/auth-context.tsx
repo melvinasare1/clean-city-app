@@ -7,7 +7,6 @@ import React, {
 import {
     doc,
     getDoc,
-    type User,
 } from 'firebase/firestore';
 import {
     signInWithEmailAndPassword,
@@ -19,6 +18,7 @@ import {
 } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { setDocAtPath } from '@/lib/utils';
+import { registerForPushNotifications, removePushTokenFromFirestore } from '@/lib/push';
 
 export type AppUserRole = 'customer' | 'driver' | 'admin';
 
@@ -56,8 +56,8 @@ const mapProfile = (firebaseUser: FirebaseUser | null, data?: { email?: string; 
     return {
         id: firebaseUser.uid,
         email: data?.email ?? firebaseUser.email ?? '',
-        phone: data?.phone,
-        location: data?.location,
+        phone: data?.phone ?? undefined,
+        location: data?.location ?? undefined,
         role: data?.role ?? null,
     };
 };
@@ -92,6 +92,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 try {
                     const profile = await fetchUserProfile(firebaseUser);
                     setUser(profile);
+                    
+                    // Register for push notifications after successful login
+                    // This runs in the background and won't block the auth flow
+                    registerForPushNotifications(firebaseUser.uid).catch((err) => {
+                        console.error('Failed to register push notifications:', err);
+                        // Don't throw - push registration failure shouldn't break auth
+                    });
                 } catch (err) {
                     console.error('Error fetching user profile:', err);
                     setUser({
@@ -137,6 +144,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const logout = async () => {
+        // Remove push token from Firestore before signing out
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+            try {
+                await removePushTokenFromFirestore(currentUser.uid);
+            } catch (err) {
+                console.error('Failed to remove push token on logout:', err);
+                // Don't throw - continue with logout even if token removal fails
+            }
+        }
         await signOut(auth);
     };
 
