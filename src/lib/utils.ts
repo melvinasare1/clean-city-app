@@ -1,10 +1,5 @@
 // src/lib/utils.ts
-import {
-  doc,
-  setDoc,
-  serverTimestamp,
-  type Firestore,
-} from "firebase/firestore";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "./firebase";
 
 export const PROFILES_COLLECTION = "profiles";
