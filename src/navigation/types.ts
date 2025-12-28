@@ -35,3 +35,7 @@ export type OnboardingStackParamList = {
   RoleSelection: undefined;
   CompleteProfile: undefined;
 };
+
+export type AdminStackParamList = {
+  AdminPush: undefined;
+};

@@ -19,6 +19,7 @@ import {
 import { auth, db } from '@/lib/firebase';
 import { setDocAtPath } from '@/lib/utils';
 import { registerForPushNotifications, removePushTokenFromFirestore } from '@/lib/push';
+import { loadReminderSettingsAndReschedule, loadWeeklyReminderSettingsAndReschedule } from '@/lib/reminders';
 
 export type AppUserRole = 'customer' | 'driver' | 'admin';
 
@@ -98,6 +99,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     registerForPushNotifications(firebaseUser.uid).catch((err) => {
                         console.error('Failed to register push notifications:', err);
                         // Don't throw - push registration failure shouldn't break auth
+                    });
+
+                    // Load and reschedule daily reminders after successful login
+                    // This restores reminders after reinstall or device change
+                    loadReminderSettingsAndReschedule(firebaseUser.uid).catch((err) => {
+                        console.error('Failed to load reminder settings:', err);
+                        // Don't throw - reminder loading failure shouldn't break auth
+                    });
+
+                    // Load and reschedule weekly reminders after successful login
+                    // This restores weekly rubbish collection reminders after reinstall or device change
+                    loadWeeklyReminderSettingsAndReschedule(firebaseUser.uid).catch((err) => {
+                        console.error('Failed to load weekly reminder settings:', err);
+                        // Don't throw - reminder loading failure shouldn't break auth
                     });
                 } catch (err) {
                     console.error('Error fetching user profile:', err);

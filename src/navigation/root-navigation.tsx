@@ -5,8 +5,10 @@ import { useAuth } from '../hooks/useAuth';
 import { AuthNavigator } from './auth-navigation';
 import { CustomerNavigator } from './customer-navigation';
 import { DriverNavigator } from './driver-navigation';
+import { AdminNavigator } from './admin-navigation';
 import { COLORS } from '../lib/constants';
 import { trackEvent } from '@/services/analytics';
+import { isAdmin } from '@/lib/admin';
 
 export const RootNavigator: React.FC = () => {
     const { user, loading } = useAuth();
@@ -21,6 +23,8 @@ export const RootNavigator: React.FC = () => {
 
         if (!user) {
             initialScreen = 'login';
+        } else if (isAdmin(user)) {
+            initialScreen = 'admin_push';
         } else if (user.role === 'driver') {
             initialScreen = 'driver_home';
         } else {
@@ -41,6 +45,10 @@ export const RootNavigator: React.FC = () => {
 
     if (!user) {
         return <AuthNavigator />;
+    }
+
+    if (isAdmin(user)) {
+        return <AdminNavigator />;
     }
 
     if (user.role === 'driver') {
