@@ -21,7 +21,7 @@ Complete guide for deploying Firestore-triggered push notifications using Fireba
 ### Configuration
 
 - **Runtime:** Node.js 20
-- **Region:** us-central1
+- **Region:** europe-west2 (London)
 - **Memory:** 256MiB
 - **Timeout:** 60 seconds
 
@@ -64,8 +64,8 @@ Check Firebase Console:
 2. Select your project
 3. Navigate to **Functions**
 4. You should see:
-   - `onJobAssigned` (Gen 2, us-central1)
-   - `onBookingConfirmed` (Gen 2, us-central1)
+   - `onJobAssigned` (Gen 2, europe-west2)
+   - `onBookingConfirmed` (Gen 2, europe-west2)
 
 ## 📊 Data Model
 

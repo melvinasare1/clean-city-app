@@ -4,7 +4,7 @@
  * 
  * Requirements:
  * - Node.js 20
- * - Region: us-central1
+ * - Region: europe-west2 (London)
  * - Memory: 256MiB
  * - Timeout: 60s
  */
@@ -23,7 +23,7 @@ const db = admin.firestore();
 
 // Set global options for all functions
 setGlobalOptions({
-  region: "us-central1",
+  region: "europe-west2", // London
   memory: "256MiB",
   timeoutSeconds: 60,
 });
@@ -139,7 +139,7 @@ async function sendExpoPush(message: ExpoPushMessage): Promise<boolean> {
  */
 async function getUserPushToken(userId: string): Promise<string | null> {
   try {
-    const userDoc = await db.doc(`users/${userId}`).get();
+    const userDoc = await db.doc(`profiles/${userId}`).get();
 
     if (!userDoc.exists) {
       logger.warn("User document not found", { userId });
