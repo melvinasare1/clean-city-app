@@ -9,18 +9,6 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { db } from './firebase';
 
 /**
- * Configure notification handler for foreground notifications
- * This ensures notifications show when app is in foreground
- */
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
-
-/**
  * Set up Android notification channel (safe to call on iOS)
  */
 export const setupNotificationChannel = async (): Promise<void> => {
