@@ -5,6 +5,9 @@
   },
   "build": {
     "development": {
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://clean-city-app-production.up.railway.app/"
+      },
       "developmentClient": true,
       "distribution": "internal",
       "node": "22.0.0",
@@ -16,6 +19,9 @@
       "channel": "preview"
     },
     "production": {
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://clean-city-app-production.up.railway.app/"
+      },
       "autoIncrement": true,
       "node": "22.0.0",
       "channel": "production"
