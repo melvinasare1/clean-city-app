@@ -1,9 +1,10 @@
 /**
  * Push notification sender
- * Wrapper for Railway backend POST /push endpoint
+ * Wrapper for Vercel backend POST /api/push endpoint
  */
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || '';
+import { getApiBaseUrlOrEmpty } from './apiBase';
+
 const ADMIN_SECRET = process.env.EXPO_PUBLIC_ADMIN_SECRET || '';
 
 export interface PushNotificationParams {
@@ -16,13 +17,14 @@ export interface PushNotificationParams {
 export interface PushNotificationResponse {
   success: boolean;
   receipt?: any;
+  ticket?: any;
   message?: string;
   error?: string;
   details?: any;
 }
 
 /**
- * Send a push notification via Railway backend
+ * Send a push notification via Vercel backend
  * 
  * @param params - Push notification parameters
  * @returns Promise resolving to response from backend
@@ -30,6 +32,8 @@ export interface PushNotificationResponse {
 export const sendPush = async (
   params: PushNotificationParams
 ): Promise<PushNotificationResponse> => {
+  const API_URL = getApiBaseUrlOrEmpty();
+  
   if (!API_URL) {
     return {
       success: false,
@@ -47,7 +51,7 @@ export const sendPush = async (
       headers['X-ADMIN-SECRET'] = ADMIN_SECRET;
     }
 
-    const response = await fetch(`${API_URL}/push`, {
+    const response = await fetch(`${API_URL}/api/push`, {
       method: 'POST',
       headers,
       body: JSON.stringify({
@@ -70,7 +74,8 @@ export const sendPush = async (
 
     return {
       success: true,
-      receipt: result.receipt,
+      receipt: result.receipt || result.ticket,
+      ticket: result.ticket,
       message: result.message || 'Notification sent successfully',
     };
   } catch (error) {

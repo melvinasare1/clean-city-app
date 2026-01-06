@@ -40,6 +40,7 @@ export const AdminPushScreen: React.FC = () => {
   const [sending, setSending] = useState(false);
   const [results, setResults] = useState<SendResult[]>([]);
   const [allUsersCount, setAllUsersCount] = useState(0);
+  const [showEnvVar, setShowEnvVar] = useState(false);
 
   // Check admin access
   useEffect(() => {
@@ -299,8 +300,34 @@ export const AdminPushScreen: React.FC = () => {
   const successCount = results.filter((r) => r.success).length;
   const failureCount = results.filter((r) => !r.success).length;
 
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      {/* Debug Section */}
+      <View style={styles.section}>
+        <AppText style={styles.sectionTitle}>Debug Info</AppText>
+        <AppButton
+          title={showEnvVar ? 'Hide API URL' : 'Show API URL'}
+          onPress={() => setShowEnvVar(!showEnvVar)}
+          variant="secondary"
+          buttonStyle={styles.debugButton}
+        />
+        {showEnvVar && (
+          <View style={styles.envVarContainer}>
+            <AppText style={styles.envVarLabel}>EXPO_PUBLIC_API_URL:</AppText>
+            <AppText style={styles.envVarValue}>
+              {apiUrl || 'undefined'}
+            </AppText>
+            {!apiUrl && (
+              <AppText style={styles.envVarWarning}>
+                ⚠️ Environment variable is undefined! Check your .env file or app.json
+              </AppText>
+            )}
+          </View>
+        )}
+      </View>
+
       <View style={styles.section}>
         <AppText style={styles.sectionTitle}>Recipient</AppText>
         
@@ -537,6 +564,32 @@ const styles = StyleSheet.create({
     color: COLORS.error,
     textAlign: 'center',
     marginTop: 32,
+  },
+  debugButton: {
+    marginBottom: 12,
+  },
+  envVarContainer: {
+    padding: 12,
+    backgroundColor: COLORS.white,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  envVarLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+    marginBottom: 4,
+  },
+  envVarValue: {
+    fontSize: 14,
+    fontFamily: 'monospace',
+    color: COLORS.text,
+    marginBottom: 8,
+  },
+  envVarWarning: {
+    fontSize: 12,
+    color: COLORS.error,
+    fontStyle: 'italic',
   },
 });
 
