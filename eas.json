@@ -6,7 +6,7 @@
   "build": {
     "development": {
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://clean-city-app-production.up.railway.app/"
+        "EXPO_PUBLIC_API_URL": "https://YOUR-VERCEL-DOMAIN.vercel.app"
       },
       "developmentClient": true,
       "distribution": "internal",
@@ -19,9 +19,6 @@
       "channel": "preview"
     },
     "production": {
-      "env": {
-        "EXPO_PUBLIC_API_URL": "https://clean-city-app-production.up.railway.app/"
-      },
       "autoIncrement": true,
       "node": "22.0.0",
       "channel": "production"

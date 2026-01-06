@@ -6,7 +6,7 @@ const express = require('express');
 const cors = require('cors');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8081;
 const CRON_SECRET = process.env.CRON_SECRET || 'change-me-in-production';
 
 // Middleware
@@ -522,9 +522,9 @@ app.post('/cron/weekly-reminders', verifyCronSecret, async (req, res) => {
 });
 
 // Start server
-app.listen(PORT, () => {
-  console.log(`Push notification server running on port ${PORT}`);
-  console.log(`Health check: http://localhost:${PORT}/health`);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server listening on port ${PORT}`);
+  console.log(`Health check: http://0.0.0.0:${PORT}/health`);
   if (CRON_SECRET === 'change-me-in-production') {
     console.warn('⚠️  WARNING: CRON_SECRET is using default value. Set CRON_SECRET environment variable in production!');
   }

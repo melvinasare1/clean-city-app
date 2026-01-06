@@ -52,6 +52,16 @@ clean-city-app-1/
         └── booking.ts              # Booking type definitions
 ```
 
+## 📚 Documentation
+
+All documentation is organized in the [`docs/`](./docs/) folder. See [docs/README.md](./docs/README.md) for a complete index.
+
+**Quick Links:**
+- [Quick Start Guide](./docs/QUICK_START.md)
+- [Setup Guide](./docs/SETUP_GUIDE.md)
+- [Build and Submit Guide](./docs/BUILD_AND_SUBMIT_GUIDE.md)
+- [Push Notifications Setup](./docs/PUSH_NOTIFICATIONS_SETUP.md)
+
 ## 🛠️ Setup Instructions
 
 ### 1. Install Dependencies
