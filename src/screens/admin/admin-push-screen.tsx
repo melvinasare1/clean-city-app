@@ -17,6 +17,7 @@ import { AppText } from '@/components/app-text';
 import { COLORS } from '@/lib/constants';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, doc, getDoc } from 'firebase/firestore';
+import { getApiBaseUrl } from '@/lib/apiBase';
 
 type RecipientMode = 'single' | 'all';
 
@@ -41,6 +42,9 @@ export const AdminPushScreen: React.FC = () => {
   const [results, setResults] = useState<SendResult[]>([]);
   const [allUsersCount, setAllUsersCount] = useState(0);
   const [showEnvVar, setShowEnvVar] = useState(false);
+  const [testingBackend, setTestingBackend] = useState(false);
+  const [backendTestResult, setBackendTestResult] = useState<string | null>(null);
+  const [backendTestError, setBackendTestError] = useState<string | null>(null);
 
   // Check admin access
   useEffect(() => {
@@ -70,13 +74,13 @@ export const AdminPushScreen: React.FC = () => {
     try {
       // Try as UID first
       const userDoc = await getDoc(doc(db, 'profiles', userSearch.trim()));
-      
+
       if (userDoc.exists()) {
         const userData = userDoc.data();
         const token = userData.expoPushToken;
         setUserToken(token || null);
         setUserEmail(userData.email || null);
-        
+
         if (!token) {
           Alert.alert('No Token', 'User does not have a push token');
         }
@@ -94,7 +98,7 @@ export const AdminPushScreen: React.FC = () => {
         setUserToken(token || null);
         setUserEmail(userData.email || null);
         setUserSearch(emailSnapshot.docs[0].id); // Set to UID
-        
+
         if (!token) {
           Alert.alert('No Token', 'User does not have a push token');
         }
@@ -117,11 +121,11 @@ export const AdminPushScreen: React.FC = () => {
     try {
       const profilesRef = collection(db, 'profiles');
       const snapshot = await getDocs(profilesRef);
-      
+
       const usersWithTokens = snapshot.docs.filter(
         (doc) => doc.data().expoPushToken
       );
-      
+
       setAllUsersCount(usersWithTokens.length);
     } catch (error) {
       console.error('Error loading users count:', error);
@@ -135,6 +139,38 @@ export const AdminPushScreen: React.FC = () => {
       loadAllUsersCount();
     }
   }, [recipientMode]);
+
+  const handleTestBackend = async () => {
+    setTestingBackend(true);
+    setBackendTestResult(null);
+    setBackendTestError(null);
+
+    try {
+      const baseUrl = getApiBaseUrl();
+      const response = await fetch(`${baseUrl}/api/health`);
+      const text = await response.text();
+
+      if (!response.ok) {
+        setBackendTestError(`Status ${response.status}: ${text}`);
+        return;
+      }
+
+      try {
+        const json = JSON.parse(text);
+        setBackendTestResult(JSON.stringify(json, null, 2));
+      } catch {
+        // Not JSON, just show raw text
+        setBackendTestResult(text);
+      }
+    } catch (error) {
+      console.error('Error testing backend:', error);
+      setBackendTestError(
+        error instanceof Error ? error.message : 'Unknown error testing backend'
+      );
+    } finally {
+      setTestingBackend(false);
+    }
+  };
 
   const parseDataJson = (): Record<string, any> | null => {
     if (!dataJson.trim()) {
@@ -184,11 +220,11 @@ export const AdminPushScreen: React.FC = () => {
 
   const sendToAllUsers = async (): Promise<SendResult[]> => {
     const results: SendResult[] = [];
-    
+
     try {
       const profilesRef = collection(db, 'profiles');
       const snapshot = await getDocs(profilesRef);
-      
+
       const usersWithTokens = snapshot.docs.filter(
         (doc) => doc.data().expoPushToken
       );
@@ -280,7 +316,7 @@ export const AdminPushScreen: React.FC = () => {
             onPress: async () => {
               setSending(true);
               setResults([]);
-              
+
               try {
                 const bulkResults = await sendToAllUsers();
                 setResults(bulkResults);
@@ -329,8 +365,27 @@ export const AdminPushScreen: React.FC = () => {
       </View>
 
       <View style={styles.section}>
+        <AppText style={styles.sectionTitle}>Debug</AppText>
+        <AppButton
+          title={testingBackend ? 'Testing Backend...' : 'Test Backend'}
+          onPress={handleTestBackend}
+          disabled={testingBackend}
+          buttonStyle={styles.sendButton}
+        />
+        {(backendTestResult || backendTestError) && (
+          <View style={styles.debugResultContainer}>
+            {backendTestResult && (
+              <AppText style={styles.debugSuccessText}>{backendTestResult}</AppText>
+            )}
+            {backendTestError && (
+              <AppText style={styles.debugErrorText}>{backendTestError}</AppText>
+            )}
+          </View>
+        )}
+      </View>
+      <View style={styles.section}>
         <AppText style={styles.sectionTitle}>Recipient</AppText>
-        
+
         <View style={styles.switchContainer}>
           <AppText>Single User</AppText>
           <Switch
@@ -355,7 +410,7 @@ export const AdminPushScreen: React.FC = () => {
               loading={loading}
               buttonStyle={styles.button}
             />
-            
+
             {userToken && (
               <View style={styles.tokenInfo}>
                 <AppText style={styles.tokenLabel}>✓ Token found</AppText>
@@ -376,14 +431,14 @@ export const AdminPushScreen: React.FC = () => {
 
       <View style={styles.section}>
         <AppText style={styles.sectionTitle}>Notification</AppText>
-        
+
         <AppTextInput
           placeholder="Title (required)"
           value={title}
           onChangeText={setTitle}
           style={styles.input}
         />
-        
+
         <AppTextInput
           placeholder="Body (required)"
           value={body}
@@ -392,7 +447,7 @@ export const AdminPushScreen: React.FC = () => {
           numberOfLines={4}
           style={[styles.input, styles.textArea]}
         />
-        
+
         <AppTextInput
           placeholder='Data (JSON, optional, e.g. {"type": "admin_notification"})'
           value={dataJson}
@@ -416,7 +471,7 @@ export const AdminPushScreen: React.FC = () => {
       {results.length > 0 && (
         <View style={styles.section}>
           <AppText style={styles.sectionTitle}>Results</AppText>
-          
+
           <View style={styles.resultsSummary}>
             <AppText style={styles.summaryText}>
               ✓ Success: {successCount}
@@ -590,6 +645,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.error,
     fontStyle: 'italic',
+  },
+  debugResultContainer: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: COLORS.white,
+    borderRadius: 8,
+  },
+  debugSuccessText: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+  },
+  debugErrorText: {
+    fontSize: 12,
+    color: COLORS.error,
   },
 });
 
