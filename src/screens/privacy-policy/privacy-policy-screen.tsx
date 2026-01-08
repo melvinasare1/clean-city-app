@@ -152,3 +152,6 @@ export const PrivacyPolicyScreen: React.FC = () => {
 
 
 
+
+
+

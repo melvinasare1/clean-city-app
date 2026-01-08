@@ -6,7 +6,7 @@
   "build": {
     "development": {
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://YOUR-VERCEL-DOMAIN.vercel.app"
+        "EXPO_PUBLIC_API_URL": "https://clean-city-backend-plum.vercel.app/"
       },
       "developmentClient": true,
       "distribution": "internal",
