@@ -22,3 +22,4 @@ web-build/
 .env.*
 backend/.env
 package-lock.json
+.vercel
