@@ -1,7 +1,7 @@
 {
   "functions": {
     "api/**/*.ts": {
-      "runtime": "@vercel/node"
+      "runtime": "nodejs20.19.6"
     },
     "api/paystack/webhook.ts": {
       "runtime": "@vercel/node",
@@ -16,4 +16,3 @@
     }
   ]
 }
-
