@@ -1,10 +1,12 @@
 /**
  * Push notification sender
- * Wrapper for Vercel backend POST /api/push endpoint
+ * Wrapper for backend POST /api/push endpoint
  */
 
-import { getApiBaseUrlOrEmpty } from './apiBase';
+import { getApiBaseUrlOrEmpty } from '@/lib/apiBase';
 
+// Base URL for backend API (may be empty if not configured)
+const API_URL = getApiBaseUrlOrEmpty();
 const ADMIN_SECRET = process.env.EXPO_PUBLIC_ADMIN_SECRET || '';
 
 export interface PushNotificationParams {
@@ -32,15 +34,12 @@ export interface PushNotificationResponse {
 export const sendPush = async (
   params: PushNotificationParams
 ): Promise<PushNotificationResponse> => {
-  const API_URL = getApiBaseUrlOrEmpty();
-  
   if (!API_URL) {
     return {
       success: false,
       error: 'EXPO_PUBLIC_API_URL not configured',
     };
   }
-
   try {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',

@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 /**
  * GET /api/health
- * Health check endpoint for Vercel backend
+ * Health check endpoint for the Vercel backend.
  */
 export default function handler(
   req: VercelRequest,
@@ -14,8 +14,8 @@ export default function handler(
 
   return res.status(200).json({
     ok: true,
-    service: 'vercel-backend',
-    timestamp: new Date().toISOString(),
+    service: 'clean-city-backend',
+    time: new Date().toISOString(),
   });
 }
 
