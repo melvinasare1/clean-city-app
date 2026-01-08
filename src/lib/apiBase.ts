@@ -18,7 +18,7 @@ export function getApiBaseUrl(): string {
 }
 
 /**
- * Get the API base URL, returning empty string if not configured (for optional usage).
+ * Get the API base URL, s returning empty string if not configured (for optional usage).
  */
 export function getApiBaseUrlOrEmpty(): string {
   try {
