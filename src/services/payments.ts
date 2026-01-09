@@ -33,9 +33,11 @@ export async function initializePayment(
 ): Promise<InitializePaymentResponse> {
   const API_BASE_URL = getApiBaseUrl();
   console.log("API_BASE_URL:", API_BASE_URL);
-
+  const url = `${API_BASE_URL}/api/paystack/initialize`;
+  console.log("Initializing payment via URL:", url);
   console.log("Initializing payment with body:", body);
-  const response = await fetch(`${API_BASE_URL}/api/paystack/initialize`, {
+
+  const response = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

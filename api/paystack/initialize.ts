@@ -38,9 +38,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // Convert amount to smallest currency unit (kobo for NGN, pesewas for GHS, etc.)
-    const updatedAmount = amount * 100;
-    console.log("amountInSmallestUnit", updatedAmount);
     // Call Paystack API
     const paystackResponse = await fetch(
       `${PAYSTACK_BASE_URL}/transaction/initialize`,
@@ -52,7 +49,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         },
         body: JSON.stringify({
           email,
-          amount: updatedAmount,
+          amount,
           metadata,
           callback_url: callback_url || `${CLIENT_APP_URL}/payment/success`,
         }),
