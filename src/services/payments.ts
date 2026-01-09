@@ -46,13 +46,29 @@ export async function initializePayment(
   const data = await response.json();
   console.log("Initialize payment response:", data);
 
-  if (!response.ok) {
+  if (!response.ok || !data) {
     console.log("Initialize payment error:", data);
-    throw new Error(data?.error || "Failed to initialize payment");
+    throw new Error(
+      data?.error || data?.message || "Failed to initialize payment"
+    );
   }
 
-  console.log("Initialize payment response:", data);
-  return data as InitializePaymentResponse;
+  // Support both normalized and raw Paystack-shaped responses
+  const authData = data.authorization_url ? data : data.data;
+
+  if (!authData?.authorization_url) {
+    console.log("Initialize payment missing authorization_url:", data);
+    throw new Error("No authorization URL returned from payment provider");
+  }
+
+  const normalized: InitializePaymentResponse = {
+    authorization_url: authData.authorization_url,
+    access_code: authData.access_code,
+    reference: authData.reference,
+  };
+
+  console.log("Initialize payment normalized response:", normalized);
+  return normalized;
 }
 
 /**
