@@ -1,6 +1,6 @@
 // src/services/payments.ts
 
-import { getApiBaseUrl } from '@/lib/apiBase';
+import { getApiBaseUrl } from "@/lib/apiBase";
 
 export type PaymentStatus = "success" | "failed" | "abandoned" | "pending";
 
@@ -25,7 +25,7 @@ export interface VerifyPaymentResponse {
 }
 
 /**
- * Calls your backend: POST /api/payments/initialize
+ * Calls your backend: POST /api/paystack/initialize
  * Returns Paystack authorization_url, access_code, reference.
  */
 export async function initializePayment(
@@ -35,7 +35,7 @@ export async function initializePayment(
   console.log("API_BASE_URL:", API_BASE_URL);
 
   console.log("Initializing payment with body:", body);
-  const response = await fetch(`${API_BASE_URL}/api/payments/initialize`, {
+  const response = await fetch(`${API_BASE_URL}/api/paystack/initialize`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -56,7 +56,7 @@ export async function initializePayment(
 }
 
 /**
- * Calls your backend: GET /api/payments/verify?reference=...
+ * Calls your backend: GET /api/paystack/verify?reference=...
  * Returns normalized status + amount + currency.
  */
 export async function verifyPayment(
@@ -65,7 +65,7 @@ export async function verifyPayment(
   const API_BASE_URL = getApiBaseUrl();
 
   const response = await fetch(
-    `${API_BASE_URL}/api/payments/verify?reference=${encodeURIComponent(
+    `${API_BASE_URL}/api/paystack/verify?reference=${encodeURIComponent(
       reference
     )}`
   );
