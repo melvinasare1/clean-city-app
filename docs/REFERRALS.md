@@ -17,21 +17,24 @@ It covers:
 
 Existing user profile documents are extended with referral-related fields (we **do not** change the core model shape or remove fields):
 
-- `referralCode: string`  
-  - Every user gets a unique referral code generated at signup.  
+- `referralCode: string`
+
+  - Every user gets a unique referral code generated at signup.
   - Format: `CC-${uid.slice(0, 6).toUpperCase()}` (e.g. `CC-1A2B3C`).
 
-- `referredBy?: string | null`  
-  - The referral code that this user used at signup, if any.  
+- `referredBy?: string | null`
+
+  - The referral code that this user used at signup, if any.
   - `null` if they did not use a code or the code was not provided.
 
-- `creditBalance: number`  
-  - Total referral credits the user has earned as a referrer.  
+- `creditBalance: number`
+
+  - Total referral credits the user has earned as a referrer.
   - Always initialised to `0` at signup.
 
-- `referralRewarded: boolean`  
-  - Indicates whether the referral reward for this user (as a *referred* user) has already been paid out to their referrer.  
-  - Used to enforce one-time payouts and avoid duplicates.  
+- `referralRewarded: boolean`
+  - Indicates whether the referral reward for this user (as a _referred_ user) has already been paid out to their referrer.
+  - Used to enforce one-time payouts and avoid duplicates.
   - Always initialised to `false` at signup.
 
 > Note: these fields are written using `setDocAtPath` with `merge: true`, so they safely coexist with the existing profile structure.
@@ -87,12 +90,15 @@ signup(
 When a user signs up:
 
 1. **Create Firebase Auth user**
+
    - Standard `createUserWithEmailAndPassword` flow.
 
 2. **Generate referral code for the new user**
+
    - `referralCode = CC-${uid.slice(0, 6).toUpperCase()}`.
 
 3. **Create/update profile**
+
    - `profiles/{uid}` is written via `setDocAtPath` with:
      - `email`
      - `role`
@@ -196,7 +202,7 @@ Defined in `src/services/booking-service.ts`:
   - No-ops if the id is missing.
   - Calls `rewardReferralIfEligible(referredUserId)` and logs any errors.
 
-This keeps all **referral-specific** business logic in `referralService.ts`, while `booking-service.ts` just knows *when* a booking is considered successfully paid.
+This keeps all **referral-specific** business logic in `referralService.ts`, while `booking-service.ts` just knows _when_ a booking is considered successfully paid.
 
 ---
 
@@ -212,5 +218,3 @@ This keeps all **referral-specific** business logic in `referralService.ts`, whi
   - Transactional updates of both the referral doc and both profiles.
 
 This setup is intentionally explicit, MVP-friendly, and safe to call multiple times without risking duplicate rewards.
-
-
