@@ -53,6 +53,8 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({ navigation }) => {
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    // Optional referral code; source can be future deep link / param.
+    const [referralCode, setReferralCode] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const { signup } = useAuth();
 
@@ -74,7 +76,7 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({ navigation }) => {
                 method: AUTH_METHOD,
             });
 
-            await signup(email, password);
+            await signup(email, password, 'customer', referralCode ?? undefined);
 
             await trackEvent('signup_completed', {
                 screen: SCREEN,

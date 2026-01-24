@@ -29,6 +29,7 @@ export type CustomerStackParamList = {
     reference: string;
   };
   PrivacyPolicy: undefined;
+  ReferralProgram: undefined;
 };
 
 export type OnboardingStackParamList = {

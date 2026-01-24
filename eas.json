@@ -6,7 +6,8 @@
   "build": {
     "development": {
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://clean-city-backend-plum.vercel.app/"
+        "EXPO_PUBLIC_API_URL": "https://clean-city-backend-plum.vercel.app/",
+        "EXPO_PUBLIC_APTABASE_KEY": "A-EU-6592512622"
       },
       "developmentClient": true,
       "distribution": "internal",
@@ -14,11 +15,17 @@
       "channel": "development"
     },
     "preview": {
+      "env": {
+        "EXPO_PUBLIC_APTABASE_KEY": "A-EU-6592512622"
+      },
       "distribution": "internal",
       "node": "22.0.0",
       "channel": "preview"
     },
     "production": {
+      "env": {
+        "EXPO_PUBLIC_APTABASE_KEY": "A-EU-6592512622"
+      },
       "autoIncrement": true,
       "node": "22.0.0",
       "channel": "production"

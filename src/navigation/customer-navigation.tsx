@@ -9,6 +9,7 @@ import { CompleteProfileScreen } from '../screens/customer/complete-profile/comp
 import { CreateBookingScreen } from '../screens/customer/create-booking/create-booking-screen';
 import { PaymentCallbackScreen } from '../screens/customer/payment/payment-callback-screen';
 import { PrivacyPolicyScreen } from '../screens/privacy-policy/privacy-policy-screen';
+import { ReferralProgramScreen } from "@/screens/referral/referral-program-screen";
 import { COLORS } from '../lib/constants';
 
 import {
@@ -123,6 +124,11 @@ export const CustomerNavigator: React.FC = () => {
                 name="PrivacyPolicy"
                 component={PrivacyPolicyScreen}
                 options={{ title: 'Privacy Policy' }}
+            />
+            <Stack.Screen
+              name="ReferralProgram"
+              component={ReferralProgramScreen}
+              options={{ headerShown: false }}
             />
         </Stack.Navigator>
     );

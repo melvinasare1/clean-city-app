@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, TouchableOpacity, ScrollView } from 'react-native';
+import { View, TouchableOpacity } from 'react-native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { useAuth } from '../../../hooks/useAuth';
 import { styles } from './customer-home-screen.styles';
@@ -46,6 +46,22 @@ export const CustomerHomeScreen: React.FC<CustomerHomeScreenProps> = ({ navigati
             onPress={() => navigation.navigate('MyBookings')}
           >
             <AppText style={styles.actionButtonTextSecondary}>📋 View My Bookings</AppText>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, styles.actionButtonSecondary]}
+            onPress={() => {
+              trackEvent('referral_cta_tapped', {
+                screen: SCREEN,
+              }).catch(() => {});
+              // Navigate into the customer stack ReferralProgram screen
+              navigation.navigate('CustomerTabs'); // ensure we are on tabs
+              // Then push the referral screen from stack
+              // @ts-ignore - root navigator handled in parent
+              navigation.getParent()?.navigate('ReferralProgram');
+            }}
+          >
+            <AppText style={styles.actionButtonTextSecondary}>🌿 Refer & Earn Free Pickups</AppText>
           </TouchableOpacity>
         </View>
 
