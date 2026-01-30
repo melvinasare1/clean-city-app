@@ -20,6 +20,7 @@ import { auth, db } from '@/lib/firebase';
 import { setDocAtPath } from '@/lib/utils';
 import { registerForPushNotifications, removePushTokenFromFirestore } from '@/lib/push';
 import { loadReminderSettingsAndReschedule, loadWeeklyReminderSettingsAndReschedule } from '@/lib/reminders';
+import { createReferralIfValid } from '@/services/referralService';
 
 export type AppUserRole = 'customer' | 'driver' | 'admin';
 
@@ -39,7 +40,8 @@ interface AuthContextProps {
     signup: (
         email: string,
         password: string,
-        role?: AppUserRole | null
+        role?: AppUserRole | null,
+        referralCode?: string | null
     ) => Promise<void>;
     logout: () => Promise<void>;
 }
@@ -138,20 +140,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const signup = async (
         email: string,
         password: string,
-        role: AppUserRole | null = 'customer'
+        role: AppUserRole | null = 'customer',
+        referralCode: string | null = null
     ) => {
         const result = await createUserWithEmailAndPassword(auth, email, password);
         const firebaseUser = result.user;
 
+        const generatedReferralCode = `CC-${firebaseUser.uid.slice(0, 6).toUpperCase()}`;
+
+        // Always create / update the user profile with referral-related defaults.
         await setDocAtPath(['profiles', firebaseUser.uid], {
             email,
             role,
             phone: null,
             location: null,
+            referralCode: generatedReferralCode,
+            referredBy: referralCode?.trim() || null,
+            creditBalance: 0,
+            referralRewarded: false,
         }, {
             merge: true,
             addTimestamps: true,
         });
+
+        // Create pending referral document if the supplied code is valid.
+        if (referralCode && referralCode.trim()) {
+            await createReferralIfValid({
+                newUserId: firebaseUser.uid,
+                newUserEmail: email,
+                referralCode: referralCode.trim(),
+            });
+        }
     };
 
     const resetPassword = async (email: string) => {

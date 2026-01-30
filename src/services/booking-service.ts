@@ -17,6 +17,7 @@ import type {
 } from "@/types/booking";
 import { BOOKINGS_COLLECTION } from "@/lib/constants";
 import { setDocAtPath } from "@/lib/utils";
+import { rewardReferralIfEligible } from "@/services/referralService";
 
 type CreateBookingParams = {
   userId: string;
@@ -96,3 +97,25 @@ export const getUserBookings = async (userId: string): Promise<Booking[]> => {
     };
   });
 };
+
+/**
+ * Called after a booking has been successfully paid for.
+ * Currently used to trigger referral rewards (if eligible) for the booking's user.
+ */
+export const handleBookingPaymentSuccess = async (
+  referredUserId: string | null | undefined
+): Promise<void> => {
+  if (!referredUserId) {
+    return;
+  }
+
+  try {
+    await rewardReferralIfEligible(referredUserId);
+  } catch (error) {
+    console.error(
+      "Failed to reward referral after booking payment success:",
+      error
+    );
+  }
+};
+

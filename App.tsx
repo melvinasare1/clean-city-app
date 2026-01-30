@@ -11,7 +11,7 @@ import { useNotificationListeners } from '@/services/notifications';
 import { init } from '@aptabase/react-native';
 
 // Initialize Aptabase as early as possible in the app lifecycle.
-// The App Key should be provided via EAS/Expo env as EXPO_PUBLIC_APTABASE_KEY.
+// The App Key is provided via Expo env as EXPO_PUBLIC_APTABASE_KEY (set in eas.json or CI).
 const APTABASE_APP_KEY = process.env.EXPO_PUBLIC_APTABASE_KEY;
 
 if (APTABASE_APP_KEY) {

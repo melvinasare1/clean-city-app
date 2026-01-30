@@ -6,6 +6,8 @@ import { CustomerStackParamList } from "@/navigation/types";
 import { verifyPayment, VerifyPaymentResponse } from "@/services/payments";
 import { COLORS } from "@/lib/constants";
 import { trackEvent } from "@/services/analytics";
+import { useAuth } from "@/hooks/useAuth";
+import { handleBookingPaymentSuccess } from "@/services/booking-service";
 
 type Props = NativeStackScreenProps<CustomerStackParamList, "PaymentCallback">;
 
@@ -32,6 +34,7 @@ export const PaymentCallbackScreen: React.FC<Props> = ({
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<VerifyPaymentResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
 
   useEffect(() => {
     const run = async () => {
@@ -40,6 +43,12 @@ export const PaymentCallbackScreen: React.FC<Props> = ({
         setResult(verifyResult);
 
         if (verifyResult.status === "success") {
+          // Booking is successfully paid at this point.
+          // Trigger referral reward logic (idempotent, transaction-based).
+          const referredUserId =
+            (verifyResult.metadata as any)?.userId ?? user?.id ?? null;
+          await handleBookingPaymentSuccess(referredUserId);
+
           await trackEvent("payment_completed", {
             screen: SCREEN,
             amount: verifyResult.amount,
