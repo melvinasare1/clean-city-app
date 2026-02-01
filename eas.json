@@ -16,6 +16,7 @@
     },
     "preview": {
       "env": {
+        "EXPO_PUBLIC_API_URL": "https://clean-city-backend-plum.vercel.app/",
         "EXPO_PUBLIC_APTABASE_KEY": "A-EU-6592512622"
       },
       "distribution": "internal",
@@ -24,6 +25,7 @@
     },
     "production": {
       "env": {
+        "EXPO_PUBLIC_API_URL": "https://clean-city-backend-plum.vercel.app/",
         "EXPO_PUBLIC_APTABASE_KEY": "A-EU-6592512622"
       },
       "autoIncrement": true,
