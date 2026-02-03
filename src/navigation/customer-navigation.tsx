@@ -10,6 +10,7 @@ import { CreateBookingScreen } from '../screens/customer/create-booking/create-b
 import { PaymentCallbackScreen } from '../screens/customer/payment/payment-callback-screen';
 import { PrivacyPolicyScreen } from '../screens/privacy-policy/privacy-policy-screen';
 import { ReferralProgramScreen } from "@/screens/referral/referral-program-screen";
+import { RecyclingGuidesScreen } from '../screens/customer/recycling-guides/recycling-guides-screen';
 import { COLORS } from '../lib/constants';
 
 import {
@@ -129,6 +130,11 @@ export const CustomerNavigator: React.FC = () => {
               name="ReferralProgram"
               component={ReferralProgramScreen}
               options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="RecyclingGuides"
+              component={RecyclingGuidesScreen}
+              options={{ title: 'Recycling Guides' }}
             />
         </Stack.Navigator>
     );

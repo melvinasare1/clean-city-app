@@ -1,11 +1,13 @@
 import React from 'react';
 import { View, TouchableOpacity } from 'react-native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../../hooks/useAuth';
 import { styles } from './customer-home-screen.styles';
 import { CustomerTabParamList } from '@/navigation/types';
 import { AppText } from '@/components';
 import { trackEvent } from '@/services/analytics';
+import { COLORS } from '@/lib/constants';
 
 type CustomerHomeScreenProps = BottomTabScreenProps<
   CustomerTabParamList,
@@ -71,6 +73,27 @@ export const CustomerHomeScreen: React.FC<CustomerHomeScreenProps> = ({ navigati
             Your recent bookings will appear here
           </AppText>
         </View> */}
+
+        <TouchableOpacity
+          style={styles.recyclingGuideCard}
+          onPress={() => {
+            trackEvent('recycling_guide_cta_tapped', {
+              screen: SCREEN,
+            }).catch(() => {});
+            // @ts-ignore - root navigator handled in parent
+            navigation.getParent()?.navigate('RecyclingGuides');
+          }}
+        >
+          <View style={styles.recyclingGuideContent}>
+            <View style={styles.recyclingGuideTextContainer}>
+              <AppText style={styles.recyclingGuideTitle}>Learn about recycling</AppText>
+              <AppText style={styles.recyclingGuideSubtitle}>
+                Simple guides to help you recycle better
+              </AppText>
+            </View>
+            <Ionicons name="chevron-forward" size={24} color={COLORS.primary} />
+          </View>
+        </TouchableOpacity>
       </View>
     </View>
   );

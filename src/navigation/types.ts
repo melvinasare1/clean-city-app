@@ -30,6 +30,7 @@ export type CustomerStackParamList = {
   };
   PrivacyPolicy: undefined;
   ReferralProgram: undefined;
+  RecyclingGuides: undefined;
 };
 
 export type OnboardingStackParamList = {

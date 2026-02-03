@@ -241,7 +241,8 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
           Choose a date and time window for your waste collection.
         </AppText>
 
-        <AppText style={styles.label}>Pickup type</AppText>
+        {/* Temporarily disabled subscription feature */}
+        {/* <AppText style={styles.label}>Pickup type</AppText>
         <View style={styles.windowButtonsContainer}>
           <TouchableOpacity
             style={[
@@ -347,7 +348,7 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
               </TouchableOpacity>
             </View>
           </>
-        )}
+        )} */}
 
         <View style={styles.summaryCard}>
           <AppText style={styles.summaryTitle}>Selected bins</AppText>

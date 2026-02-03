@@ -83,4 +83,35 @@ export const styles = StyleSheet.create({
         fontSize: VARS.small,
         fontWeight: '600',
     },
+    recyclingGuideCard: {
+        backgroundColor: COLORS.white,
+        borderRadius: VARS.xsmall,
+        padding: VARS.small + 4,
+        marginTop: VARS.small,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: VARS.xxsmall / 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: VARS.xxsmall / 2,
+        elevation: 3,
+    },
+    recyclingGuideContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    recyclingGuideTextContainer: {
+        flex: 1,
+        marginRight: VARS.xsmall,
+    },
+    recyclingGuideTitle: {
+        fontSize: VARS.small + 2,
+        fontWeight: '600',
+        color: COLORS.text,
+        marginBottom: VARS.xxsmall / 2,
+    },
+    recyclingGuideSubtitle: {
+        fontSize: VARS.xsmall + 2,
+        color: COLORS.textSecondary,
+        lineHeight: VARS.small + 2,
+    },
 });
