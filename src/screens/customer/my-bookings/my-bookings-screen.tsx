@@ -448,25 +448,22 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
                                 <AppText style={styles.cardDate}>
                                     {formatDate(booking.date)}
                                 </AppText>
-                                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                                    {booking.type === "subscription" && (
-                                        <View style={[styles.statusBadge, { backgroundColor: COLORS.primary }]}>
-                                            <AppText style={styles.statusText}>
-                                                SUBSCRIPTION
-                                            </AppText>
-                                        </View>
-                                    )}
-                                    <View
-                                        style={[
-                                            styles.statusBadge,
-                                            { backgroundColor: getStatusColor(booking.status) },
-                                        ]}
+                                
+                                {/* Delete Icon - Only show for unpaid bookings */}
+                                {canDelete && (
+                                    <TouchableOpacity
+                                        style={styles.deleteIconButton}
+                                        onPress={() => handleDeleteBooking(booking)}
+                                        disabled={isProcessing || isDeleting || isVerifying}
+                                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                                     >
-                                        <AppText style={styles.statusText}>
-                                            {booking.status.toUpperCase()}
-                                        </AppText>
-                                    </View>
-                                </View>
+                                        {isDeleting ? (
+                                            <ActivityIndicator size="small" color={COLORS.error} />
+                                        ) : (
+                                            <AppText style={styles.deleteIcon}>🗑️</AppText>
+                                        )}
+                                    </TouchableOpacity>
+                                )}
                             </View>
                             <AppText style={styles.cardWindow}>
                                 {booking.windowLabel}
@@ -491,8 +488,21 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
                                 Total: {formatPrice(booking.totalPrice)}
                             </AppText>
 
-                            {/* Payment Status Section */}
-                            <View style={styles.paymentStatusContainer}>
+                            {/* Status Row: Booking Status + Payment Status */}
+                            <View style={styles.statusRow}>
+                                {/* Booking Status Badge */}
+                                <View
+                                    style={[
+                                        styles.statusBadge,
+                                        { backgroundColor: getStatusColor(booking.status) },
+                                    ]}
+                                >
+                                    <AppText style={styles.statusText}>
+                                        {booking.status.toUpperCase()}
+                                    </AppText>
+                                </View>
+                                
+                                {/* Payment Status Badge */}
                                 {isPaid ? (
                                     <View
                                         style={[
@@ -530,21 +540,33 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
                                         </AppText>
                                     </View>
                                 )}
+                                
+                                {/* Subscription Badge (optional) */}
+                                {booking.type === "subscription" && (
+                                    <View style={[styles.statusBadge, { backgroundColor: COLORS.primary }]}>
+                                        <AppText style={styles.statusText}>
+                                            SUBSCRIPTION
+                                        </AppText>
+                                    </View>
+                                )}
                             </View>
 
-                            {/* Continue Payment Button - ONLY show if NOT paid */}
+                            {/* Payment Action Buttons - ONLY show if NOT paid */}
                             {needsPayment && !isVerifying && (
-                                <View style={{ gap: 8 }}>
+                                <View style={styles.paymentActionsRow}>
                                     <TouchableOpacity
-                                        style={styles.continuePaymentButton}
+                                        style={[
+                                            styles.retryPaymentButton,
+                                            booking.payment.status === "initiated" && styles.retryPaymentButtonWithVerify
+                                        ]}
                                         onPress={() => handleContinuePayment(booking)}
                                         disabled={isProcessing || isDeleting}
                                     >
                                         {isProcessing ? (
                                             <ActivityIndicator size="small" color="#fff" />
                                         ) : (
-                                            <AppText style={styles.continuePaymentButtonText}>
-                                                Continue payment
+                                            <AppText style={styles.retryPaymentButtonText}>
+                                                Retry payment
                                             </AppText>
                                         )}
                                     </TouchableOpacity>
@@ -559,23 +581,6 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
                                             <AppText style={styles.verifyPaymentButtonText}>
                                                 Verify payment
                                             </AppText>
-                                        </TouchableOpacity>
-                                    )}
-                                    
-                                    {/* Delete Button - Only show for unpaid bookings */}
-                                    {canDelete && (
-                                        <TouchableOpacity
-                                            style={styles.deleteButton}
-                                            onPress={() => handleDeleteBooking(booking)}
-                                            disabled={isProcessing || isDeleting}
-                                        >
-                                            {isDeleting ? (
-                                                <ActivityIndicator size="small" color={COLORS.error} />
-                                            ) : (
-                                                <AppText style={styles.deleteButtonText}>
-                                                    🗑️ Delete booking
-                                                </AppText>
-                                            )}
                                         </TouchableOpacity>
                                     )}
                                 </View>
