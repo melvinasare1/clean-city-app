@@ -3,6 +3,7 @@ import {
   doc,
   getDocs,
   getDoc,
+  deleteDoc,
   query,
   where,
   orderBy,
@@ -401,6 +402,50 @@ export const handleBookingPaymentSuccess = async (
         error
       );
     }
+  }
+};
+
+/**
+ * Delete a booking. Only allows deletion if booking is NOT paid.
+ * Safety check: Verifies payment.status !== "paid" before deletion.
+ * 
+ * @param bookingId - The booking ID to delete
+ * @throws Error if booking is paid or not found
+ */
+export const deleteBooking = async (bookingId: string): Promise<void> => {
+  console.log(`[Delete Booking] Starting deletion for booking ${bookingId}`);
+  
+  // Fetch the booking first to verify it exists and is not paid
+  const booking = await getBookingById(bookingId);
+  
+  if (!booking) {
+    console.error("[Delete Booking] ❌ Booking not found:", bookingId);
+    throw new Error("Booking not found");
+  }
+  
+  // Safety check: Only allow deletion if NOT paid
+  if (booking.payment.status === "paid") {
+    console.error("[Delete Booking] ❌ Cannot delete paid booking:", bookingId);
+    throw new Error("Paid bookings cannot be deleted");
+  }
+  
+  // Additional safety: Only allow deletion for explicit unpaid/initiated statuses
+  const allowedStatuses: PaymentStatus[] = ["unpaid", "initiated"];
+  if (!allowedStatuses.includes(booking.payment.status)) {
+    console.error("[Delete Booking] ❌ Invalid payment status for deletion:", booking.payment.status);
+    throw new Error("This booking cannot be deleted");
+  }
+  
+  console.log(`[Delete Booking] Payment status: ${booking.payment.status} - deletion allowed`);
+  
+  // Delete the booking from Firestore
+  try {
+    const bookingRef = doc(db, BOOKINGS_COLLECTION, bookingId);
+    await deleteDoc(bookingRef);
+    console.log(`[Delete Booking] ✅ Booking ${bookingId} deleted successfully`);
+  } catch (error: any) {
+    console.error("[Delete Booking] ❌ Failed to delete booking:", error);
+    throw new Error("Failed to delete booking. Please try again.");
   }
 };
 
