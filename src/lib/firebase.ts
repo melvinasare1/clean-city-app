@@ -20,7 +20,13 @@ import {
   type User as FirebaseUserType,
 } from "firebase/auth";
 
-import { getFirestore, type Firestore } from "firebase/firestore";
+import {
+  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  type Firestore,
+} from "firebase/firestore";
 import { getStorage, type FirebaseStorage } from "firebase/storage";
 
 const firebaseConfig = {
@@ -51,7 +57,23 @@ if (Platform.OS === "web") {
   }
 }
 
-const db: Firestore = getFirestore(firebaseApp);
+// ✅ Firestore with offline persistence enabled
+let db: Firestore;
+
+try {
+  // Initialize Firestore with persistent cache for instant loading
+  db = initializeFirestore(firebaseApp, {
+    localCache: persistentLocalCache({
+      tabManager: persistentMultipleTabManager(),
+    }),
+  });
+  console.log('[Firestore] ✅ Initialized with persistent cache');
+} catch (error) {
+  // In dev/hot reload, Firestore may already be initialized
+  console.log('[Firestore] Using existing Firestore instance');
+  db = getFirestore(firebaseApp);
+}
+
 const storage: FirebaseStorage = getStorage(firebaseApp);
 
 export { firebaseApp, auth, db, storage };

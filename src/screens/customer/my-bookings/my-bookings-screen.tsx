@@ -1,10 +1,11 @@
-import React, { useCallback, useLayoutEffect, useState } from 'react';
+import React, { useCallback, useLayoutEffect, useState, useEffect } from 'react';
 import {
     ActivityIndicator,
     ActionSheetIOS,
     Alert,
     Linking,
     Platform,
+    RefreshControl,
     ScrollView,
     TouchableOpacity,
     View,
@@ -19,10 +20,11 @@ import {
     CustomerTabParamList,
 } from '@/navigation/types';
 import type { Booking } from '@/types/booking';
-import { getUserBookings, initiatePaymentForBooking, verifyBookingPayment } from '@/services/booking-service';
+import { initiatePaymentForBooking, verifyBookingPayment, deleteBooking } from '@/services/booking-service';
 import { COLORS } from '@/lib/constants';
 import { styles } from './my-bookings-screen.styles';
 import { trackEvent } from '@/services/analytics';
+import { useBookings } from '@/contexts/bookings-context';
 
 type MyBookingsScreenProps = CompositeScreenProps<
     BottomTabScreenProps<CustomerTabParamList, 'MyBookings'>,
@@ -66,72 +68,38 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
     navigation,
 }) => {
     const { user, logout } = useAuth();
-    const [bookings, setBookings] = useState<Booking[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const {
+        bookings,
+        loading,
+        error,
+        subscribeToUserBookings,
+        refreshBookings,
+        removeBookingOptimistically,
+    } = useBookings();
+    
     const [processingPayment, setProcessingPayment] = useState<string | null>(null);
-    const [verifyingBookings, setVerifyingBookings] = useState<Set<string>>(new Set());
+    const [verifyingBooking, setVerifyingBooking] = useState<string | null>(null);
+    const [deletingBooking, setDeletingBooking] = useState<string | null>(null);
+    const [refreshing, setRefreshing] = useState(false);
 
     const needsProfileCompletion = !user?.phone || !user?.location;
 
-    const fetchBookings = useCallback(async () => {
-        if (!user) {
-            setBookings([]);
-            setLoading(false);
+    // Subscribe to user's bookings when screen mounts or user changes
+    useEffect(() => {
+        if (!user?.id) {
             return;
         }
-        setLoading(true);
-        try {
-            const data = await getUserBookings(user.id);
-            setBookings(data);
-            setError(null);
-            
-            // Silently verify payments in background (non-blocking)
-            const pendingPayments = data.filter(
-                booking => booking.payment.status !== "paid" && booking.payment.reference
-            );
-            
-            if (pendingPayments.length > 0) {
-                console.log(`[Auto-verify] Found ${pendingPayments.length} bookings with references, verifying in background...`);
-                
-                // Mark these bookings as being verified
-                const verifyingIds = new Set(pendingPayments.map(b => b.id));
-                setVerifyingBookings(verifyingIds);
-                
-                // Run verification in background without blocking UI
-                Promise.all(
-                    pendingPayments.map(booking => 
-                        verifyBookingPayment(booking.id, false) // throwOnError = false
-                    )
-                ).then(results => {
-                    const verifiedCount = results.filter(r => r === true).length;
-                    if (verifiedCount > 0) {
-                        console.log(`[Auto-verify] ✅ ${verifiedCount} payment(s) verified as paid, refreshing...`);
-                        // Silently refetch to update UI
-                        getUserBookings(user.id).then(updatedData => {
-                            setBookings(updatedData);
-                            setVerifyingBookings(new Set());
-                        }).catch(err => {
-                            console.warn('[Auto-verify] Failed to refetch bookings:', err);
-                            setVerifyingBookings(new Set());
-                        });
-                    } else {
-                        console.log(`[Auto-verify] No payments were verified as paid`);
-                        setVerifyingBookings(new Set());
-                    }
-                }).catch(err => {
-                    // Completely silent - don't show error to user
-                    console.warn('[Auto-verify] Background verification failed:', err);
-                    setVerifyingBookings(new Set());
-                });
+
+        console.log('[MyBookings] Setting up realtime subscription');
+        const unsubscribe = subscribeToUserBookings(user.id);
+
+        return () => {
+            if (unsubscribe) {
+                console.log('[MyBookings] Cleaning up subscription');
+                unsubscribe();
             }
-        } catch (err) {
-            console.error('Error loading bookings:', err);
-            setError('We could not load your bookings. Please try again.');
-        } finally {
-            setLoading(false);
-        }
-    }, [user?.id]);
+        };
+    }, [user?.id, subscribeToUserBookings]);
 
     const handleActionSelection = useCallback(
         async (index: number) => {
@@ -207,11 +175,16 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
         }
     }, [handleActionSelection]);
 
-    useFocusEffect(
-        useCallback(() => {
-            fetchBookings();
-        }, [fetchBookings])
-    );
+    const handlePullToRefresh = useCallback(async () => {
+        setRefreshing(true);
+        // When using onSnapshot, manual refresh is just a UX indicator
+        // The subscription will automatically update when data changes
+        refreshBookings();
+        // Simulate a brief refresh to show user feedback
+        setTimeout(() => {
+            setRefreshing(false);
+        }, 500);
+    }, [refreshBookings]);
 
     const handleContinuePayment = useCallback(
         async (booking: Booking) => {
@@ -226,50 +199,13 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
             try {
                 setProcessingPayment(booking.id);
 
-                // First, verify if payment is already completed
-                console.log('[Manual verify] Checking payment status for booking:', booking.id);
-                
-                try {
-                    const isAlreadyPaid = await verifyBookingPayment(
-                        booking.id,
-                        true // throwOnError = true
-                    );
-                    
-                    if (isAlreadyPaid) {
-                        // Refetch booking to get updated status
-                        await fetchBookings();
-                        
-                        Alert.alert(
-                            'Already Paid ✅',
-                            'This booking has already been paid for. Your booking list has been updated.',
-                            [{ text: 'OK' }]
-                        );
-                        return;
-                    }
-                } catch (verifyError: any) {
-                    // If verification fails due to network, show error but allow retry
-                    console.warn('[Manual verify] Verification failed:', verifyError.message);
-                    
-                    if (verifyError.message.includes('Network') || verifyError.message.includes('non-JSON')) {
-                        Alert.alert(
-                            'Connection Error',
-                            'Could not verify payment status. Please check your internet connection and try again.',
-                            [{ text: 'OK' }]
-                        );
-                        return;
-                    }
-                    
-                    // For other errors, continue to payment
-                    console.log('[Manual verify] Continuing to payment despite verification error');
-                }
-
                 // If authorizationUrl exists, open it
                 if (booking.payment.authorizationUrl) {
                     console.log('[Payment] Opening existing authorization URL');
                     await Linking.openURL(booking.payment.authorizationUrl);
                     Alert.alert(
                         'Complete payment',
-                        'Please complete your payment in the opened page to confirm your booking.'
+                        'Please complete your payment in the opened page. Your booking will update automatically once payment is confirmed via webhook.'
                     );
                 } else {
                     // Otherwise, initialize new payment for SAME booking
@@ -281,8 +217,8 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
                     await Linking.openURL(authorizationUrl);
                     Alert.alert(
                         'Complete payment',
-                        'Please complete your payment in the opened page to confirm your booking.',
-                        [{ text: 'OK', onPress: () => fetchBookings() }]
+                        'Please complete your payment in the opened page. Your booking will update automatically once payment is confirmed via webhook.',
+                        [{ text: 'OK' }]
                     );
                 }
             } catch (err: any) {
@@ -295,7 +231,111 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
                 setProcessingPayment(null);
             }
         },
-        [user?.email, fetchBookings]
+        [user?.email]
+    );
+
+    const handleManualVerify = useCallback(
+        async (booking: Booking) => {
+            try {
+                console.log('[Manual verify] User requested payment verification for booking:', booking.id);
+                setVerifyingBooking(booking.id);
+                
+                const isAlreadyPaid = await verifyBookingPayment(
+                    booking.id,
+                    true // throwOnError = true
+                );
+                
+                if (isAlreadyPaid) {
+                    // The onSnapshot listener will automatically update the UI
+                    Alert.alert(
+                        'Payment Confirmed ✅',
+                        'This booking has been paid for. Your booking list will update automatically.',
+                        [{ text: 'OK' }]
+                    );
+                } else {
+                    Alert.alert(
+                        'Payment Not Found',
+                        'Payment has not been confirmed yet. This may take a few moments after completing payment. Your booking will update automatically once payment is confirmed.',
+                        [{ text: 'OK' }]
+                    );
+                }
+            } catch (verifyError: any) {
+                console.warn('[Manual verify] Verification failed:', verifyError.message);
+                
+                if (verifyError.message.includes('Network') || verifyError.message.includes('non-JSON')) {
+                    Alert.alert(
+                        'Connection Error',
+                        'Could not verify payment status. Please check your internet connection and try again.',
+                        [{ text: 'OK' }]
+                    );
+                } else {
+                    Alert.alert(
+                        'Verification Error',
+                        verifyError.message || 'Could not verify payment status. Please try again or contact support.',
+                        [{ text: 'OK' }]
+                    );
+                }
+            } finally {
+                setVerifyingBooking(null);
+            }
+        },
+        []
+    );
+
+    const handleDeleteBooking = useCallback(
+        (booking: Booking) => {
+            // Show confirmation dialog
+            Alert.alert(
+                'Delete booking?',
+                'This will remove this booking permanently. You can create a new one anytime.',
+                [
+                    {
+                        text: 'Cancel',
+                        style: 'cancel',
+                    },
+                    {
+                        text: 'Delete',
+                        style: 'destructive',
+                        onPress: async () => {
+                            try {
+                                console.log('[Delete] User confirmed deletion for booking:', booking.id);
+                                setDeletingBooking(booking.id);
+
+                                // Delete from Firestore
+                                await deleteBooking(booking.id);
+
+                                // Optimistically remove from UI
+                                // The onSnapshot listener will also remove it, but this makes it feel faster
+                                removeBookingOptimistically(booking.id);
+
+                                console.log('[Delete] ✅ Booking deleted successfully');
+                            } catch (deleteError: any) {
+                                console.error('[Delete] ❌ Deletion failed:', deleteError);
+                                
+                                // Show appropriate error message
+                                if (deleteError.message?.includes('Paid bookings cannot be deleted')) {
+                                    Alert.alert(
+                                        'Cannot Delete',
+                                        'Paid bookings cannot be deleted. Please contact support if you need assistance.',
+                                        [{ text: 'OK' }]
+                                    );
+                                } else {
+                                    Alert.alert(
+                                        'Delete Failed',
+                                        deleteError.message || 'Could not delete booking. Please try again.',
+                                        [{ text: 'OK' }]
+                                    );
+                                }
+                            } finally {
+                                setDeletingBooking(null);
+                            }
+                        },
+                    },
+                ],
+                { cancelable: true }
+            );
+        },
+        [removeBookingOptimistically]
     );
 
     useLayoutEffect(() => {
@@ -317,7 +357,17 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
     }, [navigation, showOptionsSheet]);
 
     return (
-        <ScrollView style={styles.content}>
+        <ScrollView
+            style={styles.content}
+            refreshControl={
+                <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={handlePullToRefresh}
+                    tintColor={COLORS.primary}
+                    colors={[COLORS.primary]}
+                />
+            }
+        >
             {needsProfileCompletion && (
                 <TouchableOpacity
                     style={styles.profileBanner}
@@ -357,7 +407,7 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
                     <AppText style={styles.errorText}>{error}</AppText>
                     <TouchableOpacity
                         style={styles.retryButton}
-                        onPress={fetchBookings}
+                        onPress={handlePullToRefresh}
                     >
                         <AppText style={styles.retryButtonText}>Try again</AppText>
                     </TouchableOpacity>
@@ -388,7 +438,9 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
                     const isPaid = booking.payment.status === "paid";
                     const needsPayment = !isPaid;
                     const isProcessing = processingPayment === booking.id;
-                    const isVerifying = verifyingBookings.has(booking.id);
+                    const isVerifying = verifyingBooking === booking.id;
+                    const isDeleting = deletingBooking === booking.id;
+                    const canDelete = !isPaid && (booking.payment.status === "unpaid" || booking.payment.status === "initiated");
 
                     return (
                         <View key={booking.id} style={styles.card}>
@@ -396,25 +448,22 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
                                 <AppText style={styles.cardDate}>
                                     {formatDate(booking.date)}
                                 </AppText>
-                                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                                    {booking.type === "subscription" && (
-                                        <View style={[styles.statusBadge, { backgroundColor: COLORS.primary }]}>
-                                            <AppText style={styles.statusText}>
-                                                SUBSCRIPTION
-                                            </AppText>
-                                        </View>
-                                    )}
-                                    <View
-                                        style={[
-                                            styles.statusBadge,
-                                            { backgroundColor: getStatusColor(booking.status) },
-                                        ]}
+                                
+                                {/* Delete Icon - Only show for unpaid bookings */}
+                                {canDelete && (
+                                    <TouchableOpacity
+                                        style={styles.deleteIconButton}
+                                        onPress={() => handleDeleteBooking(booking)}
+                                        disabled={isProcessing || isDeleting || isVerifying}
+                                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                                     >
-                                        <AppText style={styles.statusText}>
-                                            {booking.status.toUpperCase()}
-                                        </AppText>
-                                    </View>
-                                </View>
+                                        {isDeleting ? (
+                                            <ActivityIndicator size="small" color={COLORS.error} />
+                                        ) : (
+                                            <AppText style={styles.deleteIcon}>🗑️</AppText>
+                                        )}
+                                    </TouchableOpacity>
+                                )}
                             </View>
                             <AppText style={styles.cardWindow}>
                                 {booking.windowLabel}
@@ -439,8 +488,21 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
                                 Total: {formatPrice(booking.totalPrice)}
                             </AppText>
 
-                            {/* Payment Status Section */}
-                            <View style={styles.paymentStatusContainer}>
+                            {/* Status Row: Booking Status + Payment Status */}
+                            <View style={styles.statusRow}>
+                                {/* Booking Status Badge */}
+                                <View
+                                    style={[
+                                        styles.statusBadge,
+                                        { backgroundColor: getStatusColor(booking.status) },
+                                    ]}
+                                >
+                                    <AppText style={styles.statusText}>
+                                        {booking.status.toUpperCase()}
+                                    </AppText>
+                                </View>
+                                
+                                {/* Payment Status Badge */}
                                 {isPaid ? (
                                     <View
                                         style={[
@@ -456,7 +518,7 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
                                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                                         <ActivityIndicator size="small" color={COLORS.primary} />
                                         <AppText style={{ fontSize: 12, color: COLORS.textSecondary }}>
-                                            Checking payment status...
+                                            Verifying payment...
                                         </AppText>
                                     </View>
                                 ) : (
@@ -478,23 +540,50 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
                                         </AppText>
                                     </View>
                                 )}
+                                
+                                {/* Subscription Badge (optional) */}
+                                {booking.type === "subscription" && (
+                                    <View style={[styles.statusBadge, { backgroundColor: COLORS.primary }]}>
+                                        <AppText style={styles.statusText}>
+                                            SUBSCRIPTION
+                                        </AppText>
+                                    </View>
+                                )}
                             </View>
 
-                            {/* Continue Payment Button - ONLY show if NOT paid */}
+                            {/* Payment Action Buttons - ONLY show if NOT paid */}
                             {needsPayment && !isVerifying && (
-                                <TouchableOpacity
-                                    style={styles.continuePaymentButton}
-                                    onPress={() => handleContinuePayment(booking)}
-                                    disabled={isProcessing}
-                                >
-                                    {isProcessing ? (
-                                        <ActivityIndicator size="small" color="#fff" />
-                                    ) : (
-                                        <AppText style={styles.continuePaymentButtonText}>
-                                            Continue payment
-                                        </AppText>
+                                <View style={styles.paymentActionsRow}>
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.retryPaymentButton,
+                                            booking.payment.status === "initiated" && styles.retryPaymentButtonWithVerify
+                                        ]}
+                                        onPress={() => handleContinuePayment(booking)}
+                                        disabled={isProcessing || isDeleting}
+                                    >
+                                        {isProcessing ? (
+                                            <ActivityIndicator size="small" color="#fff" />
+                                        ) : (
+                                            <AppText style={styles.retryPaymentButtonText}>
+                                                Retry payment
+                                            </AppText>
+                                        )}
+                                    </TouchableOpacity>
+                                    
+                                    {/* Manual Verify Button - Only show for initiated payments */}
+                                    {booking.payment.status === "initiated" && (
+                                        <TouchableOpacity
+                                            style={styles.verifyPaymentButton}
+                                            onPress={() => handleManualVerify(booking)}
+                                            disabled={isProcessing || isDeleting}
+                                        >
+                                            <AppText style={styles.verifyPaymentButtonText}>
+                                                Verify payment
+                                            </AppText>
+                                        </TouchableOpacity>
                                     )}
-                                </TouchableOpacity>
+                                </View>
                             )}
                         </View>
                     );

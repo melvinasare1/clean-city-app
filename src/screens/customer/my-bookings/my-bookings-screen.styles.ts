@@ -200,6 +200,13 @@ export const styles = StyleSheet.create({
     color: COLORS.white,
     fontWeight: "600",
   },
+  statusRow: {
+    marginTop: VARS.xsmall,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 8,
+  },
   paymentStatusContainer: {
     marginTop: VARS.xsmall,
     alignItems: "flex-start",
@@ -214,8 +221,13 @@ export const styles = StyleSheet.create({
     fontWeight: "600",
     color: COLORS.white,
   },
-  continuePaymentButton: {
+  paymentActionsRow: {
     marginTop: VARS.small,
+    flexDirection: "row",
+    gap: 8,
+  },
+  retryPaymentButton: {
+    flex: 1,
     backgroundColor: COLORS.primary,
     paddingVertical: 10,
     paddingHorizontal: VARS.medium,
@@ -223,9 +235,37 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  continuePaymentButtonText: {
+  retryPaymentButtonWithVerify: {
+    flex: 1,
+  },
+  retryPaymentButtonText: {
     color: COLORS.white,
     fontWeight: "600",
     fontSize: 14,
+  },
+  verifyPaymentButton: {
+    flex: 1,
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    paddingVertical: 10,
+    paddingHorizontal: VARS.medium,
+    borderRadius: VARS.xsmall,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  verifyPaymentButtonText: {
+    color: COLORS.primary,
+    fontWeight: "600",
+    fontSize: 14,
+  },
+  deleteIconButton: {
+    padding: 4,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  deleteIcon: {
+    fontSize: 16,
+    color: COLORS.error,
   },
 });
