@@ -3,6 +3,22 @@ import type { TimeWindowId } from "@/lib/time-windows";
 
 export type BookingStatus = "pending" | "completed" | "cancelled";
 
+export type PaymentStatus = "unpaid" | "initiated" | "paid";
+
+export type BookingPayment = {
+  status: PaymentStatus;
+  reference?: string;
+  authorizationUrl?: string;
+  amount?: number;
+  initiatedAt?: Timestamp;
+  paidAt?: Timestamp;
+  /**
+   * History of previous payment references for retry scenarios.
+   * When a user retries payment, the old reference is pushed here.
+   */
+  referenceHistory?: string[];
+};
+
 export type BookingBinItem = {
   id?: string;
   type: string;
@@ -42,4 +58,9 @@ export type Booking = {
    * Undefined for one-off bookings.
    */
   recurrence?: BookingRecurrence;
+  /**
+   * Payment information for the booking.
+   * Tracks payment status and allows retry/continue payment flow.
+   */
+  payment: BookingPayment;
 };

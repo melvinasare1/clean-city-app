@@ -200,4 +200,32 @@ export const styles = StyleSheet.create({
     color: COLORS.white,
     fontWeight: "600",
   },
+  paymentStatusContainer: {
+    marginTop: VARS.xsmall,
+    alignItems: "flex-start",
+  },
+  paymentStatusBadge: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 20,
+  },
+  paymentStatusText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: COLORS.white,
+  },
+  continuePaymentButton: {
+    marginTop: VARS.small,
+    backgroundColor: COLORS.primary,
+    paddingVertical: 10,
+    paddingHorizontal: VARS.medium,
+    borderRadius: VARS.xsmall,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  continuePaymentButtonText: {
+    color: COLORS.white,
+    fontWeight: "600",
+    fontSize: 14,
+  },
 });

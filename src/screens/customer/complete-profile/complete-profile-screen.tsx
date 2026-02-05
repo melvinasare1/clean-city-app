@@ -21,7 +21,7 @@ type CompleteProfileScreenProps = NativeStackScreenProps<
 export const CompleteProfileScreen: React.FC<CompleteProfileScreenProps> = ({
     navigation,
 }) => {
-    const { user } = useAuth();
+    const { user, refreshUserProfile } = useAuth();
     const [phone, setPhone] = useState(user?.phone ?? '');
     const [location, setLocation] = useState<ServiceArea | ''>(
         (user?.location as ServiceArea) ?? ''
@@ -53,6 +53,8 @@ export const CompleteProfileScreen: React.FC<CompleteProfileScreenProps> = ({
                 { phone, location },
                 { merge: true, addTimestamps: false }
             );
+            // Refresh user profile in context to reflect the changes immediately
+            await refreshUserProfile();
             Alert.alert('Success', 'Profile updated successfully.');
             navigation.goBack();
         } catch (err) {

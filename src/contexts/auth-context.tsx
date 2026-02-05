@@ -3,6 +3,7 @@ import React, {
     useContext,
     useEffect,
     useState,
+    useCallback,
 } from 'react';
 import {
     doc,
@@ -44,6 +45,7 @@ interface AuthContextProps {
         referralCode?: string | null
     ) => Promise<void>;
     logout: () => Promise<void>;
+    refreshUserProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
@@ -88,9 +90,11 @@ const fetchUserProfile = async (firebaseUser: FirebaseUser | null): Promise<AppU
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [user, setUser] = useState<AppUser | null>(null);
     const [loading, setLoading] = useState(true);
+    const [currentFirebaseUser, setCurrentFirebaseUser] = useState<FirebaseUser | null>(null);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+            setCurrentFirebaseUser(firebaseUser);
             if (firebaseUser) {
                 try {
                     const profile = await fetchUserProfile(firebaseUser);
@@ -132,6 +136,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         return () => unsubscribe();
     }, []);
+
+    const refreshUserProfile = useCallback(async () => {
+        if (currentFirebaseUser) {
+            try {
+                const profile = await fetchUserProfile(currentFirebaseUser);
+                setUser(profile);
+            } catch (err) {
+                console.error('Error refreshing user profile:', err);
+            }
+        }
+    }, [currentFirebaseUser]);
 
     const login = async (email: string, password: string) => {
         await signInWithEmailAndPassword(auth, email, password);
@@ -193,7 +208,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return (
         <AuthContext.Provider
-            value={{ user, loading, login, signup, resetPassword, logout }}
+            value={{ user, loading, login, signup, resetPassword, logout, refreshUserProfile }}
         >
             {children}
         </AuthContext.Provider>

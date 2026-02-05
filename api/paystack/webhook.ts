@@ -143,17 +143,22 @@ export default async function handler(
               { merge: true }
             );
 
-            // If payment was successful, mark booking as completed
+            // If payment was successful, mark booking payment as paid
             if (status === 'success' && metadata?.bookingId) {
               try {
                 await firestore
                   .collection('bookings')
                   .doc(metadata.bookingId)
-                  .set({ status: 'completed' }, { merge: true });
-                console.log(`Marked booking ${metadata.bookingId} as completed`);
+                  .set(
+                    { 
+                      payment: { status: 'paid' }
+                    }, 
+                    { merge: true }
+                  );
+                console.log(`Marked booking ${metadata.bookingId} payment as paid`);
               } catch (err) {
                 console.error(
-                  `Failed to update booking ${metadata.bookingId}:`,
+                  `Failed to update booking ${metadata.bookingId} payment:`,
                   err
                 );
               }

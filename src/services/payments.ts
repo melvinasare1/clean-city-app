@@ -4,6 +4,18 @@ import { getApiBaseUrl } from "@/lib/apiBase";
 
 export type PaymentStatus = "success" | "failed" | "abandoned" | "pending";
 
+export interface VerifyBookingPaymentRequest {
+  bookingId: string;
+  reference: string;
+}
+
+export interface VerifyBookingPaymentResponse {
+  ok: boolean;
+  paid: boolean;
+  status?: string;
+  message?: string;
+}
+
 export interface InitializePaymentRequest {
   email: string;
   amount: number; // in app currency units (e.g. GHS)
@@ -81,19 +93,89 @@ export async function verifyPayment(
   reference: string
 ): Promise<VerifyPaymentResponse> {
   const API_BASE_URL = getApiBaseUrl();
+  
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/api/paystack/verify?reference=${encodeURIComponent(
+        reference
+      )}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
-  const response = await fetch(
-    `${API_BASE_URL}/api/paystack/verify?reference=${encodeURIComponent(
-      reference
-    )}`
-  );
+    const data = await response.json();
 
-  const data = await response.json();
+    if (!response.ok) {
+      console.log("Verify payment error:", data);
+      throw new Error(data?.error || data?.message || "Failed to verify payment");
+    }
 
-  if (!response.ok) {
-    console.log("Verify payment error:", data);
-    throw new Error(data?.error || "Failed to verify payment");
+    return data as VerifyPaymentResponse;
+  } catch (error: any) {
+    console.error("Paystack verify request failed:", error);
+    throw new Error(error?.message || "Network error during payment verification");
   }
+}
 
-  return data as VerifyPaymentResponse;
+/**
+ * Verify booking payment status with the separate Paystack backend.
+ * Calls POST /api/paystack/verify with bookingId.
+ * Returns { ok: boolean, paid: boolean }
+ */
+export async function verifyBookingPaymentWithBackend(
+  bookingId: string
+): Promise<VerifyBookingPaymentResponse> {
+  const base = (process.env.EXPO_PUBLIC_API_URL || "").replace(/\/$/, "");
+  const url = `${base}/api/paystack/verify`;
+  
+  console.log("=".repeat(60));
+  console.log("[Verify] 📍 PAYMENT VERIFICATION REQUEST");
+  console.log("[Verify] Base URL:", base);
+  console.log("[Verify] Full URL:", url);
+  console.log("[Verify] Expected path: /api/paystack/verify");
+  console.log("[Verify] Request body:", { bookingId });
+  console.log("=".repeat(60));
+  
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ bookingId }),
+    });
+
+    // Read as text first to see exactly what's returned
+    const text = await res.text();
+    
+    // 👇 THIS WILL TELL US EXACTLY WHAT IS COMING BACK
+    console.log("[Verify] status:", res.status);
+    console.log("[Verify] raw:", text.slice(0, 200));
+
+    // If backend returns non-JSON, don't crash the app
+    let json: any = null;
+    try {
+      json = JSON.parse(text);
+    } catch (e) {
+      console.error("[Verify] ❌ Failed to parse JSON:", e);
+      throw new Error(`Verify returned non-JSON (status ${res.status}): ${text.slice(0, 120)}`);
+    }
+
+    console.log("[Verify] Parsed JSON:", json);
+
+    if (!res.ok || json?.ok === false) {
+      console.error("[Verify] ❌ Error response:", json);
+      throw new Error(json?.error || json?.message || `Verify failed (status ${res.status})`);
+    }
+
+    console.log("[Verify] ✅ Success - paid:", json?.paid);
+    return json as VerifyBookingPaymentResponse; // { ok:true, paid:true/false, ... }
+  } catch (error: any) {
+    console.error("[Verify] ❌ Request failed:", error);
+    throw error; // Re-throw to preserve the original error message
+  }
 }

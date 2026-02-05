@@ -44,10 +44,14 @@ export const PaymentCallbackScreen: React.FC<Props> = ({
 
         if (verifyResult.status === "success") {
           // Booking is successfully paid at this point.
-          // Trigger referral reward logic (idempotent, transaction-based).
+          // Update booking payment status and trigger referral reward logic.
+          const bookingId = (verifyResult.metadata as any)?.bookingId;
           const referredUserId =
             (verifyResult.metadata as any)?.userId ?? user?.id ?? null;
-          await handleBookingPaymentSuccess(referredUserId);
+          
+          if (bookingId) {
+            await handleBookingPaymentSuccess(bookingId, referredUserId);
+          }
 
           await trackEvent("payment_completed", {
             screen: SCREEN,
