@@ -39,6 +39,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Call Paystack API
+    console.log("[Backend Init] 🚀 Calling Paystack API...");
+    console.log("[Backend Init] Amount:", amount, "Email:", email);
+    
     const paystackResponse = await fetch(
       `${PAYSTACK_BASE_URL}/transaction/initialize`,
       {
@@ -56,10 +59,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     );
 
-    const data = await paystackResponse.json();
+    const text = await paystackResponse.text();
+    console.log("[Backend Init] Paystack status:", paystackResponse.status);
+    console.log("[Backend Init] Paystack raw response:", text.slice(0, 300));
+
+    let data: any;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      console.error("[Backend Init] ❌ Paystack returned non-JSON:", e);
+      return res.status(500).json({
+        error: "Invalid response from payment provider",
+        details: text.slice(0, 200),
+      });
+    }
+
+    console.log("[Backend Init] Paystack parsed response:", data);
 
     if (!paystackResponse.ok || !data.status) {
-      console.error("Paystack initialize error:", data);
+      console.error("[Backend Init] ❌ Paystack error response:", data);
       return res.status(paystackResponse.status || 500).json({
         error: "Failed to initialize transaction",
         details: data.message || "Unknown error",
@@ -67,12 +85,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const authData = data.data;
+    console.log("[Backend Init] authData:", authData);
+    console.log("[Backend Init] authorization_url:", authData?.authorization_url);
+    console.log("[Backend Init] reference:", authData?.reference);
 
-    return res.status(201).json({
+    const response = {
       authorization_url: authData.authorization_url,
       access_code: authData.access_code,
       reference: authData.reference,
-    });
+    };
+    
+    console.log("[Backend Init] ✅ Returning to frontend:", response);
+    return res.status(201).json(response);
   } catch (error: any) {
     console.error("Error initializing Paystack transaction:", error?.message);
     return res.status(500).json({

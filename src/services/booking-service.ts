@@ -16,6 +16,7 @@ import type {
   BookingBinItem,
   BookingRecurrence,
   BookingType,
+  PaymentStatus,
 } from "@/types/booking";
 import { BOOKINGS_COLLECTION } from "@/lib/constants";
 import { setDocAtPath } from "@/lib/utils";
@@ -188,8 +189,8 @@ export const initiatePaymentForBooking = async (
   }
 
   // Validate backend response
-  if (!paymentInit.authorization_url) {
-    console.error("[Payment Init] ❌ Missing authorization_url in response");
+  if (!paymentInit.authorizationUrl) {
+    console.error("[Payment Init] ❌ Missing authorizationUrl in response");
     throw new Error("Payment provider did not return authorization URL");
   }
 
@@ -199,17 +200,25 @@ export const initiatePaymentForBooking = async (
   }
 
   const backendReference = paymentInit.reference;
-  const authorizationUrl = paymentInit.authorization_url;
+  const authorizationUrl = paymentInit.authorizationUrl;
 
   console.log("[Payment Init] ✅ Backend returned reference:", backendReference);
   console.log("[Payment Init] ✅ Backend returned authorizationUrl:", authorizationUrl);
 
   // Handle reference history for retries
   const oldReference = booking.payment.reference;
+  const oldStatus = booking.payment.status;
   const referenceHistory = booking.payment.referenceHistory || [];
   
   // If there's an old reference and it's different from the new one, archive it
-  if (oldReference && oldReference !== backendReference && !referenceHistory.includes(oldReference)) {
+  // Only archive if the previous status wasn't "paid" (avoid archiving successful payments)
+  const shouldArchiveOldReference = 
+    oldReference && 
+    oldReference !== backendReference && 
+    oldStatus !== ("paid" as PaymentStatus) &&
+    !referenceHistory.includes(oldReference);
+
+  if (shouldArchiveOldReference) {
     referenceHistory.push(oldReference);
     console.log("[Payment Init] 📝 Archived old reference to history:", oldReference);
   }
@@ -218,17 +227,24 @@ export const initiatePaymentForBooking = async (
   console.log("[Payment Init] 💾 Updating Firestore with backend reference...");
   
   try {
+    // Build payment update object - only include referenceHistory if it has entries
+    const paymentUpdate: any = {
+      status: "initiated",
+      reference: backendReference, // ⭐ Store the backend reference, NOT a local one
+      authorizationUrl: authorizationUrl,
+      amount: booking.totalPrice,
+      initiatedAt: serverTimestamp(),
+    };
+
+    // Only add referenceHistory if it has entries (avoid undefined)
+    if (referenceHistory.length > 0) {
+      paymentUpdate.referenceHistory = referenceHistory;
+    }
+
     await setDocAtPath(
       [BOOKINGS_COLLECTION, bookingId],
       {
-        payment: {
-          status: "initiated",
-          reference: backendReference, // ⭐ Store the backend reference, NOT a local one
-          authorizationUrl: authorizationUrl,
-          amount: booking.totalPrice,
-          initiatedAt: serverTimestamp(),
-          referenceHistory: referenceHistory.length > 0 ? referenceHistory : undefined,
-        },
+        payment: paymentUpdate,
       },
       {
         merge: true,
@@ -238,7 +254,7 @@ export const initiatePaymentForBooking = async (
     
     console.log("[Payment Init] ✅ Firestore updated successfully");
     console.log("[Payment Init] Saved reference:", backendReference);
-    console.log("[Payment Init] Reference history:", referenceHistory);
+    console.log("[Payment Init] Reference history:", referenceHistory.length > 0 ? referenceHistory : "(empty)");
   } catch (error: any) {
     console.error("[Payment Init] ❌ Firestore update failed:", error.message);
     throw new Error("Failed to save payment details to database");

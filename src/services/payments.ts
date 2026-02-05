@@ -23,8 +23,7 @@ export interface InitializePaymentRequest {
 }
 
 export interface InitializePaymentResponse {
-  authorization_url: string;
-  access_code: string;
+  authorizationUrl: string;
   reference: string;
 }
 
@@ -38,7 +37,7 @@ export interface VerifyPaymentResponse {
 
 /**
  * Calls your backend: POST /api/paystack/initialize
- * Returns Paystack authorization_url, access_code, reference.
+ * Returns authorizationUrl and reference from backend.
  */
 export async function initializePayment(
   body: InitializePaymentRequest
@@ -57,32 +56,53 @@ export async function initializePayment(
     body: JSON.stringify(body),
   });
 
-  const data = await response.json();
-  console.log("Initialize payment response:", data);
+  // Read as text first to see exactly what's returned
+  const text = await response.text();
+  console.log("[Paystack Init] status:", response.status);
+  console.log("[Paystack Init] raw:", text.slice(0, 300));
 
-  if (!response.ok || !data) {
-    console.log("Initialize payment error:", data);
-    throw new Error(
-      data?.error || data?.message || "Failed to initialize payment"
-    );
+  // Parse JSON with error handling
+  let json: any;
+  try {
+    json = JSON.parse(text);
+  } catch (e) {
+    console.error("[Paystack Init] ❌ Failed to parse JSON:", e);
+    throw new Error(`Init returned non-JSON: ${text.slice(0, 120)}`);
   }
 
-  // Support both normalized and raw Paystack-shaped responses
-  const authData = data.authorization_url ? data : data.data;
+  console.log("[Paystack Init] parsed:", json);
 
-  if (!authData?.authorization_url) {
-    console.log("Initialize payment missing authorization_url:", data);
+  if (!response.ok || json?.ok === false) {
+    console.error("[Paystack Init] ❌ Error response:", json);
+    throw new Error(json?.error || `Init failed (status ${response.status})`);
+  }
+
+  // ✅ Backend contract (camelCase)
+  const authorizationUrl = json.authorizationUrl;
+  const reference = json.reference;
+
+  if (!authorizationUrl) {
+    console.error("[Paystack Init] ❌ Missing authorizationUrl in response");
+    console.error("[Paystack Init] Full data structure:", JSON.stringify(json, null, 2));
     throw new Error("No authorization URL returned from payment provider");
   }
 
-  const normalized: InitializePaymentResponse = {
-    authorization_url: authData.authorization_url,
-    access_code: authData.access_code,
-    reference: authData.reference,
+  if (!reference) {
+    console.error("[Paystack Init] ❌ Missing reference in response");
+    console.error("[Paystack Init] Full data structure:", JSON.stringify(json, null, 2));
+    throw new Error("No reference returned from payment provider");
+  }
+
+  console.log("[Paystack Init] ✅ authorizationUrl found:", authorizationUrl);
+  console.log("[Paystack Init] ✅ reference found:", reference);
+
+  const result: InitializePaymentResponse = {
+    authorizationUrl,
+    reference,
   };
 
-  console.log("Initialize payment normalized response:", normalized);
-  return normalized;
+  console.log("Initialize payment response:", result);
+  return result;
 }
 
 /**
