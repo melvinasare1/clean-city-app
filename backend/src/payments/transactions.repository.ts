@@ -53,16 +53,22 @@ export async function upsertTransactionFromPaystack(
     { merge: true }
   );
 
-  // If payment was successful, mark the related booking as completed.
+  // If payment was successful, mark the related booking payment as paid.
   if (status === "success" && metadata?.bookingId) {
     try {
       await firestore
         .collection("bookings")
         .doc(metadata.bookingId)
-        .set({ status: "completed" }, { merge: true });
+        .set(
+          { 
+            payment: { status: "paid" }
+          }, 
+          { merge: true }
+        );
+      console.log(`Updated booking ${metadata.bookingId} payment status to paid`);
     } catch (err) {
       console.error(
-        "Failed to update booking status for bookingId:",
+        "Failed to update booking payment status for bookingId:",
         metadata.bookingId,
         err
       );

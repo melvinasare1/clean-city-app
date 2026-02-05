@@ -8,9 +8,8 @@ import { AppText, AppButton } from '@/components';
 import { useAuth } from '@/hooks/useAuth';
 import { TIME_WINDOWS, TimeWindowId } from '@/lib/time-windows';
 import type { BookingType } from '@/types/booking';
-import { createBooking } from '@/services/booking-service';
+import { createBooking, initiatePaymentForBooking } from '@/services/booking-service';
 import * as Linking from 'expo-linking';
-import { initializePayment } from '@/services/payments';
 import { CustomerStackParamList } from '@/navigation/types';
 import { styles } from './create-booking-screen.styles';
 import { trackEvent } from '@/services/analytics';
@@ -162,33 +161,17 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
         return;
       }
 
-      console.log('Initializing payment with:', {
-        email: user.email,
-        amount: Number(discountedTotal),
-        metadata: { userId: user.id, bookingId },
-      });
+      console.log('Initializing payment for booking:', bookingId);
 
-      const paymentInit = await initializePayment({
-        email: user.email,
-        amount: Number(discountedTotal),
-        metadata: {
-          userId: user.id,
-          bookingId,
-        },
-      });
+      const { authorizationUrl } = await initiatePaymentForBooking(
+        bookingId,
+        user.email
+      );
 
-      console.log('Payment init result:', paymentInit);
-
-      if (!paymentInit?.authorization_url) {
-        Alert.alert(
-          'Payment error',
-          'Payment could not be started because no authorization URL was returned.'
-        );
-        return;
-      }
+      console.log('Payment initialized with URL:', authorizationUrl);
 
       // ✅ Open Paystack payment page in browser
-      const url = paymentInit.authorization_url;
+      const url = authorizationUrl;
       console.log('Opening Paystack URL:', url);
 
       await trackEvent('payment_started', {
