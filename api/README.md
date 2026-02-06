@@ -55,29 +55,27 @@ Or batch mode:
 ```
 
 ### `POST /api/paystack/initialize`
-Initialize a Paystack transaction.
+Initialize a Paystack transaction (simplified).
 
 **Request:**
 ```json
 {
-  "email": "user@example.com",
-  "amount": 100.50,
-  "metadata": {
-    "userId": "user123",
-    "bookingId": "booking456"
-  },
-  "callback_url": "https://yourapp.com/payment/success"
+  "bookingId": "booking456"
 }
 ```
 
 **Response:**
 ```json
 {
-  "authorization_url": "https://checkout.paystack.com/...",
-  "access_code": "...",
+  "ok": true,
+  "authorizationUrl": "https://checkout.paystack.com/...",
   "reference": "..."
 }
 ```
+
+**Notes:**
+- Backend looks up booking details and user email automatically
+- Returns error with `ok: false` if booking not found or already paid
 
 ### `GET /api/paystack/verify?reference=...`
 Verify a Paystack transaction.

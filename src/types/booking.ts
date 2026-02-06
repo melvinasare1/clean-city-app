@@ -40,6 +40,7 @@ export type BookingRecurrence = {
 export type Booking = {
   id: string;
   userId: string;
+  userEmail?: string; // Optional: stored for payment processing fallback
   date: string;
   windowId: TimeWindowId;
   windowLabel: string;

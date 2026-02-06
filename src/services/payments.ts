@@ -17,12 +17,11 @@ export interface VerifyBookingPaymentResponse {
 }
 
 export interface InitializePaymentRequest {
-  email: string;
-  amount: number; // in app currency units (e.g. GHS)
-  metadata?: Record<string, any>;
+  bookingId: string;
 }
 
 export interface InitializePaymentResponse {
+  ok: boolean;
   authorizationUrl: string;
   reference: string;
 }
@@ -37,7 +36,8 @@ export interface VerifyPaymentResponse {
 
 /**
  * Calls your backend: POST /api/paystack/initialize
- * Returns authorizationUrl and reference from backend.
+ * Simplified: sends only { bookingId }.
+ * Returns { ok: true, authorizationUrl, reference } from backend.
  */
 export async function initializePayment(
   body: InitializePaymentRequest
@@ -77,7 +77,7 @@ export async function initializePayment(
     throw new Error(json?.error || `Init failed (status ${response.status})`);
   }
 
-  // ✅ Backend contract (camelCase)
+  // ✅ Backend contract: { ok: true, authorizationUrl, reference }
   const authorizationUrl = json.authorizationUrl;
   const reference = json.reference;
 
@@ -97,6 +97,7 @@ export async function initializePayment(
   console.log("[Paystack Init] ✅ reference found:", reference);
 
   const result: InitializePaymentResponse = {
+    ok: json.ok,
     authorizationUrl,
     reference,
   };

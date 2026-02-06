@@ -211,8 +211,7 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
                     // Otherwise, initialize new payment for SAME booking
                     console.log('[Payment] Initializing new payment for existing booking');
                     const { authorizationUrl } = await initiatePaymentForBooking(
-                        booking.id,
-                        user.email
+                        booking.id
                     );
                     await Linking.openURL(authorizationUrl);
                     Alert.alert(
