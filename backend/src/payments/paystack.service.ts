@@ -20,13 +20,13 @@ export async function initializePaystackTransaction(
 ): Promise<InitializeTransactionResponse> {
   const { email, amount, metadata } = body;
 
-  const amountInGh = Math.round(amount * 100);
+const amountInPesewas = Math.round(Number(amount) * 100);
 
   const response = await axios.post(
     `${PAYSTACK_BASE_URL}/transaction/initialize`,
     {
       email,
-      amount: amountInGh,
+      amount: amountInPesewas,
       metadata,
       callback_url: `${CLIENT_APP_URL}/payment/success`,
     },
@@ -35,7 +35,7 @@ export async function initializePaystackTransaction(
         Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
         "Content-Type": "application/json",
       },
-    }
+    },
   );
 
   const data = response.data;
