@@ -32,7 +32,8 @@
     "extra": {
       "eas": {
         "projectId": "16248649-26d4-431e-a380-a40be65350a0"
-      }
+      },
+      "aptabaseKey": "${EXPO_PUBLIC_APTABASE_KEY}"
     },
     "plugins": [
       [

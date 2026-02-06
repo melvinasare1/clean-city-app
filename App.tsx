@@ -10,16 +10,26 @@ import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import '@/services/notifications/notificationHandler';
 import { useNotificationListeners } from '@/services/notifications';
 import { init } from '@aptabase/react-native';
+import Constants from 'expo-constants';
 
 // Initialize Aptabase as early as possible in the app lifecycle.
 // The App Key is provided via Expo env as EXPO_PUBLIC_APTABASE_KEY (set in eas.json or CI).
-const APTABASE_APP_KEY = process.env.EXPO_PUBLIC_APTABASE_KEY;
+// IMPORTANT: Use expo-constants for production builds for reliable access
+const APTABASE_APP_KEY = 
+    Constants.expoConfig?.extra?.aptabaseKey || 
+    process.env.EXPO_PUBLIC_APTABASE_KEY;
 
 if (APTABASE_APP_KEY) {
     init(APTABASE_APP_KEY);
+    console.log('[Aptabase] ✅ Initialized with key:', APTABASE_APP_KEY.substring(0, 8) + '...');
 } else {
+    console.error('[Aptabase] ❌ No API key found!');
+    console.error('[Aptabase] Checked sources:', {
+        expoConfig: Constants.expoConfig?.extra?.aptabaseKey ? 'found' : 'missing',
+        processEnv: process.env.EXPO_PUBLIC_APTABASE_KEY ? 'found' : 'missing',
+    });
+    
     // In development, surface a helpful warning if the key is missing.
-    // In production this will be stripped by Metro when __DEV__ is false.
     if (typeof __DEV__ !== 'undefined' && __DEV__) {
         // eslint-disable-next-line no-console
         console.warn(

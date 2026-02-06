@@ -78,12 +78,15 @@ class AnalyticsService {
       await this.init();
       const sanitizedParams = sanitizeParams(params);
       aptabaseTrackEvent(eventName, sanitizedParams);
+      
+      // Log in development and first few events in production for debugging
+      if (isDev) {
+        console.log("[Analytics] 📊 Event tracked:", eventName, sanitizedParams);
+      }
       // trackEvent runs in the background, no need to await
     } catch (error) {
-      if (isDev) {
-        console.warn("[Analytics] Error tracking event:", eventName, error);
-      }
-      // Silently fail in production
+      console.error("[Analytics] ❌ Error tracking event:", eventName, error);
+      // Don't silently fail - log errors even in production for debugging
     }
   }
 
