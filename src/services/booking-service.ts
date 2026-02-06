@@ -26,6 +26,7 @@ import { initializePayment, verifyPayment, verifyBookingPaymentWithBackend } fro
 
 type CreateBookingParams = {
   userId: string;
+  userEmail?: string; // Optional: stored for payment processing fallback
   date: string;
   windowId: TimeWindowId;
   windowLabel: string;
@@ -38,6 +39,7 @@ type CreateBookingParams = {
 
 export const createBooking = async ({
   userId,
+  userEmail,
   date,
   windowId,
   windowLabel,
@@ -55,6 +57,7 @@ export const createBooking = async ({
     [BOOKINGS_COLLECTION, bookingId],
     {
       userId,
+      ...(userEmail ? { userEmail } : {}), // Store email if provided for payment processing
       date,
       windowId,
       windowLabel,
@@ -92,6 +95,7 @@ export const getUserBookings = async (userId: string): Promise<Booking[]> => {
     return {
       id: docSnap.id,
       userId: data.userId ?? "",
+      userEmail: data.userEmail, // Optional: for payment processing fallback
       date: data.date ?? "",
       windowId: data.windowId as TimeWindowId,
       windowLabel: data.windowLabel ?? "",
@@ -122,6 +126,7 @@ export const getBookingById = async (bookingId: string): Promise<Booking | null>
   return {
     id: snapshot.id,
     userId: data.userId ?? "",
+    userEmail: data.userEmail, // Optional: for payment processing fallback
     date: data.date ?? "",
     windowId: data.windowId as TimeWindowId,
     windowLabel: data.windowLabel ?? "",
@@ -138,22 +143,21 @@ export const getBookingById = async (bookingId: string): Promise<Booking | null>
 
 /**
  * Initialize payment for an existing booking.
- * Calls backend to initialize Paystack payment, receives the reference from backend,
- * updates Firestore with that reference, and returns authorization URL.
+ * Simplified: sends only bookingId to backend.
+ * Backend looks up booking details, user email, and initializes Paystack.
+ * Updates Firestore with reference and returns authorization URL.
  * 
  * IMPORTANT: This function stores the BACKEND-RETURNED Paystack reference in Firestore,
  * not a locally-generated reference. This ensures verification always succeeds.
  */
 export const initiatePaymentForBooking = async (
-  bookingId: string,
-  userEmail: string
+  bookingId: string
 ): Promise<{ authorizationUrl: string; reference: string }> => {
   console.log("=".repeat(60));
   console.log("[Payment Init] 🚀 Starting payment initialization");
   console.log("[Payment Init] Booking ID:", bookingId);
-  console.log("[Payment Init] User Email:", userEmail);
   
-  // Fetch the booking
+  // Fetch the booking locally to check status
   const booking = await getBookingById(bookingId);
 
   if (!booking) {
@@ -170,19 +174,13 @@ export const initiatePaymentForBooking = async (
     throw new Error("Booking is already paid ✅");
   }
 
-  // Call backend to initialize Paystack payment
+  // Call backend to initialize Paystack payment (simplified: only bookingId)
   console.log("[Payment Init] 📞 Calling backend initialize endpoint...");
-  console.log("[Payment Init] Amount:", booking.totalPrice);
   
   let paymentInit;
   try {
     paymentInit = await initializePayment({
-      email: userEmail,
-      amount: booking.totalPrice,
-      metadata: {
-        userId: booking.userId,
-        bookingId: bookingId,
-      },
+      bookingId: bookingId,
     });
   } catch (error: any) {
     console.error("[Payment Init] ❌ Backend initialize failed:", error.message);

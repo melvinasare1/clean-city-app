@@ -134,6 +134,7 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
 
       const bookingId = await createBooking({
         userId: user.id,
+        userEmail: user.email, // Store email for payment processing
         date: dateStr,
         windowId: windowDef.id,
         windowLabel: windowDef.label,
@@ -153,19 +154,10 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
         type: bookingType,
       });
 
-      if (!user.email) {
-        Alert.alert(
-          'Missing email',
-          'We need your email address to process the payment. Please update your profile.'
-        );
-        return;
-      }
-
       console.log('Initializing payment for booking:', bookingId);
 
       const { authorizationUrl } = await initiatePaymentForBooking(
-        bookingId,
-        user.email
+        bookingId
       );
 
       console.log('Payment initialized with URL:', authorizationUrl);
