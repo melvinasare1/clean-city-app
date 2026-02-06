@@ -1,7 +1,7 @@
 export const PRICES = {
-  smallBag: 15,
-  standardBin: 25,
-  wheelieBin: 50,
+  smallBag: 5,
+  standardBin: 10,
+  wheelieBin: 20,
 };
 
 export const BOOKINGS_COLLECTION = "bookings";
