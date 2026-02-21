@@ -24,6 +24,19 @@ type CreateBookingScreenProps = NativeStackScreenProps<
 
 const SCREEN = 'create_booking';
 
+const COLLECTION_DAYS = [
+  'sunday',
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+] as const;
+
+const formatDayLabel = (day: string) =>
+  day.charAt(0).toUpperCase() + day.slice(1);
+
 const formatDate = (date: Date) =>
   date.toLocaleDateString(undefined, {
     weekday: 'short',
@@ -51,6 +64,7 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
   /** Map intervalWeeks to backend interval: 1=weekly, 4=monthly (Paystack does not support biweekly) */
   const subscriptionInterval: SubscriptionInterval =
     intervalWeeks === 1 ? "weekly" : "monthly";
+  const [collectionDayOfWeek, setCollectionDayOfWeek] = useState<string | null>(null);
 
   const locationMissing = !user?.location;
   const hasItems = items.length > 0;
@@ -74,7 +88,12 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
     !hasItems ||
     isSaving;
   const isSubscriptionStartDisabled =
-    !user || !user?.location || !hasItems || isSaving;
+    !user ||
+    !user?.location ||
+    !hasItems ||
+    !collectionDayOfWeek ||
+    discountedTotal <= 0 ||
+    isSaving;
 
   const selectedWindowLabel = useMemo(() => {
     if (!selectedWindowId) {
@@ -118,6 +137,10 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
       );
       return;
     }
+    if (!collectionDayOfWeek) {
+      Alert.alert('Please select a collection day');
+      return;
+    }
     try {
       setIsSaving(true);
       const { authorizationUrl, reference, planCode } = await createSubscription({
@@ -125,7 +148,12 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
         email: user.email,
         amount: discountedTotal,
         interval: subscriptionInterval,
-        metadata: { items: items.length, totalPrice: discountedTotal },
+        collectionDayOfWeek: collectionDayOfWeek.toLowerCase(),
+        metadata: {
+          binType: items.map((i) => i.type).join(', '),
+          quantity: items.reduce((acc, i) => acc + (i.quantity ?? 1), 0),
+          location: user.location ?? '',
+        },
       });
 
       await saveSubscriptionRecord({
@@ -347,6 +375,32 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
                 </AppText>
               </TouchableOpacity>
             </View>
+
+            <AppText style={styles.label}>Select your collection day</AppText>
+            <View style={styles.windowButtonsContainer}>
+              {COLLECTION_DAYS.map((day) => {
+                const isSelected = collectionDayOfWeek === day;
+                return (
+                  <TouchableOpacity
+                    key={day}
+                    style={[
+                      styles.windowButton,
+                      isSelected && styles.windowButtonSelected,
+                    ]}
+                    onPress={() => setCollectionDayOfWeek(day)}
+                  >
+                    <AppText
+                      style={[
+                        styles.windowButtonText,
+                        isSelected && styles.windowButtonTextSelected,
+                      ]}
+                    >
+                      {formatDayLabel(day)}
+                    </AppText>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
           </>
         )}
 
@@ -388,6 +442,13 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
             <View style={{ marginTop: 4 }}>
               <AppText style={styles.summarySavingsText}>
                 You’re saving {formatPrice(savings)} with a 10% subscription discount.
+              </AppText>
+            </View>
+          )}
+          {isSubscription && collectionDayOfWeek && (
+            <View style={{ marginTop: 8 }}>
+              <AppText style={styles.summaryItemMeta}>
+                Collection Day: {formatDayLabel(collectionDayOfWeek)}
               </AppText>
             </View>
           )}

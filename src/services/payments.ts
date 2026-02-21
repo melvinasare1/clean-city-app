@@ -209,6 +209,7 @@ export interface CreateSubscriptionRequest {
   email: string;
   amount: number;
   interval: SubscriptionInterval;
+  collectionDayOfWeek: string;
   metadata?: Record<string, unknown>;
 }
 
