@@ -1,6 +1,7 @@
 import admin from "firebase-admin";
 
 const BOOKINGS_COLLECTION = "bookings";
+const SUBSCRIPTIONS_COLLECTION = "subscriptions";
 
 // Initialize Firebase Admin if not already initialized
 if (!admin.apps.length) {
@@ -98,4 +99,30 @@ export async function getUserEmail(userId: string, booking?: BookingData): Promi
     
     return null;
   }
+}
+
+export interface SubscriptionData {
+  id: string;
+  userId: string;
+  email?: string;
+  amount?: number;
+  collectionDayOfWeek?: string;
+  [key: string]: any;
+}
+
+/**
+ * Get a subscription by ID from Firestore.
+ */
+export async function getSubscriptionById(
+  subscriptionId: string
+): Promise<SubscriptionData | null> {
+  if (!admin.apps.length) {
+    throw new Error("Firebase Admin not initialized");
+  }
+  const firestore = admin.firestore();
+  const docRef = firestore.collection(SUBSCRIPTIONS_COLLECTION).doc(subscriptionId);
+  const snapshot = await docRef.get();
+  if (!snapshot.exists) return null;
+  const data = snapshot.data();
+  return { id: snapshot.id, ...data } as SubscriptionData;
 }

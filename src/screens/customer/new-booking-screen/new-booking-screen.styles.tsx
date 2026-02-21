@@ -6,6 +6,12 @@ export const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: COLORS.background,
     },
+    scrollView: {
+        flex: 1,
+    },
+    scrollContent: {
+        paddingBottom: VARS.small,
+    },
     content: {
         padding: VARS.small,
     },
@@ -77,11 +83,19 @@ export const styles = StyleSheet.create({
         minWidth: VARS.medium + 4,
         textAlign: 'center',
     },
+    footer: {
+        paddingHorizontal: VARS.small,
+        paddingTop: VARS.xsmall,
+        paddingBottom: VARS.large,
+        backgroundColor: COLORS.background,
+        borderTopWidth: 1,
+        borderTopColor: '#E8E8E8',
+    },
     totalCard: {
         backgroundColor: COLORS.primary,
         borderRadius: VARS.xsmall,
         padding: VARS.small + 4,
-        marginVertical: VARS.small,
+        marginBottom: VARS.xsmall,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
@@ -107,8 +121,6 @@ export const styles = StyleSheet.create({
         borderRadius: VARS.xxsmall,
         padding: VARS.small,
         alignItems: 'center',
-        marginTop: VARS.xxsmall,
-        marginBottom: VARS.large,
     },
     submitButtonText: {
         color: COLORS.white,

@@ -89,92 +89,99 @@ export const NewBookingScreen: React.FC<NewBookingScreenProps> = ({
 
   return (
     <>
-      <ScrollView style={styles.container}>
-        <View style={styles.content}>
-          <Text style={styles.sectionTitle}>Select Bins</Text>
+      <View style={styles.container}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.content}>
+            <Text style={styles.sectionTitle}>Select Bins</Text>
 
-          <View style={styles.binCard}>
-            <View style={styles.binInfo}>
-              <Text style={styles.binName}>Small Bags</Text>
-              <Text style={styles.binPrice}>{formatPrice(PRICES.smallBag)} each</Text>
+            <View style={styles.binCard}>
+              <View style={styles.binInfo}>
+                <Text style={styles.binName}>Small Bags</Text>
+                <Text style={styles.binPrice}>{formatPrice(PRICES.smallBag)} each</Text>
+              </View>
+              <View style={styles.counter}>
+                <TouchableOpacity
+                  style={styles.counterButton}
+                  onPress={() => setSmallBags(Math.max(0, smallBags - 1))}
+                >
+                  <Text style={styles.counterButtonText}>-</Text>
+                </TouchableOpacity>
+                <Text style={styles.counterValue}>{smallBags}</Text>
+                <TouchableOpacity
+                  style={styles.counterButton}
+                  onPress={() => setSmallBags(smallBags + 1)}
+                >
+                  <Text style={styles.counterButtonText}>+</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-            <View style={styles.counter}>
-              <TouchableOpacity
-                style={styles.counterButton}
-                onPress={() => setSmallBags(Math.max(0, smallBags - 1))}
-              >
-                <Text style={styles.counterButtonText}>-</Text>
-              </TouchableOpacity>
-              <Text style={styles.counterValue}>{smallBags}</Text>
-              <TouchableOpacity
-                style={styles.counterButton}
-                onPress={() => setSmallBags(smallBags + 1)}
-              >
-                <Text style={styles.counterButtonText}>+</Text>
+
+            <View style={styles.binCard}>
+              <View style={styles.binInfo}>
+                <Text style={styles.binName}>Standard Bins</Text>
+                <Text style={styles.binPrice}>{formatPrice(PRICES.standardBin)} each</Text>
+              </View>
+              <View style={styles.counter}>
+                <TouchableOpacity
+                  style={styles.counterButton}
+                  onPress={() => setStandardBins(Math.max(0, standardBins - 1))}
+                >
+                  <Text style={styles.counterButtonText}>-</Text>
+                </TouchableOpacity>
+                <Text style={styles.counterValue}>{standardBins}</Text>
+                <TouchableOpacity
+                  style={styles.counterButton}
+                  onPress={() => setStandardBins(standardBins + 1)}
+                >
+                  <Text style={styles.counterButtonText}>+</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.binCard}>
+              <View style={styles.binInfo}>
+                <Text style={styles.binName}>Wheelie Bins</Text>
+                <Text style={styles.binPrice}>{formatPrice(PRICES.wheelieBin)} each</Text>
+              </View>
+              <View style={styles.counter}>
+                <TouchableOpacity
+                  style={styles.counterButton}
+                  onPress={() => setWheelieBins(Math.max(0, wheelieBins - 1))}
+                >
+                  <Text style={styles.counterButtonText}>-</Text>
+                </TouchableOpacity>
+                <Text style={styles.counterValue}>{wheelieBins}</Text>
+                <TouchableOpacity
+                  style={styles.counterButton}
+                  onPress={() => setWheelieBins(wheelieBins + 1)}
+                >
+                  <Text style={styles.counterButtonText}>+</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.binInfoStandaloneContainer}>
+              <TouchableOpacity onPress={handleOpenBinInfo}>
+                <Text style={styles.binInfoLink}>See bin size examples</Text>
               </TouchableOpacity>
             </View>
           </View>
+        </ScrollView>
 
-          <View style={styles.binCard}>
-            <View style={styles.binInfo}>
-              <Text style={styles.binName}>Standard Bins</Text>
-              <Text style={styles.binPrice}>{formatPrice(PRICES.standardBin)} each</Text>
-            </View>
-            <View style={styles.counter}>
-              <TouchableOpacity
-                style={styles.counterButton}
-                onPress={() => setStandardBins(Math.max(0, standardBins - 1))}
-              >
-                <Text style={styles.counterButtonText}>-</Text>
-              </TouchableOpacity>
-              <Text style={styles.counterValue}>{standardBins}</Text>
-              <TouchableOpacity
-                style={styles.counterButton}
-                onPress={() => setStandardBins(standardBins + 1)}
-              >
-                <Text style={styles.counterButtonText}>+</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <View style={styles.binCard}>
-            <View style={styles.binInfo}>
-              <Text style={styles.binName}>Wheelie Bins</Text>
-              <Text style={styles.binPrice}>{formatPrice(PRICES.wheelieBin)} each</Text>
-            </View>
-            <View style={styles.counter}>
-              <TouchableOpacity
-                style={styles.counterButton}
-                onPress={() => setWheelieBins(Math.max(0, wheelieBins - 1))}
-              >
-                <Text style={styles.counterButtonText}>-</Text>
-              </TouchableOpacity>
-              <Text style={styles.counterValue}>{wheelieBins}</Text>
-              <TouchableOpacity
-                style={styles.counterButton}
-                onPress={() => setWheelieBins(wheelieBins + 1)}
-              >
-                <Text style={styles.counterButtonText}>+</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <View style={styles.binInfoStandaloneContainer}>
-            <TouchableOpacity onPress={handleOpenBinInfo}>
-              <Text style={styles.binInfoLink}>See bin size examples</Text>
-            </TouchableOpacity>
-          </View>
-
+        <View style={styles.footer}>
           <View style={styles.totalCard}>
             <Text style={styles.totalLabel}>Total Price:</Text>
             <Text style={styles.totalValue}>{formatPrice(totalPrice)}</Text>
           </View>
-
           <TouchableOpacity style={styles.submitButton} onPress={handleProceed}>
             <Text style={styles.submitButtonText}>Continue to schedule</Text>
           </TouchableOpacity>
         </View>
-      </ScrollView>
+      </View>
 
       {showBinInfoSheet && (
         <TouchableOpacity

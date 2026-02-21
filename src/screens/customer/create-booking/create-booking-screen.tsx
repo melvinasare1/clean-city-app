@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { View, TouchableOpacity, Alert, ScrollView, Modal } from 'react-native';
 import DateTimePicker, {
   DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
@@ -65,6 +65,7 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
   const subscriptionInterval: SubscriptionInterval =
     intervalWeeks === 1 ? "weekly" : "monthly";
   const [collectionDayOfWeek, setCollectionDayOfWeek] = useState<string | null>(null);
+  const [showDayPicker, setShowDayPicker] = useState(false);
 
   const locationMissing = !user?.location;
   const hasItems = items.length > 0;
@@ -87,6 +88,16 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
     !user?.location ||
     !hasItems ||
     isSaving;
+
+  const isSubscription = bookingType === "subscription";
+
+  const discountedTotal = useMemo(() => {
+    if (!isSubscription) {
+      return totalPrice;
+    }
+    return totalPrice * 0.9;
+  }, [isSubscription, totalPrice]);
+
   const isSubscriptionStartDisabled =
     !user ||
     !user?.location ||
@@ -101,15 +112,6 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
     }
     return TIME_WINDOWS.find((window) => window.id === selectedWindowId)?.label;
   }, [selectedWindowId]);
-
-  const isSubscription = bookingType === "subscription";
-
-  const discountedTotal = useMemo(() => {
-    if (!isSubscription) {
-      return totalPrice;
-    }
-    return totalPrice * 0.9;
-  }, [isSubscription, totalPrice]);
 
   const savings = useMemo(() => {
     if (!isSubscription) {
@@ -143,7 +145,7 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
     }
     try {
       setIsSaving(true);
-      const { authorizationUrl, reference, planCode } = await createSubscription({
+      const { authorizationUrl, reference, subscriptionId } = await createSubscription({
         userId: user.id,
         email: user.email,
         amount: discountedTotal,
@@ -156,15 +158,17 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
         },
       });
 
-      await saveSubscriptionRecord({
-        userId: user.id,
-        reference,
-        planCode,
-        status: 'pending',
-        amount: discountedTotal,
-        interval: subscriptionInterval,
-        metadata: { items: items.length },
-      });
+      // Only create local doc if backend did not already create one (no subscriptionId)
+      if (!subscriptionId) {
+        await saveSubscriptionRecord({
+          userId: user.id,
+          reference,
+          status: 'pending',
+          amount: discountedTotal,
+          interval: subscriptionInterval,
+          metadata: { items: items.length },
+        });
+      }
 
       await trackEvent('payment_started', {
         screen: 'checkout',
@@ -377,30 +381,56 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
             </View>
 
             <AppText style={styles.label}>Select your collection day</AppText>
-            <View style={styles.windowButtonsContainer}>
-              {COLLECTION_DAYS.map((day) => {
-                const isSelected = collectionDayOfWeek === day;
-                return (
-                  <TouchableOpacity
-                    key={day}
-                    style={[
-                      styles.windowButton,
-                      isSelected && styles.windowButtonSelected,
-                    ]}
-                    onPress={() => setCollectionDayOfWeek(day)}
-                  >
-                    <AppText
-                      style={[
-                        styles.windowButtonText,
-                        isSelected && styles.windowButtonTextSelected,
-                      ]}
+            <TouchableOpacity
+              style={styles.dayDropdown}
+              onPress={() => setShowDayPicker(true)}
+            >
+              <AppText
+                style={
+                  collectionDayOfWeek
+                    ? styles.dayDropdownText
+                    : styles.dayDropdownPlaceholder
+                }
+              >
+                {collectionDayOfWeek
+                  ? formatDayLabel(collectionDayOfWeek)
+                  : 'Select day'}
+              </AppText>
+            </TouchableOpacity>
+            <Modal
+              visible={showDayPicker}
+              transparent
+              animationType="fade"
+              onRequestClose={() => setShowDayPicker(false)}
+            >
+              <View style={styles.dayModalOverlay}>
+                <View style={styles.dayModal}>
+                  <AppText style={styles.dayModalTitle}>
+                    Select your collection day
+                  </AppText>
+                  {COLLECTION_DAYS.map((day) => (
+                    <TouchableOpacity
+                      key={day}
+                      style={styles.dayOption}
+                      onPress={() => {
+                        setCollectionDayOfWeek(day);
+                        setShowDayPicker(false);
+                      }}
                     >
-                      {formatDayLabel(day)}
-                    </AppText>
+                      <AppText style={styles.dayOptionText}>
+                        {formatDayLabel(day)}
+                      </AppText>
+                    </TouchableOpacity>
+                  ))}
+                  <TouchableOpacity
+                    style={styles.dayModalCancel}
+                    onPress={() => setShowDayPicker(false)}
+                  >
+                    <AppText style={styles.dayModalCancelText}>Cancel</AppText>
                   </TouchableOpacity>
-                );
-              })}
-            </View>
+                </View>
+              </View>
+            </Modal>
           </>
         )}
 

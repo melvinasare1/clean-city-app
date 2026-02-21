@@ -164,6 +164,39 @@ export default async function handler(
               }
             }
 
+            // Simulated subscription: when charge.success has subscriptionId, update subscription doc
+            if (status === 'success' && metadata?.subscriptionId) {
+              const subscriptionId = String(metadata.subscriptionId);
+              try {
+                const subRef = firestore.collection('subscriptions').doc(subscriptionId);
+                const subSnap = await subRef.get();
+                if (subSnap.exists) {
+                  const subData = subSnap.data() || {};
+                  const interval = subData.interval === 'monthly' ? 'monthly' : 'weekly';
+                  const now = new Date();
+                  const next = new Date(now);
+                  if (interval === 'monthly') {
+                    next.setMonth(next.getMonth() + 1);
+                  } else {
+                    next.setDate(next.getDate() + 7);
+                  }
+                  await subRef.set(
+                    {
+                      payment: { status: 'paid', reference },
+                      lastChargeDate: FieldValue.serverTimestamp(),
+                      nextChargeDate: next,
+                      status: 'active',
+                      updatedAt: FieldValue.serverTimestamp(),
+                    },
+                    { merge: true }
+                  );
+                  console.log(`Updated subscription ${subscriptionId} payment as paid, nextCharge: ${next.toISOString()}`);
+                }
+              } catch (err) {
+                console.error(`Failed to update subscription ${metadata.subscriptionId}:`, err);
+              }
+            }
+
             console.log(`Transaction ${reference} saved to Firestore`);
           }
         }

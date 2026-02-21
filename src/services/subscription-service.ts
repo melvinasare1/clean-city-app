@@ -16,7 +16,8 @@ import type { Subscription, SubscriptionInterval, SubscriptionStatus } from "@/t
 export type SaveSubscriptionRecordParams = {
   userId: string;
   reference: string;
-  planCode: string;
+  /** Optional; not used for simulated recurring */
+  planCode?: string;
   status?: SubscriptionStatus;
   amount?: number;
   interval?: SubscriptionInterval;
@@ -39,7 +40,7 @@ export async function saveSubscriptionRecord(
     {
       userId: params.userId,
       reference: params.reference,
-      planCode: params.planCode,
+      ...(params.planCode != null ? { planCode: params.planCode } : {}),
       status: params.status ?? "pending",
       ...(params.amount != null ? { amount: params.amount } : {}),
       ...(params.interval ? { interval: params.interval } : {}),
@@ -79,16 +80,24 @@ export function subscribeToUserSubscriptions(
     q,
     (snapshot) => {
       const subscriptions: Subscription[] = snapshot.docs.map((docSnap) => {
-        const data = docSnap.data() as Partial<Omit<Subscription, "id">>;
+        const data = docSnap.data() as Record<string, unknown>;
+        const payment = data.payment as Subscription["payment"];
         return {
           id: docSnap.id,
-          userId: data.userId ?? "",
-          reference: data.reference ?? "",
-          planCode: data.planCode ?? "",
-          status: (data.status ?? "pending") as SubscriptionStatus,
-          amount: data.amount,
-          interval: data.interval,
-          metadata: data.metadata,
+          userId: (data.userId as string) ?? "",
+          email: data.email as string | undefined,
+          reference: (data.reference as string) ?? "",
+          planCode: (data.planCode as string) ?? undefined,
+          status: ((data.status as SubscriptionStatus) ?? "pending") as SubscriptionStatus,
+          amount: data.amount as number | undefined,
+          interval: data.interval as Subscription["interval"],
+          collectionDayOfWeek: data.collectionDayOfWeek as string | undefined,
+          nextChargeDate: (data.nextChargeDate as Subscription["nextChargeDate"]) ?? null,
+          lastChargeDate: (data.lastChargeDate as Subscription["lastChargeDate"]) ?? null,
+          payment: payment
+            ? { status: payment.status ?? "none", reference: payment.reference }
+            : undefined,
+          metadata: data.metadata as Record<string, unknown> | undefined,
           createdAt: (data.createdAt as Subscription["createdAt"]) ?? null,
           updatedAt: (data.updatedAt as Subscription["updatedAt"]) ?? null,
         };

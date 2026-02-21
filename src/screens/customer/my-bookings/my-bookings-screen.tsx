@@ -21,7 +21,7 @@ import {
 } from '@/navigation/types';
 import type { Booking } from '@/types/booking';
 import { initiatePaymentForBooking, verifyBookingPayment, deleteBooking } from '@/services/booking-service';
-import { cancelSubscription } from '@/services/payments';
+import { cancelSubscription, getSubscriptionPaymentUrl } from '@/services/payments';
 import { COLORS } from '@/lib/constants';
 import { styles } from './my-bookings-screen.styles';
 import { trackEvent } from '@/services/analytics';
@@ -70,9 +70,11 @@ const getSubscriptionStatusLabel = (status: SubscriptionStatus): string => {
         case 'pending':
             return 'Awaiting payment';
         case 'active':
-            return 'Subscription active';
+            return 'Active';
         case 'past_due':
             return 'Payment failed';
+        case 'paused':
+            return 'Paused';
         case 'cancelled':
             return 'Cancelled';
         default:
@@ -88,12 +90,36 @@ const getSubscriptionStatusColor = (status: SubscriptionStatus) => {
             return COLORS.success;
         case 'past_due':
             return COLORS.error;
+        case 'paused':
+            return COLORS.textSecondary;
         case 'cancelled':
             return COLORS.textSecondary;
         default:
             return COLORS.textSecondary;
     }
 };
+
+/** True when next charge date has passed and current cycle is not paid. */
+function isPaymentOverdue(subscription: Subscription): boolean {
+    const next = subscription.nextChargeDate;
+    if (!next) return false;
+    const nextDate = next instanceof Date ? next : (next as { toDate?: () => Date }).toDate?.() ?? new Date(0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    nextDate.setHours(0, 0, 0, 0);
+    if (nextDate >= today) return false;
+    const paymentStatus = subscription.payment?.status ?? 'none';
+    return paymentStatus !== 'paid';
+}
+
+function formatSubscriptionDate(ts: Subscription['nextChargeDate']): string {
+    if (!ts) return '—';
+    const d =
+        typeof (ts as { toDate?: () => Date }).toDate === 'function'
+            ? (ts as { toDate: () => Date }).toDate()
+            : new Date((ts as unknown) as number | string);
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
 
 const SCREEN = 'my_bookings';
 
@@ -111,13 +137,16 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
     } = useBookings();
     const {
         subscriptions,
+        loading: subscriptionsLoading,
         subscribeToUserSubscriptions,
+        refreshSubscriptions,
     } = useSubscriptions();
 
     const [processingPayment, setProcessingPayment] = useState<string | null>(null);
     const [verifyingBooking, setVerifyingBooking] = useState<string | null>(null);
     const [deletingBooking, setDeletingBooking] = useState<string | null>(null);
     const [cancellingSubscription, setCancellingSubscription] = useState<string | null>(null);
+    const [completingSubscriptionPayment, setCompletingSubscriptionPayment] = useState<string | null>(null);
     const [refreshing, setRefreshing] = useState(false);
 
     const needsProfileCompletion = !user?.phone || !user?.location;
@@ -212,14 +241,10 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
 
     const handlePullToRefresh = useCallback(async () => {
         setRefreshing(true);
-        // When using onSnapshot, manual refresh is just a UX indicator
-        // The subscription will automatically update when data changes
         refreshBookings();
-        // Simulate a brief refresh to show user feedback
-        setTimeout(() => {
-            setRefreshing(false);
-        }, 500);
-    }, [refreshBookings]);
+        refreshSubscriptions();
+        setTimeout(() => setRefreshing(false), 500);
+    }, [refreshBookings, refreshSubscriptions]);
 
     const handleContinuePayment = useCallback(
         async (booking: Booking) => {
@@ -408,6 +433,31 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
         );
     }, []);
 
+    const handleCompleteSubscriptionPayment = useCallback(
+        async (sub: Subscription) => {
+            try {
+                setCompletingSubscriptionPayment(sub.id);
+                const { authorizationUrl } = await getSubscriptionPaymentUrl({
+                    subscriptionId: sub.id,
+                    reference: sub.payment?.reference ?? sub.reference,
+                });
+                await Linking.openURL(authorizationUrl);
+                Alert.alert(
+                    'Complete payment',
+                    'Please complete your subscription payment in the opened page. Status will update automatically once payment is confirmed.'
+                );
+            } catch (err: any) {
+                Alert.alert(
+                    'Payment error',
+                    err?.message ?? 'Could not start payment. Please try again.'
+                );
+            } finally {
+                setCompletingSubscriptionPayment(null);
+            }
+        },
+        []
+    );
+
     useLayoutEffect(() => {
         navigation.setOptions({
             headerRight: () => (
@@ -467,56 +517,147 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
                 </TouchableOpacity>
             </View>
 
-            {subscriptions.length > 0 && (
-                <View style={styles.subscriptionSection}>
-                    <AppText style={styles.subscriptionSectionTitle}>My subscription</AppText>
-                    {subscriptions.map((sub) => (
-                        <View key={sub.id} style={styles.card}>
-                            <View style={styles.statusRow}>
-                                <View
-                                    style={[
-                                        styles.statusBadge,
-                                        { backgroundColor: getSubscriptionStatusColor(sub.status) },
-                                    ]}
-                                >
+            {/* Subscription section: loading, empty, or cards */}
+            <View style={styles.subscriptionSection}>
+                <AppText style={styles.subscriptionSectionTitle}>My subscription</AppText>
+                {subscriptionsLoading ? (
+                    <View style={styles.subscriptionCard}>
+                        <View style={styles.subscriptionLoadingRow}>
+                            <ActivityIndicator size="small" color={COLORS.primary} />
+                            <AppText style={styles.subscriptionLoadingText}>Loading subscription...</AppText>
+                        </View>
+                    </View>
+                ) : subscriptions.length === 0 ? (
+                    <View style={styles.subscriptionEmptyCard}>
+                        <AppText style={styles.subscriptionEmptyTitle}>
+                            Subscribe to weekly waste collection
+                        </AppText>
+                        <AppText style={styles.subscriptionEmptySubtitle}>
+                            Get regular pickups and never miss a collection day.
+                        </AppText>
+                        <TouchableOpacity
+                            style={styles.subscriptionEmptyCta}
+                            onPress={() => {
+                                trackEvent('activation_started', { screen: SCREEN, source: 'subscription_empty' });
+                                navigation.navigate('NewBooking');
+                            }}
+                        >
+                            <AppText style={styles.subscriptionEmptyCtaText}>Create subscription</AppText>
+                        </TouchableOpacity>
+                    </View>
+                ) : (
+                    subscriptions.map((sub) => {
+                        const paymentStatus = sub.payment?.status ?? 'none';
+                        const overdue = isPaymentOverdue(sub);
+                        return (
+                            <View key={sub.id} style={styles.subscriptionCard}>
+                                <AppText style={styles.subscriptionCardHeader}>
+                                    {sub.interval === 'monthly' ? 'Monthly' : 'Weekly'} Collection
+                                </AppText>
+                                <View style={styles.detailRow}>
+                                    <AppText style={styles.detailLabel}>Collection day</AppText>
+                                    <AppText style={styles.detailValue}>
+                                        {sub.collectionDayOfWeek ?? '—'}
+                                    </AppText>
+                                </View>
+                                <View style={styles.detailRow}>
+                                    <AppText style={styles.detailLabel}>Amount</AppText>
+                                    <AppText style={styles.detailValue}>
+                                        {sub.amount != null ? formatPrice(sub.amount) : '—'}
+                                    </AppText>
+                                </View>
+                                <View style={styles.detailRow}>
+                                    <AppText style={styles.detailLabel}>Next payment</AppText>
+                                    <AppText style={styles.detailValue}>
+                                        {formatSubscriptionDate(sub.nextChargeDate)}
+                                    </AppText>
+                                </View>
+                                <View style={[styles.statusBadge, styles.subscriptionStatusBadge, { backgroundColor: getSubscriptionStatusColor(sub.status) }]}>
                                     <AppText style={styles.statusText}>
                                         {getSubscriptionStatusLabel(sub.status)}
                                     </AppText>
                                 </View>
-                                {sub.interval && (
-                                    <AppText style={styles.cardNote}>
-                                        {sub.interval === 'weekly'
-                                            ? 'Weekly'
-                                            : sub.interval === 'monthly'
-                                            ? 'Monthly'
-                                            : sub.interval}
-                                    </AppText>
+
+                                {/* Overdue banner */}
+                                {overdue && (
+                                    <View style={styles.paymentBannerOverdue}>
+                                        <AppText style={styles.paymentBannerText}>
+                                            ⚠ Subscription payment overdue
+                                        </AppText>
+                                    </View>
+                                )}
+
+                                {/* Payment state banners */}
+                                {paymentStatus === 'initiated' && (
+                                    <>
+                                        <View style={styles.paymentBannerInitiated}>
+                                            <AppText style={styles.paymentBannerText}>
+                                                🟡 Payment due — Please complete your subscription payment.
+                                            </AppText>
+                                        </View>
+                                        <TouchableOpacity
+                                            style={styles.completePaymentButton}
+                                            onPress={() => handleCompleteSubscriptionPayment(sub)}
+                                            disabled={completingSubscriptionPayment === sub.id}
+                                        >
+                                            {completingSubscriptionPayment === sub.id ? (
+                                                <ActivityIndicator size="small" color={COLORS.white} />
+                                            ) : (
+                                                <AppText style={styles.completePaymentButtonText}>
+                                                    Complete Payment
+                                                </AppText>
+                                            )}
+                                        </TouchableOpacity>
+                                    </>
+                                )}
+                                {paymentStatus === 'paid' && (
+                                    <View style={styles.paymentBannerPaid}>
+                                        <AppText style={styles.paymentBannerText}>🟢 Payment confirmed</AppText>
+                                    </View>
+                                )}
+                                {paymentStatus === 'failed' && (
+                                    <>
+                                        <View style={styles.paymentBannerFailed}>
+                                            <AppText style={styles.paymentBannerText}>
+                                                🔴 Payment failed — Please try again.
+                                            </AppText>
+                                        </View>
+                                        <TouchableOpacity
+                                            style={styles.completePaymentButton}
+                                            onPress={() => handleCompleteSubscriptionPayment(sub)}
+                                            disabled={completingSubscriptionPayment === sub.id}
+                                        >
+                                            {completingSubscriptionPayment === sub.id ? (
+                                                <ActivityIndicator size="small" color={COLORS.white} />
+                                            ) : (
+                                                <AppText style={styles.completePaymentButtonText}>
+                                                    Retry payment
+                                                </AppText>
+                                            )}
+                                        </TouchableOpacity>
+                                    </>
+                                )}
+
+                                {sub.status === 'active' && (
+                                    <TouchableOpacity
+                                        style={styles.cancelSubscriptionButton}
+                                        onPress={() => handleCancelSubscription(sub)}
+                                        disabled={cancellingSubscription === sub.id}
+                                    >
+                                        {cancellingSubscription === sub.id ? (
+                                            <ActivityIndicator size="small" color={COLORS.error} />
+                                        ) : (
+                                            <AppText style={styles.cancelSubscriptionButtonText}>
+                                                Cancel subscription
+                                            </AppText>
+                                        )}
+                                    </TouchableOpacity>
                                 )}
                             </View>
-                            {sub.amount != null && (
-                                <AppText style={styles.cardTotal}>
-                                    {formatPrice(sub.amount)} per cycle
-                                </AppText>
-                            )}
-                            {sub.status === 'active' && (
-                                <TouchableOpacity
-                                    style={styles.cancelSubscriptionButton}
-                                    onPress={() => handleCancelSubscription(sub)}
-                                    disabled={cancellingSubscription === sub.id}
-                                >
-                                    {cancellingSubscription === sub.id ? (
-                                        <ActivityIndicator size="small" color={COLORS.error} />
-                                    ) : (
-                                        <AppText style={styles.cancelSubscriptionButtonText}>
-                                            Cancel subscription
-                                        </AppText>
-                                    )}
-                                </TouchableOpacity>
-                            )}
-                        </View>
-                    ))}
-                </View>
-            )}
+                        );
+                    })
+                )}
+            </View>
 
             {loading ? (
                 <View style={styles.loadingState}>
