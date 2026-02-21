@@ -268,4 +268,28 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     color: COLORS.error,
   },
+  subscriptionSection: {
+    marginBottom: VARS.medium,
+  },
+  subscriptionSectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: COLORS.text,
+    marginBottom: VARS.xsmall,
+  },
+  cancelSubscriptionButton: {
+    marginTop: VARS.small,
+    paddingVertical: 10,
+    paddingHorizontal: VARS.medium,
+    borderRadius: VARS.xsmall,
+    borderWidth: 1,
+    borderColor: COLORS.error,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cancelSubscriptionButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: COLORS.error,
+  },
 });

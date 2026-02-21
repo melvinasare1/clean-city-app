@@ -8,7 +8,10 @@ import { AppText, AppButton } from '@/components';
 import { useAuth } from '@/hooks/useAuth';
 import { TIME_WINDOWS, TimeWindowId } from '@/lib/time-windows';
 import type { BookingType } from '@/types/booking';
+import type { SubscriptionInterval } from '@/types/subscription';
 import { createBooking, initiatePaymentForBooking } from '@/services/booking-service';
+import { createSubscription } from '@/services/payments';
+import { saveSubscriptionRecord } from '@/services/subscription-service';
 import * as Linking from 'expo-linking';
 import { CustomerStackParamList } from '@/navigation/types';
 import { styles } from './create-booking-screen.styles';
@@ -45,6 +48,9 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [bookingType, setBookingType] = useState<BookingType>("one_off");
   const [intervalWeeks, setIntervalWeeks] = useState<number>(1);
+  /** Map intervalWeeks to backend interval: 1=weekly, 4=monthly (Paystack does not support biweekly) */
+  const subscriptionInterval: SubscriptionInterval =
+    intervalWeeks === 1 ? "weekly" : "monthly";
 
   const locationMissing = !user?.location;
   const hasItems = items.length > 0;
@@ -60,13 +66,15 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
     }
   };
 
-  const isConfirmDisabled =
+  const isOneTimeConfirmDisabled =
     !user ||
     !selectedDate ||
     !selectedWindowId ||
     !user?.location ||
     !hasItems ||
     isSaving;
+  const isSubscriptionStartDisabled =
+    !user || !user?.location || !hasItems || isSaving;
 
   const selectedWindowLabel = useMemo(() => {
     if (!selectedWindowId) {
@@ -94,6 +102,64 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
   useEffect(() => {
     trackEvent('checkout_viewed', { screen: 'checkout' });
   }, []);
+
+  const handleStartSubscription = async () => {
+    if (!user?.email) {
+      Alert.alert(
+        'Email required',
+        'We need your email to start the subscription. Please complete your profile.'
+      );
+      return;
+    }
+    if (!user?.location || !hasItems) {
+      Alert.alert(
+        'Missing info',
+        'Please add your service area and at least one bin.'
+      );
+      return;
+    }
+    try {
+      setIsSaving(true);
+      const { authorizationUrl, reference, planCode } = await createSubscription({
+        userId: user.id,
+        email: user.email,
+        amount: discountedTotal,
+        interval: subscriptionInterval,
+        metadata: { items: items.length, totalPrice: discountedTotal },
+      });
+
+      await saveSubscriptionRecord({
+        userId: user.id,
+        reference,
+        planCode,
+        status: 'pending',
+        amount: discountedTotal,
+        interval: subscriptionInterval,
+        metadata: { items: items.length },
+      });
+
+      await trackEvent('payment_started', {
+        screen: 'checkout',
+        amount: Number(discountedTotal),
+        currency: 'GHS',
+        provider: 'paystack',
+        type: 'subscription',
+      });
+      await Linking.openURL(authorizationUrl);
+
+      Alert.alert(
+        'Complete payment to activate',
+        'Complete your payment in the opened page to activate your subscription. Status will update automatically.',
+        [{ text: 'OK', onPress: () => navigation.goBack() }]
+      );
+    } catch (err: any) {
+      console.error('Subscription start error:', err);
+      await trackEvent('activation_failed', { screen: SCREEN, reason: 'subscription_init' });
+      Alert.alert('Error', err?.message ?? 'Could not start subscription. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const handleConfirm = async () => {
     if (!user) {
@@ -134,51 +200,34 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
 
       const bookingId = await createBooking({
         userId: user.id,
-        userEmail: user.email, // Store email for payment processing
+        userEmail: user.email,
         date: dateStr,
         windowId: windowDef.id,
         windowLabel: windowDef.label,
         location: user.location,
         items,
-        totalPrice: discountedTotal,
-        type: bookingType,
-        recurrence:
-          isSubscription
-            ? {
-              intervalWeeks,
-            }
-            : undefined,
+        totalPrice: totalPrice,
+        type: 'one_off',
       });
       await trackEvent('activation_completed', {
         screen: SCREEN,
-        type: bookingType,
+        type: 'one_off',
       });
 
-      console.log('Initializing payment for booking:', bookingId);
-
-      const { authorizationUrl } = await initiatePaymentForBooking(
-        bookingId
-      );
-
-      console.log('Payment initialized with URL:', authorizationUrl);
-
-      // ✅ Open Paystack payment page in browser
-      const url = authorizationUrl;
-      console.log('Opening Paystack URL:', url);
+      const { authorizationUrl } = await initiatePaymentForBooking(bookingId);
 
       await trackEvent('payment_started', {
         screen: 'checkout',
-        amount: Number(discountedTotal),
+        amount: Number(totalPrice),
         currency: 'GHS',
         provider: 'paystack',
       });
-
       await trackEvent('payment_provider_opened', {
         screen: 'checkout',
         provider: 'paystack',
       });
 
-      await Linking.openURL(url);
+      await Linking.openURL(authorizationUrl);
 
       Alert.alert(
         'Complete payment to confirm',
@@ -216,8 +265,7 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
           Choose a date and time window for your waste collection.
         </AppText>
 
-        {/* Temporarily disabled subscription feature */}
-        {/* <AppText style={styles.label}>Pickup type</AppText>
+        <AppText style={styles.label}>Pickup type</AppText>
         <View style={styles.windowButtonsContainer}>
           <TouchableOpacity
             style={[
@@ -226,10 +274,7 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
             ]}
             onPress={() => {
               setBookingType("one_off");
-              trackEvent('payment_plan_selected', {
-                screen: SCREEN,
-                type: 'one_off',
-              });
+              trackEvent('payment_plan_selected', { screen: SCREEN, type: 'one_off' });
             }}
           >
             <AppText
@@ -238,7 +283,7 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
                 bookingType === "one_off" && styles.windowButtonTextSelected,
               ]}
             >
-              One-off pickup
+              One-time pickup
             </AppText>
           </TouchableOpacity>
           <TouchableOpacity
@@ -248,10 +293,7 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
             ]}
             onPress={() => {
               setBookingType("subscription");
-              trackEvent('payment_plan_selected', {
-                screen: SCREEN,
-                type: 'subscription',
-              });
+              trackEvent('payment_plan_selected', { screen: SCREEN, type: 'subscription' });
             }}
           >
             <AppText
@@ -260,18 +302,17 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
                 bookingType === "subscription" && styles.windowButtonTextSelected,
               ]}
             >
-              Recurring subscription
+              Subscription
             </AppText>
           </TouchableOpacity>
         </View>
 
-        {bookingType === "subscription" && (
+        {isSubscription && (
           <>
             <AppText style={styles.subtitle}>
-              This pickup will repeat automatically. You can contact support to
-              update or cancel your subscription.
+              Recurring pickups at a discount. You can cancel anytime from My Bookings.
             </AppText>
-            <AppText style={styles.label}>Recurrence</AppText>
+            <AppText style={styles.label}>Interval</AppText>
             <View style={styles.windowButtonsContainer}>
               <TouchableOpacity
                 style={[
@@ -286,23 +327,7 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
                     intervalWeeks === 1 && styles.windowButtonTextSelected,
                   ]}
                 >
-                  Every week
-                </AppText>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.windowButton,
-                  intervalWeeks === 2 && styles.windowButtonSelected,
-                ]}
-                onPress={() => setIntervalWeeks(2)}
-              >
-                <AppText
-                  style={[
-                    styles.windowButtonText,
-                    intervalWeeks === 2 && styles.windowButtonTextSelected,
-                  ]}
-                >
-                  Every 2 weeks
+                  Weekly
                 </AppText>
               </TouchableOpacity>
               <TouchableOpacity
@@ -318,12 +343,12 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
                     intervalWeeks === 4 && styles.windowButtonTextSelected,
                   ]}
                 >
-                  Every 4 weeks
+                  Monthly
                 </AppText>
               </TouchableOpacity>
             </View>
           </>
-        )} */}
+        )}
 
         <View style={styles.summaryCard}>
           <AppText style={styles.summaryTitle}>Selected bins</AppText>
@@ -376,49 +401,53 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
           </View>
         )}
 
-        <AppText style={styles.label}>Date</AppText>
-        <TouchableOpacity
-          style={styles.dateSelector}
-          onPress={() => setShowDatePicker(true)}
-        >
-          <AppText style={styles.dateSelectorText}>{dateLabel}</AppText>
-        </TouchableOpacity>
+        {!isSubscription && (
+          <>
+            <AppText style={styles.label}>Date</AppText>
+            <TouchableOpacity
+              style={styles.dateSelector}
+              onPress={() => setShowDatePicker(true)}
+            >
+              <AppText style={styles.dateSelectorText}>{dateLabel}</AppText>
+            </TouchableOpacity>
 
-        {showDatePicker && (
-          <DateTimePicker
-            value={selectedDate ?? new Date()}
-            mode="date"
-            display="default"
-            minimumDate={new Date()}
-            onChange={handleDateChange}
-          />
+            {showDatePicker && (
+              <DateTimePicker
+                value={selectedDate ?? new Date()}
+                mode="date"
+                display="default"
+                minimumDate={new Date()}
+                onChange={handleDateChange}
+              />
+            )}
+
+            <AppText style={styles.label}>Time window</AppText>
+            <View style={styles.windowButtonsContainer}>
+              {TIME_WINDOWS.map((window) => {
+                const isSelected = window.id === selectedWindowId;
+                return (
+                  <TouchableOpacity
+                    key={window.id}
+                    style={[
+                      styles.windowButton,
+                      isSelected && styles.windowButtonSelected,
+                    ]}
+                    onPress={() => setSelectedWindowId(window.id)}
+                  >
+                    <AppText
+                      style={[
+                        styles.windowButtonText,
+                        isSelected && styles.windowButtonTextSelected,
+                      ]}
+                    >
+                      {window.label}
+                    </AppText>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </>
         )}
-
-        <AppText style={styles.label}>Time window</AppText>
-        <View style={styles.windowButtonsContainer}>
-          {TIME_WINDOWS.map((window) => {
-            const isSelected = window.id === selectedWindowId;
-            return (
-              <TouchableOpacity
-                key={window.id}
-                style={[
-                  styles.windowButton,
-                  isSelected && styles.windowButtonSelected,
-                ]}
-                onPress={() => setSelectedWindowId(window.id)}
-              >
-                <AppText
-                  style={[
-                    styles.windowButtonText,
-                    isSelected && styles.windowButtonTextSelected,
-                  ]}
-                >
-                  {window.label}
-                </AppText>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
 
         <AppText style={styles.label}>Service area</AppText>
         {user?.location ? (
@@ -441,19 +470,35 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
           </View>
         )}
 
-        <AppButton
-          title="Confirm booking"
-          onPress={handleConfirm}
-          disabled={isConfirmDisabled || locationMissing}
-          loading={isSaving}
-          buttonStyle={{
-            ...styles.confirmButton,
-            ...(isConfirmDisabled || locationMissing
-              ? styles.confirmButtonDisabled
-              : {}),
-          }}
-          textStyle={styles.confirmButtonText}
-        />
+        {isSubscription ? (
+          <AppButton
+            title="Start Subscription"
+            onPress={handleStartSubscription}
+            disabled={isSubscriptionStartDisabled || locationMissing}
+            loading={isSaving}
+            buttonStyle={{
+              ...styles.confirmButton,
+              ...(isSubscriptionStartDisabled || locationMissing
+                ? styles.confirmButtonDisabled
+                : {}),
+            }}
+            textStyle={styles.confirmButtonText}
+          />
+        ) : (
+          <AppButton
+            title="Confirm booking"
+            onPress={handleConfirm}
+            disabled={isOneTimeConfirmDisabled || locationMissing}
+            loading={isSaving}
+            buttonStyle={{
+              ...styles.confirmButton,
+              ...(isOneTimeConfirmDisabled || locationMissing
+                ? styles.confirmButtonDisabled
+                : {}),
+            }}
+            textStyle={styles.confirmButtonText}
+          />
+        )}
       </View>
     </ScrollView>
   );

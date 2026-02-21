@@ -1,6 +1,7 @@
 // src/services/payments.ts
 
 import { getApiBaseUrl } from "@/lib/apiBase";
+import type { SubscriptionInterval } from "@/types/subscription";
 
 export type PaymentStatus = "success" | "failed" | "abandoned" | "pending";
 
@@ -199,4 +200,97 @@ export async function verifyBookingPaymentWithBackend(
     console.error("[Verify] ❌ Request failed:", error);
     throw error; // Re-throw to preserve the original error message
   }
+}
+
+// --- Subscription (Paystack) ---
+
+export interface CreateSubscriptionRequest {
+  userId: string;
+  email: string;
+  amount: number;
+  interval: SubscriptionInterval;
+  metadata?: Record<string, unknown>;
+}
+
+export interface CreateSubscriptionResponse {
+  authorizationUrl: string;
+  reference: string;
+  planCode: string;
+}
+
+/**
+ * Calls backend: POST /api/paystack/create-subscription
+ * Returns { authorizationUrl, reference, planCode }. Open authorizationUrl in browser; do not mark active in app.
+ */
+export async function createSubscription(
+  body: CreateSubscriptionRequest
+): Promise<CreateSubscriptionResponse> {
+  const API_BASE_URL = getApiBaseUrl();
+  const url = `${API_BASE_URL}/api/paystack/create-subscription`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  const text = await response.text();
+  let json: any;
+  try {
+    json = JSON.parse(text);
+  } catch (e) {
+    throw new Error(`Create subscription returned non-JSON: ${text.slice(0, 120)}`);
+  }
+
+  if (!response.ok || json?.ok === false) {
+    throw new Error(json?.error || json?.message || `Create subscription failed (status ${response.status})`);
+  }
+
+  const authorizationUrl = json.authorizationUrl;
+  const reference = json.reference;
+  const planCode = json.planCode;
+
+  if (!authorizationUrl || !reference || !planCode) {
+    throw new Error("Backend did not return authorizationUrl, reference, and planCode");
+  }
+
+  return { authorizationUrl, reference, planCode };
+}
+
+export interface CancelSubscriptionRequest {
+  /** Firestore subscription document id (optional if backend uses reference) */
+  subscriptionId?: string;
+  /** Paystack subscription reference */
+  reference?: string;
+}
+
+/**
+ * Calls backend: POST /api/paystack/cancel-subscription
+ * Only call when subscription status is active; backend/webhook will update status.
+ */
+export async function cancelSubscription(
+  body: CancelSubscriptionRequest
+): Promise<{ ok: boolean; message?: string }> {
+  const API_BASE_URL = getApiBaseUrl();
+  const url = `${API_BASE_URL}/api/paystack/cancel-subscription`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  const text = await response.text();
+  let json: any;
+  try {
+    json = JSON.parse(text);
+  } catch (e) {
+    throw new Error(`Cancel subscription returned non-JSON: ${text.slice(0, 120)}`);
+  }
+
+  if (!response.ok) {
+    throw new Error(json?.error || json?.message || `Cancel subscription failed (status ${response.status})`);
+  }
+
+  return { ok: json.ok !== false, message: json?.message };
 }

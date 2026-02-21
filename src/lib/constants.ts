@@ -5,6 +5,7 @@ export const PRICES = {
 };
 
 export const BOOKINGS_COLLECTION = "bookings";
+export const SUBSCRIPTIONS_COLLECTION = "subscriptions";
 
 export const COLORS = {
   primary: "#2E7D32",

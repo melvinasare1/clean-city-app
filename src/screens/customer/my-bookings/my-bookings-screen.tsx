@@ -21,10 +21,13 @@ import {
 } from '@/navigation/types';
 import type { Booking } from '@/types/booking';
 import { initiatePaymentForBooking, verifyBookingPayment, deleteBooking } from '@/services/booking-service';
+import { cancelSubscription } from '@/services/payments';
 import { COLORS } from '@/lib/constants';
 import { styles } from './my-bookings-screen.styles';
 import { trackEvent } from '@/services/analytics';
 import { useBookings } from '@/contexts/bookings-context';
+import { useSubscriptions } from '@/contexts/subscriptions-context';
+import type { Subscription, SubscriptionStatus } from '@/types/subscription';
 
 type MyBookingsScreenProps = CompositeScreenProps<
     BottomTabScreenProps<CustomerTabParamList, 'MyBookings'>,
@@ -62,6 +65,36 @@ const getBinSummary = (items: Booking['items']) => {
     return items.map((item) => `${item.quantity} x ${item.type}`).join(', ');
 };
 
+const getSubscriptionStatusLabel = (status: SubscriptionStatus): string => {
+    switch (status) {
+        case 'pending':
+            return 'Awaiting payment';
+        case 'active':
+            return 'Subscription active';
+        case 'past_due':
+            return 'Payment failed';
+        case 'cancelled':
+            return 'Cancelled';
+        default:
+            return status;
+    }
+};
+
+const getSubscriptionStatusColor = (status: SubscriptionStatus) => {
+    switch (status) {
+        case 'pending':
+            return COLORS.accent;
+        case 'active':
+            return COLORS.success;
+        case 'past_due':
+            return COLORS.error;
+        case 'cancelled':
+            return COLORS.textSecondary;
+        default:
+            return COLORS.textSecondary;
+    }
+};
+
 const SCREEN = 'my_bookings';
 
 export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
@@ -76,30 +109,32 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
         refreshBookings,
         removeBookingOptimistically,
     } = useBookings();
-    
+    const {
+        subscriptions,
+        subscribeToUserSubscriptions,
+    } = useSubscriptions();
+
     const [processingPayment, setProcessingPayment] = useState<string | null>(null);
     const [verifyingBooking, setVerifyingBooking] = useState<string | null>(null);
     const [deletingBooking, setDeletingBooking] = useState<string | null>(null);
+    const [cancellingSubscription, setCancellingSubscription] = useState<string | null>(null);
     const [refreshing, setRefreshing] = useState(false);
 
     const needsProfileCompletion = !user?.phone || !user?.location;
 
     // Subscribe to user's bookings when screen mounts or user changes
     useEffect(() => {
-        if (!user?.id) {
-            return;
-        }
-
-        console.log('[MyBookings] Setting up realtime subscription');
+        if (!user?.id) return;
         const unsubscribe = subscribeToUserBookings(user.id);
-
-        return () => {
-            if (unsubscribe) {
-                console.log('[MyBookings] Cleaning up subscription');
-                unsubscribe();
-            }
-        };
+        return () => { unsubscribe?.(); };
     }, [user?.id, subscribeToUserBookings]);
+
+    // Subscribe to user's Paystack subscriptions (status from webhook)
+    useEffect(() => {
+        if (!user?.id) return;
+        const unsubscribe = subscribeToUserSubscriptions(user.id);
+        return () => { unsubscribe?.(); };
+    }, [user?.id, subscribeToUserSubscriptions]);
 
     const handleActionSelection = useCallback(
         async (index: number) => {
@@ -337,6 +372,42 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
         [removeBookingOptimistically]
     );
 
+    const handleCancelSubscription = useCallback((sub: Subscription) => {
+        if (sub.status !== 'active') return;
+        Alert.alert(
+            'Cancel subscription?',
+            'Your recurring pickups will stop after cancellation. You can start a new subscription anytime.',
+            [
+                { text: 'Keep subscription', style: 'cancel' },
+                {
+                    text: 'Cancel subscription',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            setCancellingSubscription(sub.id);
+                            await cancelSubscription({
+                                subscriptionId: sub.id,
+                                reference: sub.reference,
+                            });
+                            Alert.alert(
+                                'Subscription cancelled',
+                                'Your subscription has been cancelled. Status will update shortly.',
+                                [{ text: 'OK' }]
+                            );
+                        } catch (err: any) {
+                            Alert.alert(
+                                'Error',
+                                err?.message ?? 'Could not cancel subscription. Please try again.'
+                            );
+                        } finally {
+                            setCancellingSubscription(null);
+                        }
+                    },
+                },
+            ]
+        );
+    }, []);
+
     useLayoutEffect(() => {
         navigation.setOptions({
             headerRight: () => (
@@ -395,6 +466,57 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
                     <AppText style={styles.newBookingButtonText}>+ Schedule</AppText>
                 </TouchableOpacity>
             </View>
+
+            {subscriptions.length > 0 && (
+                <View style={styles.subscriptionSection}>
+                    <AppText style={styles.subscriptionSectionTitle}>My subscription</AppText>
+                    {subscriptions.map((sub) => (
+                        <View key={sub.id} style={styles.card}>
+                            <View style={styles.statusRow}>
+                                <View
+                                    style={[
+                                        styles.statusBadge,
+                                        { backgroundColor: getSubscriptionStatusColor(sub.status) },
+                                    ]}
+                                >
+                                    <AppText style={styles.statusText}>
+                                        {getSubscriptionStatusLabel(sub.status)}
+                                    </AppText>
+                                </View>
+                                {sub.interval && (
+                                    <AppText style={styles.cardNote}>
+                                        {sub.interval === 'weekly'
+                                            ? 'Weekly'
+                                            : sub.interval === 'monthly'
+                                            ? 'Monthly'
+                                            : sub.interval}
+                                    </AppText>
+                                )}
+                            </View>
+                            {sub.amount != null && (
+                                <AppText style={styles.cardTotal}>
+                                    {formatPrice(sub.amount)} per cycle
+                                </AppText>
+                            )}
+                            {sub.status === 'active' && (
+                                <TouchableOpacity
+                                    style={styles.cancelSubscriptionButton}
+                                    onPress={() => handleCancelSubscription(sub)}
+                                    disabled={cancellingSubscription === sub.id}
+                                >
+                                    {cancellingSubscription === sub.id ? (
+                                        <ActivityIndicator size="small" color={COLORS.error} />
+                                    ) : (
+                                        <AppText style={styles.cancelSubscriptionButtonText}>
+                                            Cancel subscription
+                                        </AppText>
+                                    )}
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                    ))}
+                </View>
+            )}
 
             {loading ? (
                 <View style={styles.loadingState}>
