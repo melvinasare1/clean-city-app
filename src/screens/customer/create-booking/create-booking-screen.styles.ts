@@ -124,6 +124,61 @@ export const styles = StyleSheet.create({
     color: COLORS.primary,
     fontWeight: "600",
   },
+  dayDropdown: {
+    marginTop: VARS.xsmall,
+    marginBottom: VARS.medium,
+    borderRadius: VARS.xsmall,
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
+    paddingVertical: VARS.small,
+    paddingHorizontal: VARS.small,
+    backgroundColor: COLORS.white,
+  },
+  dayDropdownText: {
+    fontSize: 16,
+    color: COLORS.text,
+  },
+  dayDropdownPlaceholder: {
+    fontSize: 16,
+    color: COLORS.textSecondary,
+  },
+  dayModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: VARS.medium,
+  },
+  dayModal: {
+    width: "100%",
+    maxHeight: "80%",
+    backgroundColor: COLORS.white,
+    borderRadius: VARS.small,
+    padding: VARS.medium,
+  },
+  dayModalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: VARS.small,
+    color: COLORS.text,
+  },
+  dayOption: {
+    paddingVertical: VARS.xsmall,
+  },
+  dayOptionText: {
+    fontSize: 16,
+    color: COLORS.text,
+  },
+  dayModalCancel: {
+    marginTop: VARS.small,
+    paddingVertical: VARS.xsmall,
+    alignItems: "center",
+  },
+  dayModalCancelText: {
+    fontSize: 16,
+    color: COLORS.error,
+    fontWeight: "600",
+  },
   locationText: {
     fontSize: 16,
     color: COLORS.text,

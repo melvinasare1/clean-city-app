@@ -1,6 +1,7 @@
 // src/services/payments.ts
 
 import { getApiBaseUrl } from "@/lib/apiBase";
+import type { SubscriptionInterval } from "@/types/subscription";
 
 export type PaymentStatus = "success" | "failed" | "abandoned" | "pending";
 
@@ -199,4 +200,175 @@ export async function verifyBookingPaymentWithBackend(
     console.error("[Verify] ❌ Request failed:", error);
     throw error; // Re-throw to preserve the original error message
   }
+}
+
+// --- Subscription (Paystack) ---
+
+export interface CreateSubscriptionRequest {
+  userId: string;
+  email: string;
+  /** Amount in GHS. Backend converts to pesewas for Paystack. */
+  amount: number;
+  interval: SubscriptionInterval;
+  collectionDayOfWeek: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface CreateSubscriptionResponse {
+  authorizationUrl: string;
+  reference: string;
+  /** When set, backend created the subscription doc; app should not call saveSubscriptionRecord */
+  subscriptionId?: string;
+  /** Not used: we use simulated recurring (transaction/initialize only), not Paystack plans */
+  planCode?: string;
+}
+
+/**
+ * Returns the create-subscription endpoint URL.
+ * Uses EXPO_PUBLIC_API_SUBSCRIPTION_URL when set, otherwise falls back to EXPO_PUBLIC_API_URL + path.
+ */
+function getCreateSubscriptionUrl(): string {
+  const subscriptionUrl = process.env.EXPO_PUBLIC_API_SUBSCRIPTION_URL?.trim();
+  if (subscriptionUrl) {
+    return subscriptionUrl.replace(/\/+$/, "");
+  }
+  return `${getApiBaseUrl()}/api/paystack/create-subscription`;
+}
+
+/**
+ * Returns the cancel-subscription endpoint URL.
+ * Uses EXPO_PUBLIC_API_CANCEL_SUBSCRIPTION_URL when set, otherwise falls back to EXPO_PUBLIC_API_URL + path.
+ */
+function getCancelSubscriptionUrl(): string {
+  const cancelUrl = process.env.EXPO_PUBLIC_API_CANCEL_SUBSCRIPTION_URL?.trim();
+  if (cancelUrl) {
+    return cancelUrl.replace(/\/+$/, "");
+  }
+  return `${getApiBaseUrl()}/api/paystack/cancel-subscription`;
+}
+
+export interface GetSubscriptionPaymentUrlRequest {
+  subscriptionId: string;
+  reference?: string;
+}
+
+export interface GetSubscriptionPaymentUrlResponse {
+  authorizationUrl: string;
+}
+
+/**
+ * Calls backend to get Paystack authorization URL for an existing subscription payment
+ * (e.g. when payment.status === "initiated"). Opens this URL to let user complete payment.
+ */
+export async function getSubscriptionPaymentUrl(
+  body: GetSubscriptionPaymentUrlRequest
+): Promise<GetSubscriptionPaymentUrlResponse> {
+  const base = getApiBaseUrl();
+  const url = `${base.replace(/\/+$/, "")}/api/paystack/subscription-payment-url`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  const text = await response.text();
+  let json: any;
+  try {
+    json = JSON.parse(text);
+  } catch (e) {
+    throw new Error(`Subscription payment URL returned non-JSON: ${text.slice(0, 120)}`);
+  }
+
+  if (!response.ok || json?.ok === false) {
+    throw new Error(json?.error || json?.message || `Get subscription payment URL failed (status ${response.status})`);
+  }
+
+  const authorizationUrl = json.authorizationUrl;
+  if (!authorizationUrl) {
+    throw new Error("Backend did not return authorizationUrl for subscription payment");
+  }
+
+  return { authorizationUrl };
+}
+
+/**
+ * Calls backend: POST /api/paystack/create-subscription
+ * Simulated recurring: backend uses only transaction/initialize (no Paystack plan).
+ * Returns { authorizationUrl, reference }. Open authorizationUrl in browser.
+ */
+export async function createSubscription(
+  body: CreateSubscriptionRequest
+): Promise<CreateSubscriptionResponse> {
+  const url = getCreateSubscriptionUrl();
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  const text = await response.text();
+  let json: any;
+  try {
+    json = JSON.parse(text);
+  } catch (e) {
+    throw new Error(`Create subscription returned non-JSON: ${text.slice(0, 120)}`);
+  }
+
+  if (!response.ok || json?.ok === false) {
+    throw new Error(json?.error || json?.message || `Create subscription failed (status ${response.status})`);
+  }
+
+  const authorizationUrl = json.authorizationUrl;
+  const reference = json.reference;
+
+  if (!authorizationUrl || !reference) {
+    throw new Error("Backend did not return authorizationUrl and reference");
+  }
+
+  return {
+    authorizationUrl,
+    reference,
+    subscriptionId: json.subscriptionId,
+    planCode: json.planCode,
+  };
+}
+
+export interface CancelSubscriptionRequest {
+  /** Firestore subscription document id (optional if backend uses reference) */
+  subscriptionId?: string;
+  /** Paystack subscription reference */
+  reference?: string;
+}
+
+/**
+ * Calls backend: POST /api/paystack/cancel-subscription
+ * Uses EXPO_PUBLIC_API_CANCEL_SUBSCRIPTION_URL when set.
+ * Only call when subscription status is active; backend/webhook will update status.
+ */
+export async function cancelSubscription(
+  body: CancelSubscriptionRequest
+): Promise<{ ok: boolean; message?: string }> {
+  const url = getCancelSubscriptionUrl();
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  const text = await response.text();
+  let json: any;
+  try {
+    json = JSON.parse(text);
+  } catch (e) {
+    throw new Error(`Cancel subscription returned non-JSON: ${text.slice(0, 120)}`);
+  }
+
+  if (!response.ok) {
+    throw new Error(json?.error || json?.message || `Cancel subscription failed (status ${response.status})`);
+  }
+
+  return { ok: json.ok !== false, message: json?.message };
 }

@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { RootNavigator } from './src/navigation/root-navigation';
 import { AuthProvider } from '@/contexts/auth-context';
 import { BookingsProvider } from '@/contexts/bookings-context';
+import { SubscriptionsProvider } from '@/contexts/subscriptions-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import '@/services/notifications/notificationHandler';
@@ -45,6 +46,7 @@ export default function App() {
     return (
         <AuthProvider>
             <BookingsProvider>
+                <SubscriptionsProvider>
                 <GestureHandlerRootView style={{ flex: 1 }}>
                     <BottomSheetModalProvider>
                         <NavigationContainer>
@@ -53,6 +55,7 @@ export default function App() {
                         </NavigationContainer>
                     </BottomSheetModalProvider>
                 </GestureHandlerRootView>
+                </SubscriptionsProvider>
             </BookingsProvider>
         </AuthProvider>
     );
