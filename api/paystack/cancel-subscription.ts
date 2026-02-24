@@ -6,8 +6,7 @@ const SUBSCRIPTIONS_COLLECTION = "subscriptions";
 
 /**
  * POST /api/paystack/cancel-subscription
- * Simulated recurring: we do not use Paystack subscription API.
- * Only updates Firestore subscription status to "cancelled".
+ * MoMo only; no Paystack subscription. Updates Firestore status to "cancelled".
  */
 interface CancelSubscriptionRequest {
   subscriptionId?: string;

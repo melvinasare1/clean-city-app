@@ -1,8 +1,5 @@
 {
-  "functions": {
-    "api/**/*.ts": {
-      "runtime": "nodejs20.x"
-    }
-  },
-  "rewrites": [{ "source": "/", "destination": "/api/health" }]
+  "functions": { "api/**/*.ts": { "runtime": "nodejs20.x" } },
+  "rewrites": [{ "source": "/", "destination": "/api/health" }],
+  "crons": [{ "path": "/api/cron/daily-subscription-billing", "schedule": "0 6 * * *" }]
 }

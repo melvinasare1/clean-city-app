@@ -202,15 +202,23 @@ export async function verifyBookingPaymentWithBackend(
   }
 }
 
-// --- Subscription (Paystack) ---
+// --- Subscription (MoMo only, internal recurring) ---
+
+export type CollectionFrequency = "weekly" | "biweekly" | "monthly";
 
 export interface CreateSubscriptionRequest {
   userId: string;
   email: string;
   /** Amount in GHS. Backend converts to pesewas for Paystack. */
   amount: number;
-  interval: SubscriptionInterval;
-  collectionDayOfWeek: string;
+  /** Collection frequency (pickup schedule). Billing is always calendar monthly. */
+  collectionFrequency: CollectionFrequency;
+  collectionDay: string;
+  /** Required: booking id for the subscription (created before calling this). */
+  bookingId: string;
+  /** Legacy: still sent for backward compat */
+  interval?: SubscriptionInterval;
+  collectionDayOfWeek?: string;
   metadata?: Record<string, unknown>;
 }
 
@@ -219,20 +227,6 @@ export interface CreateSubscriptionResponse {
   reference: string;
   /** When set, backend created the subscription doc; app should not call saveSubscriptionRecord */
   subscriptionId?: string;
-  /** Not used: we use simulated recurring (transaction/initialize only), not Paystack plans */
-  planCode?: string;
-}
-
-/**
- * Returns the create-subscription endpoint URL.
- * Uses EXPO_PUBLIC_API_SUBSCRIPTION_URL when set, otherwise falls back to EXPO_PUBLIC_API_URL + path.
- */
-function getCreateSubscriptionUrl(): string {
-  const subscriptionUrl = process.env.EXPO_PUBLIC_API_SUBSCRIPTION_URL?.trim();
-  if (subscriptionUrl) {
-    return subscriptionUrl.replace(/\/+$/, "");
-  }
-  return `${getApiBaseUrl()}/api/paystack/create-subscription`;
 }
 
 /**
@@ -257,19 +251,19 @@ export interface GetSubscriptionPaymentUrlResponse {
 }
 
 /**
- * Calls backend to get Paystack authorization URL for an existing subscription payment
- * (e.g. when payment.status === "initiated"). Opens this URL to let user complete payment.
+ * Calls same endpoint as one-off payments: POST /api/paystack/initialize with { subscriptionId }.
+ * Returns authorizationUrl for existing subscription payment (MoMo).
  */
 export async function getSubscriptionPaymentUrl(
   body: GetSubscriptionPaymentUrlRequest
 ): Promise<GetSubscriptionPaymentUrlResponse> {
   const base = getApiBaseUrl();
-  const url = `${base.replace(/\/+$/, "")}/api/paystack/subscription-payment-url`;
+  const url = `${base.replace(/\/+$/, "")}/api/paystack/initialize`;
 
   const response = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ subscriptionId: body.subscriptionId }),
   });
 
   const text = await response.text();
@@ -293,20 +287,37 @@ export async function getSubscriptionPaymentUrl(
 }
 
 /**
- * Calls backend: POST /api/paystack/create-subscription
- * Simulated recurring: backend uses only transaction/initialize (no Paystack plan).
- * Returns { authorizationUrl, reference }. Open authorizationUrl in browser.
+ * Same URL as one-off payments: POST /api/paystack/initialize.
+ * Sends new-subscription payload (userId, email, amount, collectionFrequency, collectionDay, bookingId).
+ * Backend creates subscription doc and returns MoMo payment link (channels: ["mobile_money"]).
  */
 export async function createSubscription(
   body: CreateSubscriptionRequest
 ): Promise<CreateSubscriptionResponse> {
-  const url = getCreateSubscriptionUrl();
+  const base = getApiBaseUrl();
+  const url = `${base.replace(/\/+$/, "")}/api/paystack/initialize`;
+  if (__DEV__) {
+    console.log("[createSubscription] POST", url);
+  }
 
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch (e: any) {
+    const msg = e?.message ?? String(e);
+    if (msg === "Network request failed" || (e?.name === "TypeError" && msg?.toLowerCase().includes("network"))) {
+      throw new Error(
+        "Cannot reach the server. Check your internet connection and that EXPO_PUBLIC_API_URL is correct (" +
+          (base || "not set") +
+          ")."
+      );
+    }
+    throw e;
+  }
 
   const text = await response.text();
   let json: any;
@@ -331,7 +342,6 @@ export async function createSubscription(
     authorizationUrl,
     reference,
     subscriptionId: json.subscriptionId,
-    planCode: json.planCode,
   };
 }
 

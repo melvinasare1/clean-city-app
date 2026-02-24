@@ -34,6 +34,28 @@ const COLLECTION_DAYS = [
   'saturday',
 ] as const;
 
+const DAY_TO_NUMBER: Record<string, number> = {
+  sunday: 0,
+  monday: 1,
+  tuesday: 2,
+  wednesday: 3,
+  thursday: 4,
+  friday: 5,
+  saturday: 6,
+};
+
+/** Next occurrence of the given day of week (e.g. "tuesday"), from today onward. */
+function getNextDateForDay(dayOfWeek: string): Date {
+  const targetDay = DAY_TO_NUMBER[dayOfWeek.toLowerCase()] ?? 0;
+  const now = new Date();
+  const today = now.getDay();
+  let daysAhead = targetDay - today;
+  if (daysAhead <= 0) daysAhead += 7;
+  const next = new Date(now);
+  next.setDate(now.getDate() + daysAhead);
+  return next;
+}
+
 const formatDayLabel = (day: string) =>
   day.charAt(0).toUpperCase() + day.slice(1);
 
@@ -61,9 +83,9 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [bookingType, setBookingType] = useState<BookingType>("one_off");
   const [intervalWeeks, setIntervalWeeks] = useState<number>(1);
-  /** Map intervalWeeks to backend interval: 1=weekly, 4=monthly (Paystack does not support biweekly) */
-  const subscriptionInterval: SubscriptionInterval =
-    intervalWeeks === 1 ? "weekly" : "monthly";
+  /** Map intervalWeeks to collectionFrequency: 1=weekly, 2=biweekly, 4=monthly. Billing is always monthly. */
+  const collectionFrequency: "weekly" | "biweekly" | "monthly" =
+    intervalWeeks === 1 ? "weekly" : intervalWeeks === 2 ? "biweekly" : "monthly";
   const [collectionDayOfWeek, setCollectionDayOfWeek] = useState<string | null>(null);
   const [showDayPicker, setShowDayPicker] = useState(false);
 
@@ -145,27 +167,74 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
     }
     try {
       setIsSaving(true);
-      const { authorizationUrl, reference, subscriptionId } = await createSubscription({
-        userId: user.id,
-        email: user.email,
-        amount: discountedTotal,
-        interval: subscriptionInterval,
-        collectionDayOfWeek: collectionDayOfWeek.toLowerCase(),
-        metadata: {
-          binType: items.map((i) => i.type).join(', '),
-          quantity: items.reduce((acc, i) => acc + (i.quantity ?? 1), 0),
+      const firstCollectionDate = getNextDateForDay(collectionDayOfWeek);
+      const defaultWindow = TIME_WINDOWS[0];
+      let bookingId: string;
+      try {
+        bookingId = await createBooking({
+          userId: user.id,
+          userEmail: user.email,
+          date: firstCollectionDate.toISOString().slice(0, 10),
+          windowId: defaultWindow.id,
+          windowLabel: defaultWindow.label,
           location: user.location ?? '',
-        },
-      });
+          items,
+          totalPrice: discountedTotal,
+          type: 'subscription',
+          recurrence: { intervalWeeks },
+        });
+      } catch (bookingErr: any) {
+        console.error('Subscription booking create error:', bookingErr);
+        Alert.alert(
+          'Booking failed',
+          bookingErr?.message?.includes('network') || bookingErr?.message?.includes('Network')
+            ? 'Check your internet connection and try again.'
+            : bookingErr?.message ?? 'Could not create subscription booking. Please try again.'
+        );
+        return;
+      }
+      let authorizationUrl: string;
+      let reference: string;
+      let subscriptionId: string | undefined;
+      try {
+        const result = await createSubscription({
+          userId: user.id,
+          email: user.email,
+          amount: discountedTotal,
+          bookingId,
+          collectionFrequency,
+          collectionDay: collectionDayOfWeek.toLowerCase(),
+          interval: intervalWeeks === 1 ? 'weekly' : 'monthly',
+          collectionDayOfWeek: collectionDayOfWeek.toLowerCase(),
+          metadata: {
+            binType: items.map((i) => i.type).join(', '),
+            quantity: items.reduce((acc, i) => acc + (i.quantity ?? 1), 0),
+            location: user.location ?? '',
+          },
+        });
+        authorizationUrl = result.authorizationUrl;
+        reference = result.reference;
+        subscriptionId = result.subscriptionId;
+      } catch (subscriptionErr: any) {
+        console.error('Subscription start error:', subscriptionErr);
+        await trackEvent('activation_failed', { screen: SCREEN, reason: 'subscription_init' });
+        const msg = subscriptionErr?.message ?? 'Could not start subscription. Please try again.';
+        Alert.alert(
+          'Payment link failed',
+          msg.includes('Cannot reach the server')
+            ? msg + ' If using a device, ensure it can reach the API (e.g. use a deployed URL, not localhost).'
+            : msg
+        );
+        return;
+      }
 
-      // Only create local doc if backend did not already create one (no subscriptionId)
       if (!subscriptionId) {
         await saveSubscriptionRecord({
           userId: user.id,
           reference,
           status: 'pending',
           amount: discountedTotal,
-          interval: subscriptionInterval,
+          interval: intervalWeeks === 1 ? 'weekly' : 'monthly',
           metadata: { items: items.length },
         });
       }
@@ -344,7 +413,7 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
             <AppText style={styles.subtitle}>
               Recurring pickups at a discount. You can cancel anytime from My Bookings.
             </AppText>
-            <AppText style={styles.label}>Interval</AppText>
+            <AppText style={styles.label}>Collection frequency</AppText>
             <View style={styles.windowButtonsContainer}>
               <TouchableOpacity
                 style={[
@@ -360,6 +429,22 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
                   ]}
                 >
                   Weekly
+                </AppText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.windowButton,
+                  intervalWeeks === 2 && styles.windowButtonSelected,
+                ]}
+                onPress={() => setIntervalWeeks(2)}
+              >
+                <AppText
+                  style={[
+                    styles.windowButtonText,
+                    intervalWeeks === 2 && styles.windowButtonTextSelected,
+                  ]}
+                >
+                  Biweekly
                 </AppText>
               </TouchableOpacity>
               <TouchableOpacity
@@ -563,15 +648,13 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
 
         {isSubscription ? (
           <AppButton
-            title="Start Subscription"
+            title="Pay with MoMo"
             onPress={handleStartSubscription}
             disabled={isSubscriptionStartDisabled || locationMissing}
             loading={isSaving}
             buttonStyle={{
               ...styles.confirmButton,
-              ...(isSubscriptionStartDisabled || locationMissing
-                ? styles.confirmButtonDisabled
-                : {}),
+              ...(isSubscriptionStartDisabled || locationMissing ? styles.confirmButtonDisabled : {}),
             }}
             textStyle={styles.confirmButtonText}
           />

@@ -1,5 +1,11 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import crypto from 'crypto';
+import {
+  addCalendarMonth,
+  toDate,
+  createJobsForSubscription,
+} from './subscription-helpers';
+import type { JobCollectionFrequency } from './payment-and-job-types';
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 
@@ -127,10 +133,12 @@ export default async function handler(
               return res.status(200).json({ received: true });
             }
 
+            // Store transaction with metadata preserved exactly as sent (includes type, subscriptionId/bookingId)
             await docRef.set(
               {
                 userId: metadata?.userId ?? existing?.userId ?? null,
                 bookingId: metadata?.bookingId ?? existing?.bookingId ?? null,
+                metadata: metadata ?? existing?.metadata ?? {},
                 reference,
                 amount,
                 currency,
@@ -143,57 +151,107 @@ export default async function handler(
               { merge: true }
             );
 
-            // If payment was successful, mark booking payment as paid
-            if (status === 'success' && metadata?.bookingId) {
-              try {
-                await firestore
-                  .collection('bookings')
-                  .doc(metadata.bookingId)
-                  .set(
-                    { 
-                      payment: { status: 'paid' }
-                    }, 
-                    { merge: true }
-                  );
-                console.log(`Marked booking ${metadata.bookingId} payment as paid`);
-              } catch (err) {
-                console.error(
-                  `Failed to update booking ${metadata.bookingId} payment:`,
-                  err
-                );
-              }
+            // Update payments collection (doc id = reference, created on initialize)
+            const paymentStatus = status === 'success' ? 'success' : status === 'failed' ? 'failed' : 'abandoned';
+            const paymentRef = firestore.collection('payments').doc(reference);
+            const paymentSnap = await paymentRef.get();
+            if (paymentSnap.exists) {
+              await paymentRef.set(
+                {
+                  status: paymentStatus,
+                  paystackStatus: status,
+                  updatedAt: FieldValue.serverTimestamp(),
+                },
+                { merge: true }
+              );
             }
 
-            // Simulated subscription: when charge.success has subscriptionId, update subscription doc
-            if (status === 'success' && metadata?.subscriptionId) {
-              const subscriptionId = String(metadata.subscriptionId);
-              try {
-                const subRef = firestore.collection('subscriptions').doc(subscriptionId);
-                const subSnap = await subRef.get();
-                if (subSnap.exists) {
-                  const subData = subSnap.data() || {};
-                  const interval = subData.interval === 'monthly' ? 'monthly' : 'weekly';
-                  const now = new Date();
-                  const next = new Date(now);
-                  if (interval === 'monthly') {
-                    next.setMonth(next.getMonth() + 1);
-                  } else {
-                    next.setDate(next.getDate() + 7);
+            const paymentType = metadata?.type;
+
+            if (status === 'success') {
+              if (paymentType === 'one_time') {
+                const bookingId = metadata?.bookingId;
+                if (bookingId) {
+                  try {
+                    await firestore
+                      .collection('bookings')
+                      .doc(bookingId)
+                      .set(
+                        { payment: { status: 'paid' } },
+                        { merge: true }
+                      );
+                    console.log(`Booking ${bookingId} marked as paid`);
+                  } catch (err) {
+                    console.error(`Failed to update booking ${bookingId} payment:`, err);
                   }
-                  await subRef.set(
-                    {
-                      payment: { status: 'paid', reference },
-                      lastChargeDate: FieldValue.serverTimestamp(),
-                      nextChargeDate: next,
-                      status: 'active',
-                      updatedAt: FieldValue.serverTimestamp(),
-                    },
-                    { merge: true }
-                  );
-                  console.log(`Updated subscription ${subscriptionId} payment as paid, nextCharge: ${next.toISOString()}`);
                 }
-              } catch (err) {
-                console.error(`Failed to update subscription ${metadata.subscriptionId}:`, err);
+              } else if (paymentType === 'subscription') {
+                const subscriptionId = metadata?.subscriptionId;
+                const userId = metadata?.userId as string | undefined;
+                if (subscriptionId && userId) {
+                  try {
+                    const subRef = firestore.collection('subscriptions').doc(subscriptionId);
+                    const subSnap = await subRef.get();
+                    if (subSnap.exists) {
+                      const now = new Date();
+                      const subData = subSnap.data();
+                      const wasOverdue = subData?.status === 'overdue';
+                      const nextBilling = subData?.nextBillingDate
+                        ? addCalendarMonth(toDate(subData.nextBillingDate as any) ?? now)
+                        : addCalendarMonth(now);
+                      await subRef.set(
+                        {
+                          status: 'active',
+                          lastPaymentDate: FieldValue.serverTimestamp(),
+                          lastPaymentReference: reference,
+                          nextBillingDate: nextBilling,
+                          paymentDueSince: FieldValue.delete(),
+                          currentPaymentReference: FieldValue.delete(),
+                          updatedAt: FieldValue.serverTimestamp(),
+                        },
+                        { merge: true }
+                      );
+                      console.log(`Subscription ${subscriptionId} charge.success: nextBilling=${nextBilling.toISOString()}`);
+
+                      // Generate jobs only after successful payment; do not generate if subscription was overdue
+                      if (!wasOverdue) {
+                        const collectionFrequency = (subData?.collectionFrequency ?? 'monthly') as JobCollectionFrequency;
+                        const billingPeriodStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                        const addressSnapshot: Record<string, unknown> =
+                          typeof subData?.metadata === 'object' && subData.metadata !== null
+                            ? { ...(subData.metadata as Record<string, unknown>) }
+                            : {};
+                        await createJobsForSubscription(firestore, {
+                          subscriptionId,
+                          userId,
+                          billingPeriodStart,
+                          collectionFrequency,
+                          addressSnapshot,
+                          Timestamp: admin.firestore.Timestamp,
+                        });
+                        console.log(`Jobs created for subscription ${subscriptionId} (${collectionFrequency})`);
+                      }
+                    }
+                  } catch (err) {
+                    console.error(`Failed to update subscription ${subscriptionId}:`, err);
+                  }
+                }
+              }
+            } else if (status === 'failed' && paymentType === 'subscription') {
+              const subscriptionId = metadata?.subscriptionId;
+              if (subscriptionId) {
+                try {
+                  await firestore
+                    .collection('subscriptions')
+                    .doc(subscriptionId)
+                    .set(
+                      { status: 'overdue', updatedAt: FieldValue.serverTimestamp() },
+                      { merge: true }
+                    );
+                  console.log(`Subscription ${subscriptionId} charge.failed: status=overdue`);
+                } catch (err) {
+                  console.error(`Failed to update subscription ${subscriptionId}:`, err);
+                }
               }
             }
 

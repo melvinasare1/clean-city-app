@@ -24,9 +24,8 @@ interface SubscriptionPaymentUrlRequest {
 
 /**
  * POST /api/paystack/subscription-payment-url
- * Simulated recurring: initializes a one-time transaction for an existing subscription.
- * No plan, no subscription_code → Mobile Money allowed.
- * Updates subscription doc: payment.status = "initiated", payment.reference = reference.
+ * MoMo only. Initializes a one-time transaction for an existing subscription.
+ * Always channels: ["mobile_money"]. No Paystack plan.
  * Returns: { ok: true, authorizationUrl, reference }
  */
 export default async function handler(
@@ -84,14 +83,14 @@ export default async function handler(
     }
 
     const amountInPesewas = Math.round(amountNum * 100);
-    const collectionDayOfWeek = String(
-      subscription.collectionDayOfWeek ?? ""
+    const collectionDay = String(
+      (subscription as any).collectionDay ?? subscription.collectionDayOfWeek ?? ""
     );
 
     const metadata: Record<string, string> = {
       subscriptionId,
       userId,
-      collectionDayOfWeek,
+      collectionDay,
     };
 
     const payload = {
@@ -99,6 +98,7 @@ export default async function handler(
       amount: amountInPesewas,
       metadata,
       callback_url: `${CLIENT_APP_URL}/payment/success`,
+      channels: ["mobile_money"] as const,
     };
 
     console.log("[Init] Sending to Paystack (subscription charge):", {
@@ -153,7 +153,7 @@ export default async function handler(
       });
     }
 
-    // Set payment.status = "initiated" and store reference on subscription
+    // Store reference (and optional payment_due state) for webhook/reminders
     if (admin.apps.length) {
       try {
         await admin
@@ -163,6 +163,7 @@ export default async function handler(
           .set(
             {
               payment: { status: "initiated", reference },
+              currentPaymentReference: reference,
               updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             },
             { merge: true }

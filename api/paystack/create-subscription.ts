@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import admin from "firebase-admin";
+import type { CollectionFrequency } from "./subscription-types";
 
 const PAYSTACK_BASE_URL = "https://api.paystack.co";
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
@@ -15,25 +16,32 @@ if (!admin.apps.length && process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
   }
 }
 
-/**
- * Simulated subscription: we do NOT use Paystack plans.
- * We only call transaction/initialize so checkout shows Mobile Money + Card.
- */
 interface CreateSubscriptionRequest {
   userId: string;
   email: string;
-  /** Amount in GHS. Converted to pesewas once for Paystack. */
   amount: number;
-  interval: "weekly" | "monthly";
-  collectionDayOfWeek: string;
+  collectionFrequency: CollectionFrequency;
+  collectionDay: string;
+  billingDay?: number;
+  /** Legacy: map to collectionFrequency */
+  interval?: "weekly" | "monthly";
+  collectionDayOfWeek?: string;
   metadata?: Record<string, unknown>;
+}
+
+/** Next billing date: first occurrence of billingDay (1–28) on or after now. Calendar monthly. */
+function getNextBillingDate(billingDay: number): Date {
+  const now = new Date();
+  const day = Math.min(Math.max(1, Math.floor(billingDay)), 28);
+  const next = new Date(now.getFullYear(), now.getMonth(), day);
+  if (next <= now) next.setMonth(next.getMonth() + 1);
+  return next;
 }
 
 /**
  * POST /api/paystack/create-subscription
- * Simulated recurring: initializes a one-time transaction only.
- * No plan, no subscription_code, no authorization_code → Mobile Money allowed.
- * Returns: { ok: true, authorizationUrl, reference }
+ * MoMo only. No Paystack plan or subscription. Internal recurring via daily cron.
+ * transaction/initialize with channels: ["mobile_money"].
  */
 export default async function handler(
   req: VercelRequest,
@@ -57,6 +65,10 @@ export default async function handler(
       userId,
       email,
       amount,
+      collectionFrequency = "monthly",
+      collectionDay = "",
+      billingDay = 1,
+      interval,
       collectionDayOfWeek,
       metadata: extraMetadata = {},
     } = body;
@@ -76,10 +88,14 @@ export default async function handler(
       });
     }
 
-    // Single conversion to pesewas; do not divide before initialize
-    const amountInPesewas = Math.round(amountNum * 100);
+    const useLegacy = body.interval != null && body.collectionDayOfWeek != null;
+    const effectiveFrequency: CollectionFrequency = useLegacy
+      ? (interval === "monthly" ? "monthly" : "weekly")
+      : collectionFrequency;
+    const effectiveCollectionDay = useLegacy ? String(collectionDayOfWeek ?? "") : String(collectionDay ?? "");
+    const effectiveBillingDay = Math.min(28, Math.max(1, Math.floor(Number(billingDay) || 1)));
+    const nextBillingDate = getNextBillingDate(effectiveBillingDay);
 
-    // Create subscription doc first so we can put subscriptionId in metadata (webhook will update it on success)
     let subscriptionId: string | null = null;
     if (admin.apps.length) {
       const firestore = admin.firestore();
@@ -90,13 +106,16 @@ export default async function handler(
         {
           userId,
           email,
+          paymentMethod: "momo",
+          collectionFrequency: effectiveFrequency,
+          collectionDay: effectiveCollectionDay,
           amount: amountNum,
-          interval: body.interval,
-          collectionDayOfWeek: String(collectionDayOfWeek ?? ""),
+          billingDay: effectiveBillingDay,
+          nextBillingDate: admin.firestore.Timestamp.fromDate(nextBillingDate),
           status: "pending",
-          metadata: extraMetadata || {},
           createdAt: admin.firestore.Timestamp.fromDate(now),
           updatedAt: admin.firestore.Timestamp.fromDate(now),
+          ...(extraMetadata && Object.keys(extraMetadata).length ? { metadata: extraMetadata } : {}),
         },
         { merge: false }
       );
@@ -104,7 +123,7 @@ export default async function handler(
 
     const metadata: Record<string, string | number> = {
       userId,
-      collectionDayOfWeek: String(collectionDayOfWeek ?? ""),
+      collectionDay: effectiveCollectionDay,
       ...(subscriptionId ? { subscriptionId } : {}),
       ...Object.fromEntries(
         Object.entries(extraMetadata || {}).map(([k, v]) => [
@@ -116,16 +135,11 @@ export default async function handler(
 
     const payload = {
       email,
-      amount: amountInPesewas,
+      amount: Math.round(amountNum * 100),
       metadata,
       callback_url: `${CLIENT_APP_URL}/payment/success`,
+      channels: ["mobile_money"] as const,
     };
-
-    console.log("[Init] Sending to Paystack:", {
-      email,
-      amount: amountInPesewas,
-      metadata,
-    });
 
     const paystackResponse = await fetch(
       `${PAYSTACK_BASE_URL}/transaction/initialize`,
@@ -170,7 +184,6 @@ export default async function handler(
       });
     }
 
-    // Update subscription doc with reference
     if (admin.apps.length && subscriptionId) {
       try {
         await admin
@@ -178,11 +191,11 @@ export default async function handler(
           .collection(SUBSCRIPTIONS_COLLECTION)
           .doc(subscriptionId)
           .set(
-            { reference, updatedAt: admin.firestore.FieldValue.serverTimestamp() },
+            { updatedAt: admin.firestore.FieldValue.serverTimestamp() },
             { merge: true }
           );
       } catch (e) {
-        console.error("Failed to update subscription with reference:", e);
+        console.error("Failed to update subscription:", e);
       }
     }
 
