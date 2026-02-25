@@ -1,10 +1,16 @@
-
-import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../../hooks/useAuth';
 import { styles } from './driver-home-screen.styles';
 import { trackEvent } from '@/services/analytics';
+import {
+  getDriverJobs,
+  startShift,
+  endShift,
+  type DriverJob,
+  type DriverShift,
+} from '@/services/driver-api';
 
 type DriverStackParamList = {
   DriverHome: undefined;
@@ -16,10 +22,81 @@ type DriverHomeScreenProps = {
   navigation: NativeStackNavigationProp<DriverStackParamList, 'DriverHome'>;
 };
 
-const SCREEN = 'driver_home';
+function todayYYYYMMDD(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function groupByWindow(jobs: DriverJob[]): Record<string, DriverJob[]> {
+  const map: Record<string, DriverJob[]> = {};
+  for (const job of jobs) {
+    const key = job.windowLabel || 'Other';
+    if (!map[key]) map[key] = [];
+    map[key].push(job);
+  }
+  return map;
+}
 
 export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }) => {
   const { user, logout } = useAuth();
+  const [jobs, setJobs] = useState<DriverJob[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [shiftLoading, setShiftLoading] = useState(false);
+  const [endShiftLoading, setEndShiftLoading] = useState(false);
+  const [shift, setShift] = useState<DriverShift | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const driverId = user?.id ?? '';
+  const date = todayYYYYMMDD();
+
+  const loadJobs = useCallback(async () => {
+    if (!driverId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const list = await getDriverJobs(driverId, date);
+      setJobs(list);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to load jobs';
+      setError(msg);
+      setJobs([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [driverId, date]);
+
+  useEffect(() => {
+    loadJobs();
+  }, [loadJobs]);
+
+  const handleStartShift = async () => {
+    if (!driverId) return;
+    setShiftLoading(true);
+    try {
+      const s = await startShift(driverId);
+      setShift(s);
+      await trackEvent('driver_start_shift', { screen: 'driver_home' });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to start shift';
+      Alert.alert('Error', msg);
+    } finally {
+      setShiftLoading(false);
+    }
+  };
+
+  const handleEndShift = async () => {
+    if (!driverId) return;
+    setEndShiftLoading(true);
+    try {
+      const s = await endShift(driverId);
+      setShift(s);
+      await trackEvent('driver_end_shift', { screen: 'driver_home' });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to end shift';
+      Alert.alert('Error', msg);
+    } finally {
+      setEndShiftLoading(false);
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -29,6 +106,8 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
       console.error('Logout error:', error);
     }
   };
+
+  const grouped = groupByWindow(jobs);
 
   return (
     <ScrollView style={styles.container}>
@@ -40,17 +119,45 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
       <View style={styles.content}>
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
-            <Text style={styles.statValue}>5</Text>
+            <Text style={styles.statValue}>{loading ? '–' : jobs.length}</Text>
             <Text style={styles.statLabel}>Today's Jobs</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statValue}>$425</Text>
+            <Text style={styles.statValue}>–</Text>
             <Text style={styles.statLabel}>Today's Earnings</Text>
           </View>
         </View>
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Quick Actions</Text>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={handleStartShift}
+            disabled={shiftLoading || !!shift?.shiftStartedAt}
+          >
+            {shiftLoading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.actionButtonText}>
+                {shift?.shiftStartedAt ? '✓ Shift Started' : '▶ Start Shift'}
+              </Text>
+            )}
+          </TouchableOpacity>
+
+          {shift?.shiftStartedAt && !shift?.shiftEndedAt && (
+            <TouchableOpacity
+              style={[styles.actionButton, styles.actionButtonSecondary]}
+              onPress={handleEndShift}
+              disabled={endShiftLoading}
+            >
+              {endShiftLoading ? (
+                <ActivityIndicator color="#000" />
+              ) : (
+                <Text style={styles.actionButtonTextSecondary}>End Shift</Text>
+              )}
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity
             style={styles.actionButton}
@@ -61,9 +168,7 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
 
           <TouchableOpacity
             style={[styles.actionButton, styles.actionButtonSecondary]}
-            onPress={() => {
-              // TODO: Navigate to available jobs
-            }}
+            onPress={() => {}}
           >
             <Text style={styles.actionButtonTextSecondary}>🔍 Find Available Jobs</Text>
           </TouchableOpacity>
@@ -71,9 +176,35 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Today's Schedule</Text>
-          <Text style={styles.placeholderText}>
-            Your assigned jobs for today will appear here
-          </Text>
+          {error && (
+            <Text style={styles.placeholderText}>{error}</Text>
+          )}
+          {loading ? (
+            <ActivityIndicator style={{ marginVertical: 12 }} />
+          ) : Object.keys(grouped).length === 0 ? (
+            <Text style={styles.placeholderText}>
+              Your assigned jobs for today will appear here
+            </Text>
+          ) : (
+            Object.entries(grouped).map(([windowLabel, windowJobs]) => (
+              <View key={windowLabel} style={{ marginBottom: 12 }}>
+                <Text style={[styles.cardTitle, { fontSize: 14, marginBottom: 6 }]}>
+                  {windowLabel}
+                </Text>
+                {windowJobs.map((job) => (
+                  <TouchableOpacity
+                    key={job.id}
+                    style={[styles.actionButton, styles.actionButtonSecondary, { marginBottom: 6 }]}
+                    onPress={() => navigation.navigate('DriverJobDetail', { jobId: job.id })}
+                  >
+                    <Text style={styles.actionButtonTextSecondary} numberOfLines={1}>
+                      📍 {job.location || 'No address'} · {job.jobStatus}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ))
+          )}
         </View>
 
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>

@@ -1,9 +1,23 @@
-
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
+  Linking,
+} from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RouteProp } from '@react-navigation/native';
+import { RouteProp, useFocusEffect } from '@react-navigation/native';
+import { useAuth } from '@/hooks/useAuth';
 import { styles } from './driver-job-details-screen.styles';
+import {
+  getJobSingle,
+  startJob,
+  completeJob,
+  type DriverJob,
+} from '@/services/driver-api';
 
 type DriverStackParamList = {
   DriverHome: undefined;
@@ -16,99 +30,173 @@ type DriverJobDetailScreenProps = {
   route: RouteProp<DriverStackParamList, 'DriverJobDetail'>;
 };
 
-export const DriverJobDetailScreen: React.FC<DriverJobDetailScreenProps> = ({ route }) => {
+export const DriverJobDetailScreen: React.FC<DriverJobDetailScreenProps> = ({ navigation, route }) => {
   const { jobId } = route.params;
+  const { user } = useAuth();
+  const driverId = user?.id ?? '';
 
-  // TODO: Fetch job details from Firestore using jobId
-  // const [job, setJob] = useState<Booking | null>(null);
+  const [job, setJob] = useState<DriverJob & { addressSnapshot?: { addressLine1: string; area: string; phoneNumber: string } } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Placeholder data
-  const mockJob = {
-    id: jobId,
-    address: '123 Main St, Apartment 4B',
-    timeWindow: 'morning',
-    status: 'assigned',
-    earnings: 85,
-    customerName: 'John Doe',
-    customerPhone: '+1234567890',
-    bins: {
-      smallBags: 2,
-      largeBags: 1,
-      standardBins: 0,
-      wheelieBins: 0,
-    },
-    notes: 'Please call when arriving',
+  const loadJob = useCallback(async () => {
+    if (!driverId || !jobId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await getJobSingle(jobId, driverId);
+      setJob(data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load job');
+      setJob(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [driverId, jobId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadJob();
+    }, [loadJob])
+  );
+
+  const handleStartJob = async () => {
+    if (!driverId || !jobId) return;
+    setActionLoading(true);
+    try {
+      await startJob(jobId, driverId);
+      await loadJob();
+    } catch (e) {
+      Alert.alert('Error', e instanceof Error ? e.message : 'Failed to start job');
+    } finally {
+      setActionLoading(false);
+    }
   };
+
+  const handleCompleteJob = async () => {
+    if (!driverId || !jobId) return;
+    if (job?.paymentStatus !== 'paid') {
+      Alert.alert('Cannot complete', 'This job must be paid before you can complete it.');
+      return;
+    }
+    setActionLoading(true);
+    try {
+      await completeJob(jobId, driverId);
+      await loadJob();
+    } catch (e) {
+      Alert.alert('Error', e instanceof Error ? e.message : 'Failed to complete job');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const canStart = job && job.jobStatus !== 'in_progress' && job.jobStatus !== 'completed';
+  const canComplete =
+    job && job.jobStatus === 'in_progress' && job.paymentStatus === 'paid';
+
+  const address =
+    job?.addressSnapshot?.addressLine1 || job?.location || 'No address';
+  const phone = job?.addressSnapshot?.phoneNumber;
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.content]}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
+  if (error || !job) {
+    return (
+      <View style={[styles.container, styles.content]}>
+        <Text style={styles.placeholderText}>{error || 'Job not found'}</Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container}>
       <View style={styles.content}>
         <View style={styles.header}>
           <Text style={styles.title}>Job Details</Text>
-          <View style={styles.statusBadge}>
+          <View style={[styles.statusBadge, { backgroundColor: job.jobStatus === 'completed' ? '#4CAF50' : job.jobStatus === 'in_progress' ? '#FF9800' : '#2196F3' }]}>
             <Text style={styles.statusText}>
-              {mockJob.status.replace('_', ' ').toUpperCase()}
+              {job.jobStatus.replace('_', ' ').toUpperCase()}
             </Text>
           </View>
         </View>
 
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>📍 Pickup Location</Text>
-          <Text style={styles.address}>{mockJob.address}</Text>
-          <Text style={styles.timeWindow}>
-            ⏰ {mockJob.timeWindow.charAt(0).toUpperCase() + mockJob.timeWindow.slice(1)} (8:00 AM - 12:00 PM)
-          </Text>
+          <Text style={styles.address}>{address}</Text>
+          <Text style={styles.timeWindow}>⏰ {job.windowLabel}</Text>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>👤 Customer Information</Text>
-          <Text style={styles.infoText}>Name: {mockJob.customerName}</Text>
-          <Text style={styles.infoText}>Phone: {mockJob.customerPhone}</Text>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>🗑️ Items to Collect</Text>
-          {mockJob.bins.smallBags > 0 && (
-            <Text style={styles.binItem}>• Small Bags: {mockJob.bins.smallBags}</Text>
-          )}
-          {mockJob.bins.largeBags > 0 && (
-            <Text style={styles.binItem}>• Large Bags: {mockJob.bins.largeBags}</Text>
-          )}
-          {mockJob.bins.standardBins > 0 && (
-            <Text style={styles.binItem}>• Standard Bins: {mockJob.bins.standardBins}</Text>
-          )}
-          {mockJob.bins.wheelieBins > 0 && (
-            <Text style={styles.binItem}>• Wheelie Bins: {mockJob.bins.wheelieBins}</Text>
-          )}
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>💰 Earnings</Text>
-          <Text style={styles.earnings}>GHS {mockJob.earnings}</Text>
-        </View>
-
-        {mockJob.notes && (
+        {phone ? (
           <View style={styles.card}>
-            <Text style={styles.sectionTitle}>📝 Special Notes</Text>
-            <Text style={styles.notes}>{mockJob.notes}</Text>
+            <Text style={styles.sectionTitle}>👤 Customer</Text>
+            <Text style={styles.infoText}>Phone: {phone}</Text>
+            <TouchableOpacity
+              style={styles.actionButtonSecondary}
+              onPress={() => Linking.openURL(`tel:${phone}`)}
+            >
+              <Text style={styles.actionButtonTextSecondary}>Call Customer</Text>
+            </TouchableOpacity>
           </View>
+        ) : null}
+
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>🗑️ Items</Text>
+          {(job.items?.length ?? 0) > 0
+            ? job.items!.map((item, i) => (
+                <Text key={i} style={styles.binItem}>
+                  • {item.type}: {item.quantity} × GHS {item.unitPrice}
+                </Text>
+              ))
+            : (
+              <Text style={styles.placeholderText}>No items listed</Text>
+            )}
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Payment</Text>
+          <Text style={styles.earnings}>{job.paymentStatus.toUpperCase()}</Text>
+        </View>
+
+        {canStart && (
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={handleStartJob}
+            disabled={actionLoading}
+          >
+            {actionLoading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.actionButtonText}>Start Job</Text>
+            )}
+          </TouchableOpacity>
         )}
 
-        <TouchableOpacity style={styles.actionButton}>
-          <Text style={styles.actionButtonText}>Start Job</Text>
-        </TouchableOpacity>
+        {canComplete && (
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={handleCompleteJob}
+            disabled={actionLoading}
+          >
+            {actionLoading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.actionButtonText}>Complete Job</Text>
+            )}
+          </TouchableOpacity>
+        )}
 
-        <TouchableOpacity style={styles.actionButtonSecondary}>
-          <Text style={styles.actionButtonTextSecondary}>Call Customer</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.actionButtonSecondary}>
-          <Text style={styles.actionButtonTextSecondary}>Get Directions</Text>
-        </TouchableOpacity>
-
-        <Text style={styles.placeholderText}>
-          Actions will update job status in Firestore in the next phase
-        </Text>
+        {job.paymentStatus !== 'paid' && job.jobStatus === 'in_progress' && (
+          <Text style={styles.placeholderText}>
+            Complete is only available when payment status is paid.
+          </Text>
+        )}
       </View>
     </ScrollView>
   );

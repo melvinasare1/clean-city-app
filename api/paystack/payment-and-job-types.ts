@@ -97,6 +97,13 @@ export interface JobDocument {
 
   assignedTo?: string;
 
+  /** Set when driver starts the job */
+  startedAt?: FirebaseTimestamp;
+  startedBy?: string;
+  /** Set when driver completes the job */
+  completedAt?: FirebaseTimestamp;
+  completedBy?: string;
+
   createdAt: FirebaseTimestamp;
   updatedAt: FirebaseTimestamp;
 }
