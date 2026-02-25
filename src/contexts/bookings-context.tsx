@@ -109,6 +109,7 @@ export const BookingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             type: (data.type ?? 'one_off') as any,
             recurrence: data.recurrence as any,
             payment: data.payment ?? { status: 'unpaid' },
+            subscriptionId: data.subscriptionId as string | undefined,
           };
         });
 

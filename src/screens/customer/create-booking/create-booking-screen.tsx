@@ -9,7 +9,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { TIME_WINDOWS, TimeWindowId } from '@/lib/time-windows';
 import type { BookingType } from '@/types/booking';
 import type { SubscriptionInterval } from '@/types/subscription';
-import { createBooking, initiatePaymentForBooking } from '@/services/booking-service';
+import { createBooking, initiatePaymentForBooking, updateBooking } from '@/services/booking-service';
 import { createSubscription } from '@/services/payments';
 import { saveSubscriptionRecord } from '@/services/subscription-service';
 import * as Linking from 'expo-linking';
@@ -199,13 +199,20 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
       try {
         const result = await createSubscription({
           userId: user.id,
-          email: user.email,
+          email: user.email ?? '',
           amount: discountedTotal,
           bookingId,
           collectionFrequency,
           collectionDay: collectionDayOfWeek.toLowerCase(),
           interval: intervalWeeks === 1 ? 'weekly' : 'monthly',
           collectionDayOfWeek: collectionDayOfWeek.toLowerCase(),
+          items: items.map((i) => ({
+            type: i.type,
+            quantity: i.quantity ?? 1,
+            unitPrice: i.unitPrice,
+            totalPrice: i.totalPrice,
+          })),
+          location: user.location ?? '',
           metadata: {
             binType: items.map((i) => i.type).join(', '),
             quantity: items.reduce((acc, i) => acc + (i.quantity ?? 1), 0),
@@ -215,6 +222,9 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
         authorizationUrl = result.authorizationUrl;
         reference = result.reference;
         subscriptionId = result.subscriptionId;
+        if (subscriptionId) {
+          await updateBooking(bookingId, { subscriptionId });
+        }
       } catch (subscriptionErr: any) {
         console.error('Subscription start error:', subscriptionErr);
         await trackEvent('activation_failed', { screen: SCREEN, reason: 'subscription_init' });

@@ -22,14 +22,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    // Normalize body (Vercel may parse JSON; ensure we have an object)
+    let body = req.body;
+    if (typeof body === "string") {
+      try {
+        body = JSON.parse(body) as Record<string, unknown>;
+      } catch {
+        body = {};
+      }
+    }
+    if (!body || typeof body !== "object") {
+      body = {};
+    }
+
     // Get reference or bookingId from query or body
     const directReference =
       (req.query.reference as string | undefined) ||
-      (req.body?.reference as string | undefined);
-    
-    const bookingId = (req.body?.bookingId as string | undefined);
-    
+      (body.reference as string | undefined);
+
+    let bookingId = body.bookingId;
+    if (bookingId != null && typeof bookingId !== "string") {
+      bookingId = String(bookingId).trim();
+    } else if (typeof bookingId === "string") {
+      bookingId = bookingId.trim();
+    } else {
+      bookingId = undefined;
+    }
+
     let reference = directReference;
+
+    // Require either reference or a non-empty bookingId string for POST
+    if (!reference) {
+      if (bookingId === undefined || bookingId === null || bookingId === "") {
+        return res.status(400).json({
+          ok: false,
+          error: "bookingId is required and must be a string",
+        });
+      }
+    }
 
     // If bookingId is provided instead of reference, look up the booking in Firestore
     if (!reference && bookingId) {
@@ -84,6 +114,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (!reference) {
       return res.status(400).json({
+        ok: false,
         error: "reference or bookingId is required",
       });
     }

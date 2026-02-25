@@ -92,7 +92,7 @@ export function subscribeToUserSubscriptions(
           amount: data.amount as number | undefined,
           interval: data.interval as Subscription["interval"],
           collectionDayOfWeek: data.collectionDayOfWeek as string | undefined,
-          nextChargeDate: (data.nextChargeDate as Subscription["nextChargeDate"]) ?? null,
+          nextChargeDate: (data.nextChargeDate ?? data.nextBillingDate) as Subscription["nextChargeDate"] ?? null,
           lastChargeDate: (data.lastChargeDate as Subscription["lastChargeDate"]) ?? null,
           payment: payment
             ? { status: payment.status ?? "none", reference: payment.reference }

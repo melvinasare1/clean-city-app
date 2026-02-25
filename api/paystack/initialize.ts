@@ -4,6 +4,14 @@ import { getBookingById, getSubscriptionById, getUserEmail } from "./bookings";
 import type { CollectionFrequency } from "./subscription-types";
 import { getBillingPeriodEnd, toDate } from "./subscription-helpers";
 
+/** Item snapshot for payment/subscription: type, quantity, unitPrice, totalPrice */
+export interface PaymentItemSnapshot {
+  type: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+}
+
 function createPaymentDocument(
   firestore: admin.firestore.Firestore,
   params: {
@@ -16,6 +24,12 @@ function createPaymentDocument(
     reference: string;
     billingPeriodStart?: Date;
     billingPeriodEnd?: Date;
+    /** User email at time of payment init */
+    email?: string;
+    /** Items being paid for (quantity, type, prices) */
+    items?: PaymentItemSnapshot[];
+    /** Location/address at time of payment init */
+    location?: string;
   }
 ): Promise<void> {
   const now = admin.firestore.Timestamp.now();
@@ -36,6 +50,9 @@ function createPaymentDocument(
     doc.billingPeriodStart = admin.firestore.Timestamp.fromDate(params.billingPeriodStart);
   if (params.billingPeriodEnd)
     doc.billingPeriodEnd = admin.firestore.Timestamp.fromDate(params.billingPeriodEnd);
+  if (params.email != null && params.email !== "") doc.email = params.email;
+  if (params.items != null && params.items.length > 0) doc.items = params.items;
+  if (params.location != null && params.location !== "") doc.location = params.location;
   return firestore.collection(PAYMENTS_COLLECTION).doc(params.id).set(doc);
 }
 
@@ -54,10 +71,16 @@ if (!admin.apps.length && process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
   }
 }
 
+export type PaymentType = "one_time" | "subscription_initial" | "subscription_renewal";
+
 interface InitializeRequest {
+  /** Required. Determines which flow to run. */
+  paymentType: PaymentType;
+  /** Required when paymentType === "one_time" */
   bookingId?: string;
+  /** Required when paymentType === "subscription_renewal" */
   subscriptionId?: string;
-  /** New subscription (same URL as one-off): creates doc + MoMo payment link. May include bookingId. */
+  /** Required when paymentType === "subscription_initial" */
   userId?: string;
   email?: string;
   amount?: number;
@@ -66,8 +89,10 @@ interface InitializeRequest {
   billingDay?: number;
   interval?: "weekly" | "monthly";
   collectionDayOfWeek?: string;
-  /** Required for new subscription: id of the subscription booking created by the client. */
-  bookingId?: string;
+  /** Required for subscription_initial: id of the subscription booking created by the client. */
+  /** For subscription_initial: items (type, quantity, unitPrice, totalPrice) and location to store on subscription + payment. */
+  items?: PaymentItemSnapshot[];
+  location?: string;
   metadata?: Record<string, unknown>;
 }
 
@@ -81,9 +106,10 @@ function getNextBillingDate(billingDay: number): Date {
 
 /**
  * POST /api/paystack/initialize
- * One-off: { bookingId } → booking payment.
- * Existing subscription: { subscriptionId } → subscription payment (MoMo).
- * New subscription: { userId, email, amount, collectionFrequency, collectionDay, ... } → create doc + MoMo payment (channels: ["mobile_money"]).
+ * Unified endpoint. Required body: paymentType: "one_time" | "subscription_initial" | "subscription_renewal".
+ * - one_time: require bookingId → create payment doc (type: one_time), metadata.type + metadata.bookingId, initialize Paystack (channels: ["mobile_money"]).
+ * - subscription_initial: create subscription doc, create payment doc (type: subscription), metadata.type + metadata.subscriptionId, initialize Paystack (channels: ["mobile_money"]).
+ * - subscription_renewal: require subscriptionId → create payment doc (type: subscription), set subscription status = "payment_due", metadata.type + metadata.subscriptionId, initialize Paystack (channels: ["mobile_money"]).
  * Returns: { ok: true, authorizationUrl, reference, subscriptionId? }
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -101,21 +127,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const body = req.body as InitializeRequest;
-    const { bookingId, subscriptionId, userId, email, amount } = body;
+    const paymentType = body.paymentType;
 
-    if (bookingId && !(userId && email && amount != null && (body.collectionFrequency != null || body.collectionDayOfWeek != null))) {
-      return await handleBookingPayment(req, res, bookingId);
+    if (!paymentType || !["one_time", "subscription_initial", "subscription_renewal"].includes(paymentType)) {
+      return res.status(400).json({
+        ok: false,
+        error: "paymentType is required and must be one of: one_time, subscription_initial, subscription_renewal",
+      });
     }
-    if (userId && email && amount != null && (body.collectionFrequency != null || body.collectionDayOfWeek != null)) {
+
+    if (paymentType === "one_time") {
+      if (!body.bookingId) {
+        return res.status(400).json({ ok: false, error: "bookingId is required when paymentType is one_time" });
+      }
+      return await handleBookingPayment(req, res, body.bookingId);
+    }
+
+    if (paymentType === "subscription_initial") {
+      const { userId, email, amount } = body;
+      if (!userId || !email || amount == null || !(body.collectionFrequency != null || body.collectionDayOfWeek != null)) {
+        return res.status(400).json({
+          ok: false,
+          error: "userId, email, amount, and (collectionFrequency or collectionDayOfWeek) are required when paymentType is subscription_initial",
+        });
+      }
+      if (!body.bookingId) {
+        return res.status(400).json({ ok: false, error: "bookingId is required for subscription_initial" });
+      }
       return await handleNewSubscription(req, res, body);
     }
-    if (subscriptionId) {
-      return await handleSubscriptionPayment(req, res, subscriptionId);
+
+    if (paymentType === "subscription_renewal") {
+      if (!body.subscriptionId) {
+        return res.status(400).json({ ok: false, error: "subscriptionId is required when paymentType is subscription_renewal" });
+      }
+      return await handleSubscriptionPayment(req, res, body.subscriptionId);
     }
 
     return res.status(400).json({
       ok: false,
-      error: "Provide bookingId, subscriptionId, or (userId + email + amount + collectionFrequency/collectionDay) for new subscription",
+      error: "Invalid paymentType",
     });
   } catch (error: any) {
     console.error("Error in initialize:", error?.message);
@@ -164,29 +215,57 @@ async function handleNewSubscription(
   const effectiveBillingDay = Math.min(28, Math.max(1, Math.floor(Number(billingDay) || 1)));
   const nextBillingDate = getNextBillingDate(effectiveBillingDay);
 
+  // Items: prefer body.items; fallback to metadata.binType + metadata.quantity for backward compat
+  let itemsSnapshot: PaymentItemSnapshot[] | undefined;
+  if (Array.isArray(body.items) && body.items.length > 0) {
+    itemsSnapshot = body.items.map((i: any) => ({
+      type: String(i.type ?? ""),
+      quantity: Number(i.quantity) || 1,
+      unitPrice: Number(i.unitPrice) || 0,
+      totalPrice: Number(i.totalPrice) || 0,
+    })).filter((i) => i.type);
+  } else if (body.metadata && typeof body.metadata === "object") {
+    const meta = body.metadata as Record<string, unknown>;
+    const binType = meta.binType != null ? String(meta.binType) : "";
+    const qty = Math.max(0, Number(meta.quantity) || 0);
+    if (binType || qty > 0) {
+      itemsSnapshot = [{ type: binType || "subscription", quantity: qty || 1, unitPrice: 0, totalPrice: amountNum }];
+    }
+  }
+  if (itemsSnapshot?.length === 0) itemsSnapshot = undefined;
+
+  const locationStr =
+    (body.location != null && String(body.location).trim() !== ""
+      ? String(body.location).trim()
+      : null) ??
+    (body.metadata && typeof body.metadata === "object" && (body.metadata as Record<string, unknown>).location != null
+      ? String((body.metadata as Record<string, unknown>).location).trim()
+      : undefined);
+  const locationToStore = locationStr && locationStr !== "" ? locationStr : undefined;
+
   let subscriptionId: string | null = null;
   if (admin.apps.length) {
     const firestore = admin.firestore();
     const docRef = firestore.collection(SUBSCRIPTIONS_COLLECTION).doc();
     subscriptionId = docRef.id;
     const now = new Date();
-    await docRef.set(
-      {
-        userId,
-        email,
-        paymentMethod: "momo",
-        collectionFrequency: effectiveFrequency,
-        collectionDay: effectiveCollectionDay,
-        amount: amountNum,
-        billingDay: effectiveBillingDay,
-        nextBillingDate: admin.firestore.Timestamp.fromDate(nextBillingDate),
-        status: "pending",
-        createdAt: admin.firestore.Timestamp.fromDate(now),
-        updatedAt: admin.firestore.Timestamp.fromDate(now),
-        ...(extraMetadata && Object.keys(extraMetadata).length ? { metadata: extraMetadata } : {}),
-      },
-      { merge: false }
-    );
+    const subDoc: Record<string, unknown> = {
+      userId,
+      email,
+      paymentMethod: "momo",
+      collectionFrequency: effectiveFrequency,
+      collectionDay: effectiveCollectionDay,
+      amount: amountNum,
+      billingDay: effectiveBillingDay,
+      nextBillingDate: admin.firestore.Timestamp.fromDate(nextBillingDate),
+      status: "pending",
+      createdAt: admin.firestore.Timestamp.fromDate(now),
+      updatedAt: admin.firestore.Timestamp.fromDate(now),
+      ...(extraMetadata && Object.keys(extraMetadata).length ? { metadata: extraMetadata } : {}),
+    };
+    if (itemsSnapshot?.length) subDoc.items = itemsSnapshot;
+    if (locationToStore) subDoc.location = locationToStore;
+    await docRef.set(subDoc, { merge: false });
   }
 
   const billingPeriodStart = new Date(nextBillingDate.getFullYear(), nextBillingDate.getMonth(), nextBillingDate.getDate());
@@ -248,9 +327,10 @@ async function handleNewSubscription(
     });
   }
 
-  if (admin.apps.length) {
+  if (admin.apps.length && subscriptionId) {
+    const firestore = admin.firestore();
     try {
-      await createPaymentDocument(admin.firestore(), {
+      await createPaymentDocument(firestore, {
         id: reference,
         userId: userId!,
         subscriptionId: subscriptionId ?? undefined,
@@ -260,9 +340,22 @@ async function handleNewSubscription(
         reference,
         billingPeriodStart: billingPeriodStart,
         billingPeriodEnd,
+        email: email ?? undefined,
+        items: itemsSnapshot?.length ? itemsSnapshot : undefined,
+        location: locationToStore,
       });
+      // Store reference on subscription doc so app can use it for verify/retry
+      await firestore.collection(SUBSCRIPTIONS_COLLECTION).doc(subscriptionId).set(
+        {
+          reference,
+          payment: { status: "initiated", reference },
+          currentPaymentReference: reference,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
     } catch (e) {
-      console.error("Failed to create payment document:", e);
+      console.error("Failed to create payment document or update subscription:", e);
     }
   }
 
@@ -305,9 +398,7 @@ async function handleSubscriptionPayment(
   const sub = subscription as Record<string, unknown>;
   const collectionFrequency = (sub.collectionFrequency as string) ?? "monthly";
   const billingDay = (sub.billingDay as number) ?? 1;
-  const nextBilling = sub.nextBillingDate
-    ? toDate(sub.nextBillingDate as { _seconds: number })
-    : null;
+  const nextBilling = sub.nextBillingDate ? toDate(sub.nextBillingDate as any) : null;
   const now = new Date();
   const periodStart = nextBilling
     ? new Date(nextBilling.getFullYear(), nextBilling.getMonth(), nextBilling.getDate())
@@ -379,18 +470,27 @@ async function handleSubscriptionPayment(
         .doc(subscriptionId)
         .set(
           {
+            status: "payment_due",
             payment: { status: "initiated", reference },
             currentPaymentReference: reference,
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           },
           { merge: true }
         );
-      const sub = subscription as { nextBillingDate?: { _seconds: number }; billingDay?: number };
+      const sub = subscription as { nextBillingDate?: { _seconds: number }; billingDay?: number; items?: PaymentItemSnapshot[]; location?: string; email?: string };
       const nextBilling = sub.nextBillingDate ? toDate(sub.nextBillingDate as any) : null;
       const periodStart = nextBilling
         ? new Date(nextBilling.getFullYear(), nextBilling.getMonth(), nextBilling.getDate())
         : new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const periodEnd = getBillingPeriodEnd(periodStart);
+      const renewalItems = Array.isArray(sub.items) && sub.items.length > 0
+        ? sub.items.map((i: any) => ({
+            type: String(i?.type ?? ""),
+            quantity: Number(i?.quantity) || 0,
+            unitPrice: Number(i?.unitPrice) || 0,
+            totalPrice: Number(i?.totalPrice) || 0,
+          })).filter((i: { type: string }) => i.type)
+        : undefined;
       await createPaymentDocument(firestore, {
         id: reference,
         userId,
@@ -400,6 +500,9 @@ async function handleSubscriptionPayment(
         reference,
         billingPeriodStart: periodStart,
         billingPeriodEnd: periodEnd,
+        email: subscription.email ?? email ?? undefined,
+        items: renewalItems?.length ? renewalItems : undefined,
+        location: sub.location != null ? String(sub.location) : undefined,
       });
     } catch (e) {
       console.error("Failed to update subscription or create payment document:", e);
@@ -463,6 +566,7 @@ async function handleBookingPayment(
         amount: amountInPesewas,
         metadata,
         callback_url: `${CLIENT_APP_URL}/payment/success`,
+        channels: ["mobile_money"],
       }),
     }
   );
@@ -491,6 +595,14 @@ async function handleBookingPayment(
   const reference = authData.reference;
   if (admin.apps.length && reference) {
     try {
+      const itemsSnapshot: PaymentItemSnapshot[] | undefined = Array.isArray(booking.items)
+        ? (booking.items as any[]).map((i: any) => ({
+            type: String(i?.type ?? ""),
+            quantity: Number(i?.quantity) || 0,
+            unitPrice: Number(i?.unitPrice) || 0,
+            totalPrice: Number(i?.totalPrice) || 0,
+          })).filter((i) => i.type)
+        : undefined;
       await createPaymentDocument(admin.firestore(), {
         id: reference,
         userId: booking.userId,
@@ -498,6 +610,9 @@ async function handleBookingPayment(
         type: "one_time",
         amount,
         reference,
+        email: email ?? (booking as any).userEmail ?? undefined,
+        items: itemsSnapshot?.length ? itemsSnapshot : undefined,
+        location: (booking as any).location != null ? String((booking as any).location) : undefined,
       });
     } catch (e) {
       console.error("Failed to create payment document:", e);

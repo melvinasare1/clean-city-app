@@ -6,7 +6,7 @@ const SUBSCRIPTIONS_COLLECTION = "subscriptions";
 // Initialize Firebase Admin if not already initialized
 if (!admin.apps.length) {
   const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-  
+
   if (serviceAccountJson) {
     try {
       const serviceAccount = JSON.parse(serviceAccountJson);
@@ -17,7 +17,9 @@ if (!admin.apps.length) {
       console.error("Failed to parse Firebase service account JSON:", error);
     }
   } else {
-    console.warn("FIREBASE_SERVICE_ACCOUNT_JSON not configured - Firebase features unavailable");
+    console.warn(
+      "FIREBASE_SERVICE_ACCOUNT_JSON not configured - Firebase features unavailable",
+    );
   }
 }
 
@@ -36,7 +38,9 @@ export interface BookingData {
 /**
  * Get a booking by ID from Firestore.
  */
-export async function getBookingById(bookingId: string): Promise<BookingData | null> {
+export async function getBookingById(
+  bookingId: string,
+): Promise<BookingData | null> {
   if (!admin.apps.length) {
     throw new Error("Firebase Admin not initialized");
   }
@@ -60,7 +64,10 @@ export async function getBookingById(bookingId: string): Promise<BookingData | n
  * Get user email from Firebase Auth by userId.
  * Falls back to booking.userEmail if Firebase Auth email is not available.
  */
-export async function getUserEmail(userId: string, booking?: BookingData): Promise<string | null> {
+export async function getUserEmail(
+  userId: string,
+  booking?: BookingData,
+): Promise<string | null> {
   if (!admin.apps.length) {
     console.error("Firebase Admin not initialized");
     // If we have a booking with userEmail, use that as fallback
@@ -74,29 +81,38 @@ export async function getUserEmail(userId: string, booking?: BookingData): Promi
   try {
     console.log(`Fetching email from Firebase Auth for userId: ${userId}`);
     const userRecord = await admin.auth().getUser(userId);
-    
+
     if (userRecord.email) {
       console.log(`Found email in Firebase Auth: ${userRecord.email}`);
       return userRecord.email;
     }
-    
+
     // No email in Firebase Auth, try booking fallback
     if (booking?.userEmail) {
-      console.log(`Firebase Auth has no email, using booking.userEmail: ${booking.userEmail}`);
+      console.log(
+        `Firebase Auth has no email, using booking.userEmail: ${booking.userEmail}`,
+      );
       return booking.userEmail;
     }
-    
-    console.warn(`No email found for userId ${userId} in Firebase Auth or booking`);
+
+    console.warn(
+      `No email found for userId ${userId} in Firebase Auth or booking`,
+    );
     return null;
   } catch (error) {
-    console.error(`Error fetching user from Firebase Auth for userId ${userId}:`, error);
-    
+    console.error(
+      `Error fetching user from Firebase Auth for userId ${userId}:`,
+      error,
+    );
+
     // Try booking fallback on error
     if (booking?.userEmail) {
-      console.log(`Firebase Auth error, using booking.userEmail: ${booking.userEmail}`);
+      console.log(
+        `Firebase Auth error, using booking.userEmail: ${booking.userEmail}`,
+      );
       return booking.userEmail;
     }
-    
+
     return null;
   }
 }
@@ -114,13 +130,17 @@ export interface SubscriptionData {
  * Get a subscription by ID from Firestore.
  */
 export async function getSubscriptionById(
-  subscriptionId: string
+  subscriptionId: string,
 ): Promise<SubscriptionData | null> {
   if (!admin.apps.length) {
     throw new Error("Firebase Admin not initialized");
   }
   const firestore = admin.firestore();
-  const docRef = firestore.collection(SUBSCRIPTIONS_COLLECTION).doc(subscriptionId);
+  const docRef = firestore
+    .collection(SUBSCRIPTIONS_COLLECTION)
+    .doc(subscriptionId);
+
+  console.log("[Get subscription by ID] Subscription ID:", subscriptionId);
   const snapshot = await docRef.get();
   if (!snapshot.exists) return null;
   const data = snapshot.data();

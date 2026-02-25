@@ -1,43 +1,38 @@
 // src/services/payments.ts
 
 import { getApiBaseUrl } from "@/lib/apiBase";
-import type { SubscriptionInterval } from "@/types/subscription";
+import type {
+  CancelSubscriptionRequest,
+  CreateSubscriptionRequest,
+  CreateSubscriptionResponse,
+  GetSubscriptionPaymentUrlRequest,
+  GetSubscriptionPaymentUrlResponse,
+  InitializePaymentRequest,
+  InitializePaymentResponse,
+  VerifyBookingPaymentResponse,
+  VerifyPaymentResponse,
+} from "@/types/payments.types";
 
-export type PaymentStatus = "success" | "failed" | "abandoned" | "pending";
-
-export interface VerifyBookingPaymentRequest {
-  bookingId: string;
-  reference: string;
-}
-
-export interface VerifyBookingPaymentResponse {
-  ok: boolean;
-  paid: boolean;
-  status?: string;
-  message?: string;
-}
-
-export interface InitializePaymentRequest {
-  bookingId: string;
-}
-
-export interface InitializePaymentResponse {
-  ok: boolean;
-  authorizationUrl: string;
-  reference: string;
-}
-
-export interface VerifyPaymentResponse {
-  status: PaymentStatus;
-  reference: string;
-  amount: number;
-  currency: string;
-  metadata?: Record<string, any>;
-}
+export type {
+  CancelSubscriptionRequest,
+  CollectionFrequency,
+  CreateSubscriptionRequest,
+  CreateSubscriptionResponse,
+  GetSubscriptionPaymentUrlRequest,
+  GetSubscriptionPaymentUrlResponse,
+  InitializePaymentRequest,
+  InitializePaymentResponse,
+  PaymentItemSnapshot,
+  PaymentStatus,
+  PaymentType,
+  VerifyBookingPaymentRequest,
+  VerifyBookingPaymentResponse,
+  VerifyPaymentResponse,
+} from "@/types/payments.types";
 
 /**
  * Calls your backend: POST /api/paystack/initialize
- * Simplified: sends only { bookingId }.
+ * Sends body with required paymentType and type-specific fields (e.g. one_time + bookingId).
  * Returns { ok: true, authorizationUrl, reference } from backend.
  */
 export async function initializePayment(
@@ -144,6 +139,35 @@ export async function verifyPayment(
 }
 
 /**
+ * Verify payment by Paystack reference (e.g. for subscription payments).
+ * Calls POST /api/paystack/verify with reference.
+ * Returns { ok: boolean, paid: boolean }.
+ */
+export async function verifyPaymentByReference(
+  reference: string
+): Promise<VerifyBookingPaymentResponse> {
+  const base = (process.env.EXPO_PUBLIC_API_URL || "").replace(/\/$/, "");
+  const url = `${base}/api/paystack/verify`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ reference }),
+  });
+  const text = await res.text();
+  let json: any;
+  try {
+    json = JSON.parse(text);
+  } catch (e) {
+    throw new Error(`Verify returned non-JSON: ${text.slice(0, 120)}`);
+  }
+  if (!res.ok) {
+    throw new Error(json?.error || json?.message || `Verify failed (status ${res.status})`);
+  }
+  const paid = json?.status === "success";
+  return { ok: true, paid, status: json?.status, message: json?.message };
+}
+
+/**
  * Verify booking payment status with the separate Paystack backend.
  * Calls POST /api/paystack/verify with bookingId.
  * Returns { ok: boolean, paid: boolean }
@@ -151,24 +175,30 @@ export async function verifyPayment(
 export async function verifyBookingPaymentWithBackend(
   bookingId: string
 ): Promise<VerifyBookingPaymentResponse> {
-  const base = (process.env.EXPO_PUBLIC_API_URL || "").replace(/\/$/, "");
+  const id =
+    bookingId != null && bookingId !== "" ? String(bookingId).trim() : "";
+  if (!id) {
+    throw new Error("bookingId is required to verify payment");
+  }
+
+  const base = getApiBaseUrl().replace(/\/+$/, "");
   const url = `${base}/api/paystack/verify`;
-  
+  const payload = { bookingId: id };
+
   console.log("=".repeat(60));
   console.log("[Verify] 📍 PAYMENT VERIFICATION REQUEST");
   console.log("[Verify] Base URL:", base);
   console.log("[Verify] Full URL:", url);
-  console.log("[Verify] Expected path: /api/paystack/verify");
-  console.log("[Verify] Request body:", { bookingId });
+  console.log("[Verify] Request body:", payload);
   console.log("=".repeat(60));
-  
+
   try {
     const res = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ bookingId }),
+      body: JSON.stringify(payload),
     });
 
     // Read as text first to see exactly what's returned
@@ -204,31 +234,6 @@ export async function verifyBookingPaymentWithBackend(
 
 // --- Subscription (MoMo only, internal recurring) ---
 
-export type CollectionFrequency = "weekly" | "biweekly" | "monthly";
-
-export interface CreateSubscriptionRequest {
-  userId: string;
-  email: string;
-  /** Amount in GHS. Backend converts to pesewas for Paystack. */
-  amount: number;
-  /** Collection frequency (pickup schedule). Billing is always calendar monthly. */
-  collectionFrequency: CollectionFrequency;
-  collectionDay: string;
-  /** Required: booking id for the subscription (created before calling this). */
-  bookingId: string;
-  /** Legacy: still sent for backward compat */
-  interval?: SubscriptionInterval;
-  collectionDayOfWeek?: string;
-  metadata?: Record<string, unknown>;
-}
-
-export interface CreateSubscriptionResponse {
-  authorizationUrl: string;
-  reference: string;
-  /** When set, backend created the subscription doc; app should not call saveSubscriptionRecord */
-  subscriptionId?: string;
-}
-
 /**
  * Returns the cancel-subscription endpoint URL.
  * Uses EXPO_PUBLIC_API_CANCEL_SUBSCRIPTION_URL when set, otherwise falls back to EXPO_PUBLIC_API_URL + path.
@@ -241,29 +246,29 @@ function getCancelSubscriptionUrl(): string {
   return `${getApiBaseUrl()}/api/paystack/cancel-subscription`;
 }
 
-export interface GetSubscriptionPaymentUrlRequest {
-  subscriptionId: string;
-  reference?: string;
-}
-
-export interface GetSubscriptionPaymentUrlResponse {
-  authorizationUrl: string;
-}
-
 /**
- * Calls same endpoint as one-off payments: POST /api/paystack/initialize with { subscriptionId }.
+ * Calls POST /api/paystack/initialize with paymentType: "subscription_renewal" and subscriptionId.
  * Returns authorizationUrl for existing subscription payment (MoMo).
  */
 export async function getSubscriptionPaymentUrl(
   body: GetSubscriptionPaymentUrlRequest
 ): Promise<GetSubscriptionPaymentUrlResponse> {
+  const subscriptionId =
+    body.subscriptionId != null && body.subscriptionId !== ""
+      ? String(body.subscriptionId).trim()
+      : "";
+  if (!subscriptionId) {
+    throw new Error("subscriptionId is required to get subscription payment URL");
+  }
+
   const base = getApiBaseUrl();
   const url = `${base.replace(/\/+$/, "")}/api/paystack/initialize`;
+  const payload: InitializePaymentRequest = { paymentType: "subscription_renewal", subscriptionId };
 
   const response = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ subscriptionId: body.subscriptionId }),
+    body: JSON.stringify(payload),
   });
 
   const text = await response.text();
@@ -287,8 +292,7 @@ export async function getSubscriptionPaymentUrl(
 }
 
 /**
- * Same URL as one-off payments: POST /api/paystack/initialize.
- * Sends new-subscription payload (userId, email, amount, collectionFrequency, collectionDay, bookingId).
+ * Calls POST /api/paystack/initialize with paymentType: "subscription_initial" and subscription params.
  * Backend creates subscription doc and returns MoMo payment link (channels: ["mobile_money"]).
  */
 export async function createSubscription(
@@ -296,6 +300,7 @@ export async function createSubscription(
 ): Promise<CreateSubscriptionResponse> {
   const base = getApiBaseUrl();
   const url = `${base.replace(/\/+$/, "")}/api/paystack/initialize`;
+  const payload: InitializePaymentRequest = { ...body, paymentType: "subscription_initial" };
   if (__DEV__) {
     console.log("[createSubscription] POST", url);
   }
@@ -305,7 +310,7 @@ export async function createSubscription(
     response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify(payload),
     });
   } catch (e: any) {
     const msg = e?.message ?? String(e);
@@ -345,27 +350,30 @@ export async function createSubscription(
   };
 }
 
-export interface CancelSubscriptionRequest {
-  /** Firestore subscription document id (optional if backend uses reference) */
-  subscriptionId?: string;
-  /** Paystack subscription reference */
-  reference?: string;
-}
-
 /**
  * Calls backend: POST /api/paystack/cancel-subscription
  * Uses EXPO_PUBLIC_API_CANCEL_SUBSCRIPTION_URL when set.
- * Only call when subscription status is active; backend/webhook will update status.
+ * Sends subscriptionId as a string (Firestore subscription document id).
  */
 export async function cancelSubscription(
   body: CancelSubscriptionRequest
 ): Promise<{ ok: boolean; message?: string }> {
   const url = getCancelSubscriptionUrl();
+  const subscriptionId =
+    body.subscriptionId != null ? String(body.subscriptionId).trim() : "";
+  if (!subscriptionId) {
+    throw new Error("subscriptionId is required to cancel subscription");
+  }
+  // Send both keys so backend accepts whichever it expects
+  const payload = {
+    subscriptionId,
+    subscriptionCode: subscriptionId,
+  };
 
   const response = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify(payload),
   });
 
   const text = await response.text();

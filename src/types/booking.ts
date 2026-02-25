@@ -64,4 +64,9 @@ export type Booking = {
    * Tracks payment status and allows retry/continue payment flow.
    */
   payment: BookingPayment;
+  /**
+   * When type === "subscription", the Firestore subscription document id.
+   * Used to retry subscription payment (MoMo) from the booking card.
+   */
+  subscriptionId?: string;
 };

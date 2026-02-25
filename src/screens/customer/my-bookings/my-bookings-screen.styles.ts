@@ -265,7 +265,8 @@ export const styles = StyleSheet.create({
     justifyContent: "center",
   },
   deleteIcon: {
-    fontSize: 16,
+    fontSize: 20,
+    fontWeight: "600",
     color: COLORS.error,
   },
   subscriptionSection: {
@@ -395,8 +396,14 @@ export const styles = StyleSheet.create({
     color: COLORS.text,
     fontWeight: "500",
   },
-  completePaymentButton: {
+  subscriptionActionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: VARS.small,
     marginTop: VARS.small,
+  },
+  completePaymentButton: {
+    flex: 1,
     backgroundColor: COLORS.primary,
     paddingVertical: 10,
     paddingHorizontal: VARS.medium,

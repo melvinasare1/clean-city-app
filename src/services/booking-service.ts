@@ -80,6 +80,20 @@ export const createBooking = async ({
   return bookingId;
 };
 
+/**
+ * Update a booking with partial fields (e.g. subscriptionId after subscription is created).
+ */
+export const updateBooking = async (
+  bookingId: string,
+  updates: Partial<Pick<Booking, "subscriptionId" | "payment">>
+): Promise<void> => {
+  await setDocAtPath(
+    [BOOKINGS_COLLECTION, bookingId],
+    updates,
+    { merge: true, addTimestamps: true }
+  );
+};
+
 export const getUserBookings = async (userId: string): Promise<Booking[]> => {
   const bookingsRef = collection(db, BOOKINGS_COLLECTION);
   const q = query(
@@ -175,12 +189,18 @@ export const initiatePaymentForBooking = async (
   }
 
   // Call backend to initialize Paystack payment (simplified: only bookingId)
+  const bookingIdStr =
+    bookingId != null && bookingId !== "" ? String(bookingId).trim() : "";
+  if (!bookingIdStr) {
+    throw new Error("bookingId is required to initialize payment");
+  }
   console.log("[Payment Init] 📞 Calling backend initialize endpoint...");
-  
+
   let paymentInit;
   try {
     paymentInit = await initializePayment({
-      bookingId: bookingId,
+      paymentType: "one_time",
+      bookingId: bookingIdStr,
     });
   } catch (error: any) {
     console.error("[Payment Init] ❌ Backend initialize failed:", error.message);
