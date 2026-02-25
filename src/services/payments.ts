@@ -185,13 +185,6 @@ export async function verifyBookingPaymentWithBackend(
   const url = `${base}/api/paystack/verify`;
   const payload = { bookingId: id };
 
-  console.log("=".repeat(60));
-  console.log("[Verify] 📍 PAYMENT VERIFICATION REQUEST");
-  console.log("[Verify] Base URL:", base);
-  console.log("[Verify] Full URL:", url);
-  console.log("[Verify] Request body:", payload);
-  console.log("=".repeat(60));
-
   try {
     const res = await fetch(url, {
       method: "POST",
@@ -250,6 +243,7 @@ function getCancelSubscriptionUrl(): string {
  * Calls POST /api/paystack/initialize with paymentType: "subscription_renewal" and subscriptionId.
  * Returns authorizationUrl for existing subscription payment (MoMo).
  */
+
 export async function getSubscriptionPaymentUrl(
   body: GetSubscriptionPaymentUrlRequest
 ): Promise<GetSubscriptionPaymentUrlResponse> {

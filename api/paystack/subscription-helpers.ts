@@ -4,7 +4,11 @@
  */
 
 import type { FirebaseTimestamp, SubscriptionDocument } from "./subscription-types";
-import type { JobCollectionFrequency } from "./payment-and-job-types";
+import type {
+  JobAddressSnapshot,
+  JobCollectionFrequency,
+  JobItemSnapshot,
+} from "./payment-and-job-types";
 
 const PAYSTACK_BASE_URL = "https://api.paystack.co";
 const SUBSCRIPTIONS_COLLECTION = "subscriptions";
@@ -203,7 +207,68 @@ export function getJobScheduledDates(
   return dates;
 }
 
-/** Create job documents in Firestore for a subscription after successful payment. */
+/**
+ * Create one job in the top-level "jobs" collection for a one-time booking after successful payment.
+ * Snapshots items, location, and address at creation; job is self-contained.
+ */
+export async function createJobForOneTimeBooking(
+  firestore: Firestore,
+  params: {
+    bookingId: string;
+    userId: string;
+    scheduledDate: Date;
+    items: JobItemSnapshot[];
+    location: string;
+    addressSnapshot: JobAddressSnapshot;
+    windowId: string;
+    windowLabel: string;
+    Timestamp: typeof import("firebase-admin").firestore.Timestamp;
+  }
+): Promise<void> {
+  const {
+    bookingId,
+    userId,
+    scheduledDate,
+    items,
+    location,
+    addressSnapshot,
+    windowId,
+    windowLabel,
+    Timestamp,
+  } = params;
+  const jobsRef = firestore.collection(JOBS_COLLECTION);
+  const docRef = jobsRef.doc();
+  const now = new Date();
+  const nowTs = Timestamp.fromDate(now);
+  await docRef.set({
+    id: docRef.id,
+    type: "one_time",
+    bookingId,
+    userId,
+    scheduledDate: Timestamp.fromDate(scheduledDate),
+    paymentStatus: "paid",
+    jobStatus: "scheduled",
+    items: items ?? [],
+    location: location ?? "",
+    addressSnapshot: {
+      addressLine1: addressSnapshot.addressLine1 ?? "",
+      area: addressSnapshot.area ?? "",
+      phoneNumber: addressSnapshot.phoneNumber ?? "",
+    },
+    windowId: windowId ?? "",
+    windowLabel: windowLabel ?? "",
+    createdAt: nowTs,
+    updatedAt: nowTs,
+  });
+}
+
+/**
+ * Create job documents in the top-level "jobs" collection for a subscription after successful payment.
+ * Snapshots items, location, and address at creation; jobs are self-contained.
+ * - weekly: 4 jobs, 7 days apart
+ * - biweekly: 2 jobs, 14 days apart
+ * - monthly: 1 job
+ */
 export async function createJobsForSubscription(
   firestore: Firestore,
   params: {
@@ -211,25 +276,54 @@ export async function createJobsForSubscription(
     userId: string;
     billingPeriodStart: Date;
     collectionFrequency: JobCollectionFrequency;
-    addressSnapshot: Record<string, unknown>;
+    collectionDay?: string;
+    items: JobItemSnapshot[];
+    location: string;
+    addressSnapshot: JobAddressSnapshot;
+    windowId: string;
+    windowLabel: string;
     Timestamp: typeof import("firebase-admin").firestore.Timestamp;
   }
 ): Promise<void> {
-  const { subscriptionId, userId, billingPeriodStart, collectionFrequency, addressSnapshot, Timestamp } = params;
+  const {
+    subscriptionId,
+    userId,
+    billingPeriodStart,
+    collectionFrequency,
+    collectionDay,
+    items,
+    location,
+    addressSnapshot,
+    windowId,
+    windowLabel,
+    Timestamp,
+  } = params;
   const scheduledDates = getJobScheduledDates(billingPeriodStart, collectionFrequency);
   const jobsRef = firestore.collection(JOBS_COLLECTION);
   const now = new Date();
   const nowTs = Timestamp.fromDate(now);
+  const normalizedAddress: JobAddressSnapshot = {
+    addressLine1: addressSnapshot?.addressLine1 ?? "",
+    area: addressSnapshot?.area ?? "",
+    phoneNumber: addressSnapshot?.phoneNumber ?? "",
+  };
   for (const scheduledDate of scheduledDates) {
     const docRef = jobsRef.doc();
     await docRef.set({
       id: docRef.id,
+      type: "subscription",
       subscriptionId,
       userId,
       scheduledDate: Timestamp.fromDate(scheduledDate),
-      collectionFrequency,
-      status: "scheduled",
-      addressSnapshot: addressSnapshot || {},
+      paymentStatus: "paid",
+      jobStatus: "scheduled",
+      items: items ?? [],
+      location: location ?? "",
+      addressSnapshot: normalizedAddress,
+      windowId: windowId ?? "",
+      windowLabel: windowLabel ?? "",
+      ...(collectionFrequency ? { collectionFrequency } : {}),
+      ...(collectionDay != null && collectionDay !== "" ? { collectionDay } : {}),
       createdAt: nowTs,
       updatedAt: nowTs,
     });

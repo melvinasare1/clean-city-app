@@ -3,9 +3,15 @@ import crypto from 'crypto';
 import {
   addCalendarMonth,
   toDate,
+  createJobForOneTimeBooking,
   createJobsForSubscription,
 } from './subscription-helpers';
-import type { JobCollectionFrequency } from './payment-and-job-types';
+import type {
+  JobAddressSnapshot,
+  JobCollectionFrequency,
+  JobItemSnapshot,
+} from './payment-and-job-types';
+import { getBookingById } from './bookings';
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 
@@ -181,8 +187,45 @@ export default async function handler(
                         { merge: true }
                       );
                     console.log(`Booking ${bookingId} marked as paid`);
+
+                    // Create one job in top-level "jobs" collection (snapshot at creation)
+                    const booking = await getBookingById(bookingId);
+                    if (booking) {
+                      const items: JobItemSnapshot[] = Array.isArray(booking.items)
+                        ? (booking.items as any[]).map((i: any, idx: number) => ({
+                            id: i?.id ?? (i?.type ? String(i.type).replace(/\s+/g, '_').toUpperCase() : `ITEM_${idx}`),
+                            type: String(i?.type ?? ''),
+                            quantity: Number(i?.quantity) ?? 0,
+                            unitPrice: Number(i?.unitPrice) ?? 0,
+                            totalPrice: Number(i?.totalPrice) ?? 0,
+                          })).filter((i) => i.type)
+                        : [];
+                      const loc = (booking as any).location != null ? String((booking as any).location) : '';
+                      const meta = (booking as any).metadata && typeof (booking as any).metadata === 'object' ? (booking as any).metadata : {};
+                      const addressSnapshot: JobAddressSnapshot = {
+                        addressLine1: meta?.addressLine1 ?? (booking as any).addressLine1 ?? loc ?? '',
+                        area: meta?.area ?? (booking as any).area ?? '',
+                        phoneNumber: meta?.phoneNumber ?? (booking as any).phoneNumber ?? '',
+                      };
+                      const bookingDate = (booking as any).date;
+                      const scheduledDate = bookingDate
+                        ? (typeof bookingDate === 'string' ? new Date(bookingDate) : toDate(bookingDate) ?? new Date())
+                        : new Date();
+                      await createJobForOneTimeBooking(firestore, {
+                        bookingId,
+                        userId: booking.userId,
+                        scheduledDate,
+                        items,
+                        location: loc,
+                        addressSnapshot,
+                        windowId: (booking as any).windowId ?? 'morning',
+                        windowLabel: (booking as any).windowLabel ?? '',
+                        Timestamp: admin.firestore.Timestamp,
+                      });
+                      console.log(`Job created for one-time booking ${bookingId}`);
+                    }
                   } catch (err) {
-                    console.error(`Failed to update booking ${bookingId} payment:`, err);
+                    console.error(`Failed to update booking ${bookingId} or create job:`, err);
                   }
                 }
               } else if (paymentType === 'subscription') {
@@ -194,10 +237,10 @@ export default async function handler(
                     const subSnap = await subRef.get();
                     if (subSnap.exists) {
                       const now = new Date();
-                      const subData = subSnap.data();
+                      const subData = subSnap.data() as Record<string, any>;
                       const wasOverdue = subData?.status === 'overdue';
                       const nextBilling = subData?.nextBillingDate
-                        ? addCalendarMonth(toDate(subData.nextBillingDate as any) ?? now)
+                        ? addCalendarMonth(toDate(subData.nextBillingDate) ?? now)
                         : addCalendarMonth(now);
                       await subRef.set(
                         {
@@ -217,16 +260,32 @@ export default async function handler(
                       if (!wasOverdue) {
                         const collectionFrequency = (subData?.collectionFrequency ?? 'monthly') as JobCollectionFrequency;
                         const billingPeriodStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                        const addressSnapshot: Record<string, unknown> =
-                          typeof subData?.metadata === 'object' && subData.metadata !== null
-                            ? { ...(subData.metadata as Record<string, unknown>) }
-                            : {};
+                        const meta = subData?.metadata && typeof subData.metadata === 'object' ? subData.metadata : {};
+                        const addressSnapshot: JobAddressSnapshot = {
+                          addressLine1: meta?.addressLine1 ?? subData?.location ?? '',
+                          area: meta?.area ?? '',
+                          phoneNumber: meta?.phoneNumber ?? '',
+                        };
+                        const subItems = Array.isArray(subData?.items) ? subData.items : [];
+                        const items: JobItemSnapshot[] = subItems.map((i: any, idx: number) => ({
+                          id: i?.id ?? (i?.type ? String(i.type).replace(/\s+/g, '_').toUpperCase() : `ITEM_${idx}`),
+                          type: String(i?.type ?? ''),
+                          quantity: Number(i?.quantity) ?? 0,
+                          unitPrice: Number(i?.unitPrice) ?? 0,
+                          totalPrice: Number(i?.totalPrice) ?? 0,
+                        })).filter((i: JobItemSnapshot) => i.type);
+                        const location = subData?.location != null ? String(subData.location) : '';
                         await createJobsForSubscription(firestore, {
                           subscriptionId,
                           userId,
                           billingPeriodStart,
                           collectionFrequency,
+                          collectionDay: subData?.collectionDay ?? undefined,
+                          items,
+                          location,
                           addressSnapshot,
+                          windowId: subData?.windowId ?? meta?.windowId ?? 'morning',
+                          windowLabel: subData?.windowLabel ?? meta?.windowLabel ?? '',
                           Timestamp: admin.firestore.Timestamp,
                         });
                         console.log(`Jobs created for subscription ${subscriptionId} (${collectionFrequency})`);

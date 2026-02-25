@@ -38,6 +38,12 @@ export interface PaymentDocument {
   updatedAt: FirebaseTimestamp;
 }
 
+// --- Job types (top-level "jobs" collection) ---
+
+export type JobType = "one_time" | "subscription";
+
+export type JobPaymentStatus = "paid" | "pending" | "overdue";
+
 export type JobStatus =
   | "scheduled"
   | "assigned"
@@ -48,19 +54,48 @@ export type JobStatus =
 
 export type JobCollectionFrequency = "weekly" | "biweekly" | "monthly";
 
+/** Single item in job.items (snapshot at job creation) */
+export interface JobItemSnapshot {
+  id: string;
+  type: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+}
+
+/** addressSnapshot at job creation */
+export interface JobAddressSnapshot {
+  addressLine1: string;
+  area: string;
+  phoneNumber: string;
+}
+
 export interface JobDocument {
   id: string;
-  subscriptionId: string;
+
+  type: JobType;
+  bookingId?: string;
+  subscriptionId?: string;
+
   userId: string;
 
   scheduledDate: FirebaseTimestamp;
-  collectionFrequency: JobCollectionFrequency;
 
-  status: JobStatus;
+  paymentStatus: JobPaymentStatus;
+  jobStatus: JobStatus;
+
+  items: JobItemSnapshot[];
+
+  location: string;
+  addressSnapshot: JobAddressSnapshot;
+
+  windowId: string;
+  windowLabel: string;
+
+  collectionFrequency?: JobCollectionFrequency;
+  collectionDay?: string;
 
   assignedTo?: string;
-
-  addressSnapshot: Record<string, unknown>;
 
   createdAt: FirebaseTimestamp;
   updatedAt: FirebaseTimestamp;
