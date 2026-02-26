@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../../hooks/useAuth';
+import { useDriverStatus } from '@/contexts/driver-status-context';
 import { styles } from './driver-home-screen.styles';
 import { trackEvent } from '@/services/analytics';
 import {
@@ -38,15 +39,23 @@ function groupByWindow(jobs: DriverJob[]): Record<string, DriverJob[]> {
 
 export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }) => {
   const { user, logout } = useAuth();
+  const { refreshDriverStatus } = useDriverStatus();
   const [jobs, setJobs] = useState<DriverJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [shiftLoading, setShiftLoading] = useState(false);
   const [endShiftLoading, setEndShiftLoading] = useState(false);
   const [shift, setShift] = useState<DriverShift | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const gateChecked = useRef(false);
 
   const driverId = user?.id ?? '';
   const date = todayYYYYMMDD();
+
+  useEffect(() => {
+    if (gateChecked.current || !driverId) return;
+    gateChecked.current = true;
+    refreshDriverStatus();
+  }, [driverId, refreshDriverStatus]);
 
   const loadJobs = useCallback(async () => {
     if (!driverId) return;

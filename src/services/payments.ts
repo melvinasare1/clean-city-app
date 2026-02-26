@@ -168,6 +168,35 @@ export async function verifyPaymentByReference(
 }
 
 /**
+ * Confirm a free (totalPrice 0) booking immediately: mark as paid/confirmed and create job.
+ * Calls POST /api/bookings/confirm-free with { bookingId }.
+ * Use when the user selected only the complimentary/free product.
+ */
+export async function confirmFreeBooking(bookingId: string): Promise<{ ok: boolean }> {
+  const id = bookingId != null && bookingId !== "" ? String(bookingId).trim() : "";
+  if (!id) {
+    throw new Error("bookingId is required to confirm free booking");
+  }
+  const base = getApiBaseUrl().replace(/\/+$/, "");
+  const res = await fetch(`${base}/api/bookings/confirm-free`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ bookingId: id }),
+  });
+  const text = await res.text();
+  let json: any;
+  try {
+    json = JSON.parse(text);
+  } catch (e) {
+    throw new Error(`Confirm free returned non-JSON: ${text.slice(0, 120)}`);
+  }
+  if (!res.ok || json?.ok === false) {
+    throw new Error(json?.error ?? "Failed to confirm free booking");
+  }
+  return json;
+}
+
+/**
  * Verify booking payment status with the separate Paystack backend.
  * Calls POST /api/paystack/verify with bookingId.
  * Returns { ok: boolean, paid: boolean }

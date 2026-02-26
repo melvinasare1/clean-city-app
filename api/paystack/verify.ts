@@ -1,7 +1,13 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { getBookingById } from "./bookings";
+import { createJobForOneTimeBooking, toDate } from "./subscription-helpers";
+import type { JobAddressSnapshot, JobItemSnapshot } from "./payment-and-job-types";
+import { getFirestore } from "../lib/firebase-admin";
 
 const PAYSTACK_BASE_URL = "https://api.paystack.co";
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
+const JOBS_COLLECTION = "jobs";
+const PAYMENTS_COLLECTION = "payments";
 
 /**
  * GET /api/paystack/verify?reference=...
@@ -162,6 +168,95 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const isPaid = status === "success";
 
+    // Resolve bookingId: from request body, Paystack metadata, or our payments doc (fallback for MoMo when Paystack doesn't echo metadata)
+    let resolvedBookingId: string | undefined =
+      bookingId || (paystackData.metadata?.bookingId as string | undefined);
+    if (isPaid && !resolvedBookingId && reference) {
+      try {
+        const firestore = getFirestore();
+        const paymentSnap = await firestore.collection(PAYMENTS_COLLECTION).doc(reference).get();
+        if (paymentSnap.exists) {
+          const paymentData = paymentSnap.data();
+          const fromPayment = paymentData?.bookingId;
+          if (typeof fromPayment === "string" && fromPayment.trim()) {
+            resolvedBookingId = fromPayment.trim();
+            console.log(`[Verify] Resolved bookingId from payments doc: ${resolvedBookingId}`);
+          }
+        }
+      } catch (lookupErr) {
+        console.error("[Verify] Failed to resolve bookingId from payments doc:", lookupErr);
+      }
+    }
+
+    // When payment succeeded, ensure booking is marked paid and job exists (in case webhook didn't run)
+    if (isPaid && resolvedBookingId) {
+      try {
+        const firestore = getFirestore();
+        const booking = await getBookingById(resolvedBookingId);
+        if (booking) {
+          await firestore
+            .collection("bookings")
+            .doc(resolvedBookingId)
+            .set({ payment: { status: "paid" } }, { merge: true });
+
+          const existingJob = await firestore
+            .collection(JOBS_COLLECTION)
+            .where("bookingId", "==", resolvedBookingId)
+            .limit(1)
+            .get();
+          if (existingJob.empty) {
+            const items: JobItemSnapshot[] = Array.isArray(booking.items)
+              ? (booking.items as any[]).map((i: any, idx: number) => ({
+                  id:
+                    i?.id ??
+                    (i?.type
+                      ? String(i.type).replace(/\s+/g, "_").toUpperCase()
+                      : `ITEM_${idx}`),
+                  type: String(i?.type ?? ""),
+                  quantity: Number(i?.quantity) ?? 0,
+                  unitPrice: Number(i?.unitPrice) ?? 0,
+                  totalPrice: Number(i?.totalPrice) ?? 0,
+                })).filter((i) => i.type)
+              : [];
+            const loc =
+              (booking as any).location != null ? String((booking as any).location) : "";
+            const meta =
+              (booking as any).metadata && typeof (booking as any).metadata === "object"
+                ? (booking as any).metadata
+                : {};
+            const addressSnapshot: JobAddressSnapshot = {
+              addressLine1:
+                meta?.addressLine1 ?? (booking as any).addressLine1 ?? loc ?? "",
+              area: meta?.area ?? (booking as any).area ?? "",
+              phoneNumber: meta?.phoneNumber ?? (booking as any).phoneNumber ?? "",
+            };
+            const bookingDate = (booking as any).date;
+            const scheduledDate = bookingDate
+              ? (typeof bookingDate === "string"
+                  ? new Date(bookingDate)
+                  : toDate(bookingDate) ?? new Date())
+              : new Date();
+            const Timestamp = firestore.Timestamp;
+            await createJobForOneTimeBooking(firestore, {
+              bookingId: resolvedBookingId,
+              userId: booking.userId,
+              scheduledDate,
+              items,
+              location: loc,
+              addressSnapshot,
+              windowId: (booking as any).windowId ?? "morning",
+              windowLabel: (booking as any).windowLabel ?? "",
+              Timestamp: Timestamp as any,
+            });
+            console.log(`[Verify] Job created for one-time booking ${resolvedBookingId}`);
+          }
+        }
+      } catch (err) {
+        console.error("[Verify] Failed to ensure booking paid or create job:", err);
+        // Do not fail the verify response - payment is still successful
+      }
+    }
+
     // If request was made with bookingId, return simplified format expected by app
     if (bookingId) {
       return res.status(200).json({
@@ -174,14 +269,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // Otherwise return full format for direct reference verification
+    // Otherwise return full format for direct reference verification (e.g. callback with ?reference=)
+    const metadata = paystackData.metadata && typeof paystackData.metadata === "object"
+      ? { ...paystackData.metadata }
+      : {};
+    if (resolvedBookingId) {
+      metadata.bookingId = resolvedBookingId;
+      if (paystackData.metadata?.userId) metadata.userId = paystackData.metadata.userId;
+    }
     return res.status(200).json({
       status,
       reference: paystackData.reference,
-      amount: paystackData.amount, // convert from smallest unit
+      amount: paystackData.amount, // convert from smallest unit (kobo)
       currency: paystackData.currency,
       statusMessage: paystackData.gateway_response,
-      metadata: paystackData.metadata,
+      metadata,
       rawPaystack: data,
     });
   } catch (error: any) {

@@ -24,6 +24,7 @@ import {
   getBillingPeriodEnd,
 } from "../paystack/subscription-helpers";
 import type { SubscriptionDocument } from "../paystack/subscription-types";
+import { getPushTokenForUser } from "../lib/collections";
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 const CLIENT_APP_URL = process.env.CLIENT_APP_URL || "https://clean-city-app.vercel.app";
@@ -52,9 +53,7 @@ function isAuthorized(req: VercelRequest): boolean {
 
 async function getPushToken(userId: string): Promise<string | null> {
   if (!admin.apps.length) return null;
-  const snap = await admin.firestore().doc(`profiles/${userId}`).get();
-  const token = snap.data()?.expoPushToken;
-  return typeof token === "string" ? token : null;
+  return getPushTokenForUser(admin.firestore(), userId);
 }
 
 async function sendPush(to: string, title: string, body: string, data?: Record<string, unknown>): Promise<boolean> {

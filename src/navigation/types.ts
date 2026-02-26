@@ -40,4 +40,5 @@ export type OnboardingStackParamList = {
 
 export type AdminStackParamList = {
   AdminPush: undefined;
+  AdminJobs: undefined;
 };

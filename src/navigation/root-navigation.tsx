@@ -1,11 +1,13 @@
-
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
 import { AuthNavigator } from './auth-navigation';
 import { CustomerNavigator } from './customer-navigation';
 import { DriverNavigator } from './driver-navigation';
 import { AdminNavigator } from './admin-navigation';
+import { DriverPendingApprovalScreen } from '@/screens/driver';
+import { DriverStatusProvider } from '@/contexts/driver-status-context';
+import { getDriverStatus, type DriverStatus } from '@/services/driver-api';
 import { COLORS } from '../lib/constants';
 import { trackEvent } from '@/services/analytics';
 import { isAdmin } from '@/lib/admin';
@@ -13,6 +15,8 @@ import { isAdmin } from '@/lib/admin';
 export const RootNavigator: React.FC = () => {
     const { user, loading } = useAuth();
     const hasTrackedAppOpen = useRef(false);
+    const [driverStatusLoading, setDriverStatusLoading] = useState(false);
+    const [driverStatusResult, setDriverStatusResult] = useState<DriverStatus | null>(null);
 
     useEffect(() => {
         if (loading || hasTrackedAppOpen.current) {
@@ -35,7 +39,34 @@ export const RootNavigator: React.FC = () => {
         trackEvent('app_open', { screen: initialScreen });
     }, [loading, user?.role]);
 
-    if (loading) {
+    useEffect(() => {
+        if (user?.role !== 'driver' || !user?.id) {
+            setDriverStatusLoading(false);
+            setDriverStatusResult(null);
+            return;
+        }
+        let cancelled = false;
+        setDriverStatusLoading(true);
+        getDriverStatus(user.id).then((s) => {
+            if (!cancelled) {
+                setDriverStatusResult(s ?? null);
+                setDriverStatusLoading(false);
+            }
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [user?.role, user?.id]);
+
+    const refreshDriverStatus = useCallback(async () => {
+        if (!user?.id) return;
+        const s = await getDriverStatus(user.id);
+        setDriverStatusResult(s ?? null);
+    }, [user?.id]);
+
+    const showLoading = loading || (user?.role === 'driver' && driverStatusLoading);
+
+    if (showLoading) {
         return (
             <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color={COLORS.primary} />
@@ -52,7 +83,15 @@ export const RootNavigator: React.FC = () => {
     }
 
     if (user.role === 'driver') {
-        return <DriverNavigator />;
+        const inactive = driverStatusResult === null || !driverStatusResult.isActive;
+        if (inactive) {
+            return <DriverPendingApprovalScreen />;
+        }
+        return (
+            <DriverStatusProvider value={{ refreshDriverStatus }}>
+                <DriverNavigator />
+            </DriverStatusProvider>
+        );
     }
 
     return (

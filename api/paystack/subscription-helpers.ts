@@ -248,6 +248,7 @@ export async function createJobForOneTimeBooking(
     scheduledDate: Timestamp.fromDate(scheduledDate),
     paymentStatus: "paid",
     jobStatus: "scheduled",
+    assignmentStatus: "unassigned",
     items: items ?? [],
     location: location ?? "",
     addressSnapshot: {
@@ -317,6 +318,7 @@ export async function createJobsForSubscription(
       scheduledDate: Timestamp.fromDate(scheduledDate),
       paymentStatus: "paid",
       jobStatus: "scheduled",
+      assignmentStatus: "unassigned",
       items: items ?? [],
       location: location ?? "",
       addressSnapshot: normalizedAddress,

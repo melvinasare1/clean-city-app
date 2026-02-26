@@ -55,6 +55,37 @@ export const styles = StyleSheet.create({
         alignItems: 'center',
         marginTop: VARS.xxsmall,
     },
+    roleLabel: {
+        fontSize: VARS.xsmall + 2,
+        color: COLORS.textSecondary,
+        marginBottom: VARS.xxsmall,
+    },
+    roleRow: {
+        flexDirection: 'row',
+        gap: VARS.small,
+        marginBottom: VARS.small,
+    },
+    roleOption: {
+        flex: 1,
+        paddingVertical: VARS.small,
+        paddingHorizontal: VARS.xsmall,
+        borderRadius: VARS.xxsmall,
+        borderWidth: 2,
+        borderColor: '#E0E0E0',
+        alignItems: 'center',
+    },
+    roleOptionSelected: {
+        borderColor: COLORS.primary,
+        backgroundColor: `${COLORS.primary}10`,
+    },
+    roleOptionText: {
+        fontSize: VARS.xsmall + 2,
+        color: COLORS.textSecondary,
+    },
+    roleOptionTextSelected: {
+        color: COLORS.primary,
+        fontWeight: '600',
+    },
     backToLogin: {
         backgroundColor: COLORS.white,
         color: 'grey',

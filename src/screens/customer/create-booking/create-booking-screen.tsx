@@ -10,7 +10,7 @@ import { TIME_WINDOWS, TimeWindowId } from '@/lib/time-windows';
 import type { BookingType } from '@/types/booking';
 import type { SubscriptionInterval } from '@/types/subscription';
 import { createBooking, initiatePaymentForBooking, updateBooking } from '@/services/booking-service';
-import { createSubscription } from '@/services/payments';
+import { createSubscription, confirmFreeBooking } from '@/services/payments';
 import { saveSubscriptionRecord } from '@/services/subscription-service';
 import * as Linking from 'expo-linking';
 import { CustomerStackParamList } from '@/navigation/types';
@@ -324,6 +324,24 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
         screen: SCREEN,
         type: 'one_off',
       });
+
+      if (totalPrice === 0) {
+        await confirmFreeBooking(bookingId);
+        await trackEvent('payment_started', {
+          screen: 'checkout',
+          amount: 0,
+          currency: 'GHS',
+          provider: 'free',
+        });
+        Alert.alert(
+          'Booking confirmed',
+          `Your ${selectedWindowLabel.toLowerCase()} pickup on ${formatDate(
+            selectedDate
+          )} is confirmed. No payment needed.`,
+          [{ text: 'OK', onPress: () => navigation.goBack() }]
+        );
+        return;
+      }
 
       const { authorizationUrl } = await initiatePaymentForBooking(bookingId);
 

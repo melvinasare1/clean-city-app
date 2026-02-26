@@ -32,6 +32,7 @@ export const NewBookingScreen: React.FC<NewBookingScreenProps> = ({
   const [largeBags, setLargeBags] = useState(0);
   const [standardBins, setStandardBins] = useState(0);
   const [wheelieBins, setWheelieBins] = useState(0);
+  const [complimentaryPickups, setComplimentaryPickups] = useState(0);
   const [showBinInfoSheet, setShowBinInfoSheet] = useState(false);
 
   const buildItems = (): BookingBinItem[] => {
@@ -57,6 +58,13 @@ export const NewBookingScreen: React.FC<NewBookingScreenProps> = ({
         unitPrice: PRICES.wheelieBin,
         totalPrice: wheelieBins * PRICES.wheelieBin,
       },
+      {
+        id: 'COMPLIMENTARY_PICKUP',
+        type: 'Complimentary Pickup',
+        quantity: complimentaryPickups,
+        unitPrice: PRICES.complimentaryPickup,
+        totalPrice: complimentaryPickups * PRICES.complimentaryPickup,
+      },
     ];
 
     return selections.filter((item) => item.quantity > 0);
@@ -64,7 +72,7 @@ export const NewBookingScreen: React.FC<NewBookingScreenProps> = ({
 
   const totalPrice = useMemo(() => {
     return buildItems().reduce((sum, item) => sum + item.totalPrice, 0);
-  }, [smallBags, largeBags, standardBins, wheelieBins]);
+  }, [smallBags, largeBags, standardBins, wheelieBins, complimentaryPickups]);
 
   const handleOpenBinInfo = () => {
     setShowBinInfoSheet(true);
@@ -158,6 +166,28 @@ export const NewBookingScreen: React.FC<NewBookingScreenProps> = ({
                 <TouchableOpacity
                   style={styles.counterButton}
                   onPress={() => setWheelieBins(wheelieBins + 1)}
+                >
+                  <Text style={styles.counterButtonText}>+</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.binCard}>
+              <View style={styles.binInfo}>
+                <Text style={styles.binName}>Complimentary Pickup</Text>
+                <Text style={styles.binPrice}>Free</Text>
+              </View>
+              <View style={styles.counter}>
+                <TouchableOpacity
+                  style={styles.counterButton}
+                  onPress={() => setComplimentaryPickups(Math.max(0, complimentaryPickups - 1))}
+                >
+                  <Text style={styles.counterButtonText}>-</Text>
+                </TouchableOpacity>
+                <Text style={styles.counterValue}>{complimentaryPickups}</Text>
+                <TouchableOpacity
+                  style={styles.counterButton}
+                  onPress={() => setComplimentaryPickups(complimentaryPickups + 1)}
                 >
                   <Text style={styles.counterButtonText}>+</Text>
                 </TouchableOpacity>

@@ -1,9 +1,38 @@
 /**
  * Driver dashboard API client. All driver/job writes go through backend; no direct Firestore.
+ * getDriverStatus uses Firestore client for UI gating only (backend enforces security).
  */
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import { getApiBaseUrl } from "@/lib/apiBase";
 
 const getBase = () => getApiBaseUrl();
+
+/** Result of driver status fetch for UI gating. Backend enforces security. */
+export interface DriverStatus {
+  isActive: boolean;
+}
+
+/**
+ * Fetch driver status from Firestore (drivers/{uid} then profiles/{uid} fallback).
+ * Used only for UI/UX gating; backend already protects driver endpoints.
+ */
+export async function getDriverStatus(uid: string): Promise<DriverStatus | null> {
+  const driverRef = doc(db, "drivers", uid);
+  const driverSnap = await getDoc(driverRef);
+  if (driverSnap.exists()) {
+    const d = driverSnap.data();
+    return { isActive: d?.isActive !== false };
+  }
+  const profileRef = doc(db, "profiles", uid);
+  const profileSnap = await getDoc(profileRef);
+  if (profileSnap.exists()) {
+    const d = profileSnap.data();
+    if (d?.role !== "driver") return null;
+    return { isActive: d?.isActive !== false };
+  }
+  return null;
+}
 
 export interface DriverJob {
   id: string;

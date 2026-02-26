@@ -19,6 +19,7 @@ import { COLORS } from '@/lib/constants';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SignupScreenProps } from '../types';
 import { trackEvent } from '@/services/analytics';
+import type { AppUserRole } from '@/contexts/auth-context';
 
 const SCREEN = 'signup';
 const AUTH_METHOD = 'email_password';
@@ -49,10 +50,16 @@ const getSignupErrorReason = (error: any): string => {
     return 'unknown';
 };
 
+const ROLE_OPTIONS: { value: AppUserRole; label: string }[] = [
+    { value: 'customer', label: 'Sign up as Customer' },
+    { value: 'driver', label: 'Sign up as Driver' },
+];
+
 export const SignupScreen: React.FC<SignupScreenProps> = ({ navigation }) => {
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [role, setRole] = useState<AppUserRole>('customer');
     // Optional referral code; source can be future deep link / param.
     const [referralCode, setReferralCode] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -76,7 +83,7 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({ navigation }) => {
                 method: AUTH_METHOD,
             });
 
-            await signup(email, password, 'customer', referralCode ?? undefined);
+            await signup(email, password, role, referralCode ?? undefined);
 
             await trackEvent('signup_completed', {
                 screen: SCREEN,
@@ -127,6 +134,30 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({ navigation }) => {
                             secureTextEntry
                             editable={!isLoading}
                         />
+
+                        <AppText style={styles.roleLabel}>Sign up as</AppText>
+                        <View style={styles.roleRow}>
+                            {ROLE_OPTIONS.map((opt) => (
+                                <TouchableOpacity
+                                    key={opt.value}
+                                    style={[
+                                        styles.roleOption,
+                                        role === opt.value && styles.roleOptionSelected,
+                                    ]}
+                                    onPress={() => setRole(opt.value)}
+                                    disabled={isLoading}
+                                >
+                                    <AppText
+                                        style={[
+                                            styles.roleOptionText,
+                                            role === opt.value && styles.roleOptionTextSelected,
+                                        ]}
+                                    >
+                                        {opt.label}
+                                    </AppText>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
 
                         <TouchableOpacity
                             style={[styles.button, isLoading && styles.buttonDisabled]}

@@ -8,8 +8,11 @@ import {
   Text,
   Switch,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '@/hooks/useAuth';
 import { isAdmin } from '@/lib/admin';
+import type { AdminStackParamList } from '@/navigation/types';
 import { sendPush, type PushNotificationResponse } from '@/lib/pushSender';
 import { AppButton } from '@/components/app-button';
 import { AppTextInput } from '@/components/app-text-input';
@@ -30,6 +33,7 @@ interface SendResult {
 
 export const AdminPushScreen: React.FC = () => {
   const { user } = useAuth();
+  const navigation = useNavigation<NativeStackNavigationProp<AdminStackParamList, 'AdminPush'>>();
   const [recipientMode, setRecipientMode] = useState<RecipientMode>('single');
   const [userSearch, setUserSearch] = useState('');
   const [userToken, setUserToken] = useState<string | null>(null);
@@ -340,6 +344,14 @@ export const AdminPushScreen: React.FC = () => {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <View style={styles.section}>
+        <AppButton
+          title="Job assignment"
+          onPress={() => navigation.navigate('AdminJobs')}
+          variant="secondary"
+          buttonStyle={styles.debugButton}
+        />
+      </View>
       {/* Debug Section */}
       <View style={styles.section}>
         <AppText style={styles.sectionTitle}>Debug Info</AppText>

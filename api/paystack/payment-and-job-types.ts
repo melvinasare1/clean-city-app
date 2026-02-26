@@ -52,6 +52,12 @@ export type JobStatus =
   | "missed"
   | "cancelled";
 
+export type AssignmentStatus =
+  | "unassigned"
+  | "assigned"
+  | "accepted"
+  | "reassigned";
+
 export type JobCollectionFrequency = "weekly" | "biweekly" | "monthly";
 
 /** Single item in job.items (snapshot at job creation) */
@@ -96,6 +102,9 @@ export interface JobDocument {
   collectionDay?: string;
 
   assignedTo?: string;
+  assignmentStatus: AssignmentStatus;
+  assignedAt?: FirebaseTimestamp;
+  assignedBy?: string;
 
   /** Set when driver starts the job */
   startedAt?: FirebaseTimestamp;

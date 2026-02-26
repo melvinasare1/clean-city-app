@@ -2,9 +2,11 @@
  * POST /api/drivers/start-shift
  * Body: { driverId: string }
  * Find or create driverShift for today; set shiftStartedAt = now. Return shift document.
+ * Validates driver exists in drivers collection (or profiles) and isActive === true.
  */
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getFirestore } from "../lib/firebase-admin";
+import { getDriverDoc } from "../lib/collections";
 
 const DRIVER_SHIFTS_COLLECTION = "driverShifts";
 
@@ -30,6 +32,13 @@ export default async function handler(
     }
 
     const firestore = getFirestore();
+    const driver = await getDriverDoc(firestore, driverId);
+    if (!driver.exists) {
+      return res.status(404).json({ error: "Driver not found" });
+    }
+    if (!driver.isActive) {
+      return res.status(400).json({ error: "Cannot start shift: driver is inactive." });
+    }
     const date = todayUtcYYYYMMDD();
     const docId = `${driverId}_${date}`;
     const ref = firestore.collection(DRIVER_SHIFTS_COLLECTION).doc(docId);
