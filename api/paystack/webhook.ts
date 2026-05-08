@@ -47,12 +47,13 @@ export default async function handler(
       return res.status(400).json({ error: 'Missing signature header' });
     }
 
-    // Get raw body for signature verification
-    // Note: Vercel automatically parses JSON, so we reconstruct the raw body.
-    // JSON.stringify should produce the same string Paystack sent (deterministic).
-    // If signature verification fails, you may need to configure Vercel to not parse
-    // the body for this route (see vercel.json configuration).
-    const rawBody = Buffer.from(JSON.stringify(req.body));
+    // Paystack signs the exact request bytes; Vercel parses JSON first — use raw string when present.
+    const rawBody =
+      typeof req.body === "string"
+        ? Buffer.from(req.body, "utf8")
+        : Buffer.isBuffer(req.body)
+          ? req.body
+          : Buffer.from(JSON.stringify(req.body ?? {}), "utf8");
 
     // Verify signature
     const hash = crypto
@@ -117,8 +118,14 @@ export default async function handler(
           eventName === 'charge.abandoned'
         ) {
           const paystackData = event.data;
-          if (paystackData?.reference) {
-            const reference = paystackData.reference;
+          const reference =
+            typeof paystackData?.reference === "string" && paystackData.reference.trim() !== ""
+              ? paystackData.reference.trim()
+              : typeof paystackData?.transaction_reference === "string" &&
+                  paystackData.transaction_reference.trim() !== ""
+                ? paystackData.transaction_reference.trim()
+                : null;
+          if (reference) {
             const amountKobo = paystackData.amount || 0;
             const amount = amountKobo / 100;
             const currency = paystackData.currency || 'GHS';
@@ -157,20 +164,31 @@ export default async function handler(
               { merge: true }
             );
 
-            // Update payments collection (doc id = reference, created on initialize)
+            // Update payments collection (doc id = reference, normally created on initialize).
+            // Always merge so a successful webhook still records status if initialize missed Firestore.
             const paymentStatus = status === 'success' ? 'success' : status === 'failed' ? 'failed' : 'abandoned';
             const paymentRef = firestore.collection('payments').doc(reference);
-            const paymentSnap = await paymentRef.get();
-            if (paymentSnap.exists) {
-              await paymentRef.set(
-                {
-                  status: paymentStatus,
-                  paystackStatus: status,
-                  updatedAt: FieldValue.serverTimestamp(),
-                },
-                { merge: true }
-              );
-            }
+            await paymentRef.set(
+              {
+                status: paymentStatus,
+                paystackStatus: status,
+                reference,
+                ...(metadata?.bookingId != null && metadata.bookingId !== ''
+                  ? { bookingId: String(metadata.bookingId) }
+                  : {}),
+                ...(metadata?.userId != null && metadata.userId !== ''
+                  ? { userId: String(metadata.userId) }
+                  : {}),
+                ...(metadata?.type != null && metadata.type !== ''
+                  ? { type: String(metadata.type) }
+                  : {}),
+                ...(metadata?.subscriptionId != null && metadata.subscriptionId !== ''
+                  ? { subscriptionId: String(metadata.subscriptionId) }
+                  : {}),
+                updatedAt: FieldValue.serverTimestamp(),
+              },
+              { merge: true }
+            );
 
             const paymentType = metadata?.type;
 
@@ -183,7 +201,13 @@ export default async function handler(
                       .collection('bookings')
                       .doc(bookingId)
                       .set(
-                        { payment: { status: 'paid' } },
+                        {
+                          payment: {
+                            status: 'paid',
+                            reference,
+                            paidAt: FieldValue.serverTimestamp(),
+                          },
+                        },
                         { merge: true }
                       );
                     console.log(`Booking ${bookingId} marked as paid`);
@@ -250,6 +274,10 @@ export default async function handler(
                           nextBillingDate: nextBilling,
                           paymentDueSince: FieldValue.delete(),
                           currentPaymentReference: FieldValue.delete(),
+                          payment: {
+                            status: 'paid',
+                            reference,
+                          },
                           updatedAt: FieldValue.serverTimestamp(),
                         },
                         { merge: true }

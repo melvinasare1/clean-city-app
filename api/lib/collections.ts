@@ -25,12 +25,32 @@ export interface DriverDoc {
   email?: string;
   name?: string;
   displayName?: string;
+  firstName?: string;
+  lastName?: string;
   isActive: boolean;
   phone?: string;
+  phoneNumber?: string;
   expoPushToken?: string;
   createdAt?: admin.firestore.Timestamp;
   updatedAt?: admin.firestore.Timestamp;
   [key: string]: unknown;
+}
+
+/**
+ * Derive a single display name from driver data (supports name, displayName, firstName+lastName, email, id).
+ */
+export function getDriverDisplayName(
+  d: Record<string, unknown> | undefined,
+  docId: string
+): string {
+  if (!d) return docId;
+  if (typeof d.name === "string" && d.name) return d.name;
+  if (typeof d.displayName === "string" && d.displayName) return d.displayName;
+  const first = typeof d.firstName === "string" ? d.firstName.trim() : "";
+  const last = typeof d.lastName === "string" ? d.lastName.trim() : "";
+  if (first || last) return [first, last].filter(Boolean).join(" ");
+  if (typeof d.email === "string" && d.email) return d.email;
+  return docId;
 }
 
 /**

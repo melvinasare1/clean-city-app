@@ -28,4 +28,6 @@ export function getFirestore(): admin.firestore.Firestore {
   return admin.firestore();
 }
 
+export const FieldValue = admin.firestore.FieldValue;
+
 export { admin };

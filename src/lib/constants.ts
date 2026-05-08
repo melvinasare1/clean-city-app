@@ -1,7 +1,7 @@
 export const PRICES = {
-  smallBag: 5,
-  standardBin: 10,
-  wheelieBin: 20,
+  smallBag: 15,
+  standardBin: 20,
+  wheelieBin: 35,
   /** Free product – booking is confirmed immediately, no payment. */
   complimentaryPickup: 0,
 };

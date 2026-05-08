@@ -30,16 +30,41 @@ export interface AdminJob {
 }
 
 /**
- * GET /api/drivers
+ * GET drivers list. Tries /api/drivers/list first; falls back to /api/drivers if 404.
+ * Backend returns { ok: true, drivers: [...] }; we also accept a raw array for backward compat.
  */
-export async function getDrivers(): Promise<AdminDriver[]> {
+export async function getDrivers(options?: { all?: boolean }): Promise<AdminDriver[]> {
   const base = getBase();
-  const res = await fetch(`${base}/api/drivers`);
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(err.error || err.details || "Failed to fetch drivers");
+  const listPath = options?.all ? "/api/drivers/list?all=1" : "/api/drivers/list";
+  const legacyPath = options?.all ? "/api/drivers?all=1" : "/api/drivers";
+
+  const fetchDrivers = async (path: string): Promise<Response> => {
+    try {
+      return await fetch(`${base}${path}`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Network error";
+      throw new Error(`Cannot reach API: ${msg}. Check EXPO_PUBLIC_API_URL and network.`);
+    }
+  };
+
+  let res = await fetchDrivers(listPath);
+  if (res.status === 404) {
+    res = await fetchDrivers(legacyPath);
   }
-  return res.json();
+
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const detail = body.details ?? body.error ?? res.statusText;
+    throw new Error(detail || "Failed to fetch drivers");
+  }
+
+  const drivers =
+    (typeof body === "object" && body !== null && Array.isArray(body.drivers) ? body.drivers : null) ??
+    (Array.isArray(body) ? body : null);
+  if (!drivers) {
+    throw new Error("Invalid response: expected { ok, drivers } or an array of drivers");
+  }
+  return drivers as AdminDriver[];
 }
 
 /**

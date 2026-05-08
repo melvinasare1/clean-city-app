@@ -13,6 +13,10 @@ export interface VerifyBookingPaymentResponse {
   paid: boolean;
   status?: string;
   message?: string;
+  /** Paystack transaction reference when verification succeeded */
+  reference?: string;
+  amount?: number;
+  currency?: string;
 }
 
 export type PaymentType = "one_time" | "subscription_initial" | "subscription_renewal";

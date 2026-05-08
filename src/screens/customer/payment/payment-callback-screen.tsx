@@ -50,7 +50,11 @@ export const PaymentCallbackScreen: React.FC<Props> = ({
             (verifyResult.metadata as any)?.userId ?? user?.id ?? null;
           
           if (bookingId) {
-            await handleBookingPaymentSuccess(bookingId, referredUserId);
+            await handleBookingPaymentSuccess(
+              bookingId,
+              referredUserId,
+              verifyResult.reference
+            );
           }
 
           await trackEvent("payment_completed", {

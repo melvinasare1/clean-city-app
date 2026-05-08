@@ -70,6 +70,45 @@ export const styles = StyleSheet.create({
         textAlign: 'center',
         paddingTop: 12
     },
+    dividerRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginVertical: VARS.small,
+    },
+    dividerLine: {
+        flex: 1,
+        height: 1,
+        backgroundColor: '#E0E0E0',
+    },
+    dividerText: {
+        marginHorizontal: VARS.xxsmall,
+        color: COLORS.textSecondary,
+        fontSize: VARS.xsmall,
+    },
+    socialButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: '#E0E0E0',
+        borderRadius: VARS.xxsmall,
+        padding: VARS.small,
+        marginBottom: VARS.xxsmall,
+        backgroundColor: COLORS.white,
+    },
+    socialButtonText: {
+        fontSize: VARS.small,
+        color: COLORS.text,
+        fontWeight: '500',
+        marginLeft: VARS.xxsmall,
+    },
+    appleButton: {
+        backgroundColor: '#000',
+        borderColor: '#000',
+    },
+    appleButtonText: {
+        color: COLORS.white,
+    },
     actionLink: {
         marginTop: 'auto',
     },

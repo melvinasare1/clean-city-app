@@ -6,7 +6,7 @@
  */
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getFirestore } from "../lib/firebase-admin";
-import { DRIVERS_COLLECTION, PROFILES_COLLECTION } from "../lib/collections";
+import { DRIVERS_COLLECTION, PROFILES_COLLECTION, getDriverDisplayName } from "../lib/collections";
 
 export default async function handler(
   req: VercelRequest,
@@ -17,7 +17,17 @@ export default async function handler(
   }
 
   try {
-    const firestore = getFirestore();
+    let firestore;
+    try {
+      firestore = getFirestore();
+    } catch (initErr) {
+      const msg = initErr instanceof Error ? initErr.message : "Firebase not initialized";
+      console.error("[GET /api/drivers] Firebase:", msg);
+      return res.status(503).json({
+        error: "Service unavailable",
+        details: "Backend cannot connect to database. Check FIREBASE_SERVICE_ACCOUNT_JSON.",
+      });
+    }
 
     // Drivers collection first; merge with profiles (role === driver) for backward compatibility
     const driversSnap = await firestore.collection(DRIVERS_COLLECTION).get();
@@ -31,7 +41,7 @@ export default async function handler(
       const d = doc.data();
       byId.set(doc.id, {
         id: doc.id,
-        name: typeof d.name === "string" ? d.name : typeof d.displayName === "string" ? d.displayName : typeof d.email === "string" ? d.email : doc.id,
+        name: getDriverDisplayName(d, doc.id),
         isActive: d.isActive !== false,
       });
     }
@@ -40,7 +50,7 @@ export default async function handler(
         const d = doc.data();
         byId.set(doc.id, {
           id: doc.id,
-          name: typeof d.name === "string" ? d.name : typeof d.displayName === "string" ? d.displayName : typeof d.email === "string" ? d.email : doc.id,
+          name: getDriverDisplayName(d, doc.id),
           isActive: d.isActive !== false,
         });
       }

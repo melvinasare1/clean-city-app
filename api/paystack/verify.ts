@@ -2,12 +2,51 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getBookingById } from "./bookings";
 import { createJobForOneTimeBooking, toDate } from "./subscription-helpers";
 import type { JobAddressSnapshot, JobItemSnapshot } from "./payment-and-job-types";
-import { getFirestore } from "../lib/firebase-admin";
+import { getFirestore, FieldValue } from "../lib/firebase-admin";
 
 const PAYSTACK_BASE_URL = "https://api.paystack.co";
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 const JOBS_COLLECTION = "jobs";
 const PAYMENTS_COLLECTION = "payments";
+
+/**
+ * When the booking doc never received `payment.reference` (e.g. client closed before
+ * Firestore write), resolve the latest Paystack reference from `payments/{ref}` docs
+ * created at initialize (they store `bookingId`).
+ */
+async function resolveReferenceFromPaymentsCollection(
+  firestore: import("firebase-admin").firestore.Firestore,
+  bookingId: string
+): Promise<string | undefined> {
+  try {
+    const snap = await firestore
+      .collection(PAYMENTS_COLLECTION)
+      .where("bookingId", "==", bookingId)
+      .limit(25)
+      .get();
+    if (snap.empty) return undefined;
+
+    type Scored = { ref: string; t: number };
+    const scored: Scored[] = [];
+    for (const d of snap.docs) {
+      const data = d.data() as Record<string, unknown>;
+      const refRaw =
+        typeof data.reference === "string" && data.reference.trim() !== ""
+          ? data.reference.trim()
+          : d.id;
+      if (!refRaw) continue;
+      const createdAt = data.createdAt as { toMillis?: () => number } | undefined;
+      const t = typeof createdAt?.toMillis === "function" ? createdAt.toMillis() : 0;
+      scored.push({ ref: refRaw, t });
+    }
+    if (!scored.length) return undefined;
+    scored.sort((a, b) => b.t - a.t);
+    return scored[0].ref;
+  } catch (e) {
+    console.error("[Verify] payments collection lookup failed:", e);
+    return undefined;
+  }
+}
 
 /**
  * GET /api/paystack/verify?reference=...
@@ -26,6 +65,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       message: "PAYSTACK_SECRET_KEY not configured",
     });
   }
+
+  let bookingId: string | undefined;
 
   try {
     // Normalize body (Vercel may parse JSON; ensure we have an object)
@@ -46,7 +87,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       (req.query.reference as string | undefined) ||
       (body.reference as string | undefined);
 
-    let bookingId = body.bookingId;
+    bookingId = body.bookingId as string | undefined;
     if (bookingId != null && typeof bookingId !== "string") {
       bookingId = String(bookingId).trim();
     } else if (typeof bookingId === "string") {
@@ -100,7 +141,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const bookingData = bookingDoc.data();
         reference = bookingData?.payment?.reference;
 
-        if (!reference) {
+        if (!reference || String(reference).trim() === "") {
+          const fromPayments = await resolveReferenceFromPaymentsCollection(
+            firestore,
+            bookingId
+          );
+          if (fromPayments) {
+            reference = fromPayments;
+            console.log(
+              `[Verify] Resolved reference from payments collection for booking ${bookingId}`
+            );
+          }
+        }
+
+        if (!reference || String(reference).trim() === "") {
           return res.status(400).json({
             ok: false,
             error: "No payment reference found for this booking",
@@ -194,10 +248,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const firestore = getFirestore();
         const booking = await getBookingById(resolvedBookingId);
         if (booking) {
+          const paidRef =
+            typeof paystackData.reference === "string" && paystackData.reference.trim() !== ""
+              ? paystackData.reference.trim()
+              : typeof reference === "string"
+                ? reference.trim()
+                : "";
           await firestore
             .collection("bookings")
             .doc(resolvedBookingId)
-            .set({ payment: { status: "paid" } }, { merge: true });
+            .set(
+              {
+                payment: {
+                  status: "paid",
+                  ...(paidRef ? { reference: paidRef } : {}),
+                  paidAt: FieldValue.serverTimestamp(),
+                },
+              },
+              { merge: true }
+            );
 
           const existingJob = await firestore
             .collection(JOBS_COLLECTION)

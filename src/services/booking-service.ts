@@ -291,12 +291,18 @@ export const initiatePaymentForBooking = async (
 /**
  * Mark a booking as paid after successful payment verification.
  */
-export const markBookingAsPaid = async (bookingId: string): Promise<void> => {
+export const markBookingAsPaid = async (
+  bookingId: string,
+  paymentReference?: string
+): Promise<void> => {
   await setDocAtPath(
     [BOOKINGS_COLLECTION, bookingId],
     {
       payment: {
         status: "paid",
+        ...(paymentReference != null && paymentReference !== ""
+          ? { reference: paymentReference }
+          : {}),
       },
     },
     {
@@ -357,6 +363,9 @@ export const verifyBookingPayment = async (
               payment: {
                 status: "paid",
                 paidAt: serverTimestamp(),
+                ...(verifyResult.reference != null && verifyResult.reference !== ""
+                  ? { reference: verifyResult.reference }
+                  : {}),
               },
               // Optionally update booking status
               status: "confirmed",
@@ -405,10 +414,10 @@ export const verifyBookingPayment = async (
  */
 export const handleBookingPaymentSuccess = async (
   bookingId: string,
-  referredUserId: string | null | undefined
+  referredUserId: string | null | undefined,
+  paymentReference?: string
 ): Promise<void> => {
-  // Mark booking as paid
-  await markBookingAsPaid(bookingId);
+  await markBookingAsPaid(bookingId, paymentReference);
 
   // Trigger referral rewards if eligible
   if (referredUserId) {

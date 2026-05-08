@@ -12,9 +12,11 @@ import {
 import {
     signInWithEmailAndPassword,
     createUserWithEmailAndPassword,
+    signInWithCredential,
     signOut,
     onAuthStateChanged,
     sendPasswordResetEmail,
+    type AuthCredential,
     type User as FirebaseUser,
 } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
@@ -37,6 +39,7 @@ interface AuthContextProps {
     user: AppUser | null;
     loading: boolean;
     login: (email: string, password: string) => Promise<void>;
+    loginWithCredential: (credential: AuthCredential) => Promise<void>;
     resetPassword: (email: string) => Promise<void>;
     signup: (
         email: string,
@@ -152,6 +155,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await signInWithEmailAndPassword(auth, email, password);
     };
 
+    const loginWithCredential = async (credential: AuthCredential) => {
+        const result = await signInWithCredential(auth, credential);
+        const firebaseUser = result.user;
+
+        const docRef = doc(db, 'profiles', firebaseUser.uid);
+        const snap = await getDoc(docRef);
+
+        if (!snap.exists()) {
+            const generatedReferralCode = `CC-${firebaseUser.uid.slice(0, 6).toUpperCase()}`;
+            await setDocAtPath(['profiles', firebaseUser.uid], {
+                email: firebaseUser.email ?? '',
+                role: 'customer' as AppUserRole,
+                phone: null,
+                location: null,
+                referralCode: generatedReferralCode,
+                referredBy: null,
+                creditBalance: 0,
+                referralRewarded: false,
+            }, { merge: true, addTimestamps: true });
+        }
+    };
+
     const signup = async (
         email: string,
         password: string,
@@ -208,7 +233,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return (
         <AuthContext.Provider
-            value={{ user, loading, login, signup, resetPassword, logout, refreshUserProfile }}
+            value={{ user, loading, login, loginWithCredential, signup, resetPassword, logout, refreshUserProfile }}
         >
             {children}
         </AuthContext.Provider>

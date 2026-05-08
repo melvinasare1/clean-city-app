@@ -23,3 +23,5 @@ web-build/
 backend/.env
 package-lock.json
 .vercel
+ios/
+android/
