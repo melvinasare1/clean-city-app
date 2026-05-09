@@ -1,6 +1,10 @@
 
 import 'react-native-gesture-handler';
+import * as WebBrowser from 'expo-web-browser';
 import { NavigationContainer } from '@react-navigation/native';
+
+// Required for Google (and other) auth redirects to return into the app via deep link.
+WebBrowser.maybeCompleteAuthSession();
 import { StatusBar } from 'expo-status-bar';
 import { RootNavigator } from './src/navigation/root-navigation';
 import { AuthProvider } from '@/contexts/auth-context';

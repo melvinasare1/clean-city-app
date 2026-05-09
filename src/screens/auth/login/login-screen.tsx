@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     View,
     TouchableOpacity,
@@ -19,7 +19,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LoginScreenProps } from '../types';
 import { trackEvent } from '@/services/analytics';
 import { registerForPushNotifications } from '@/services/notifications';
-import { generateNonce, sha256 } from '@/lib/social-auth';
+import {
+    generateNonce,
+    sha256,
+    extractGoogleIdToken,
+    extractGoogleAccessToken,
+} from '@/lib/social-auth';
 
 const SCREEN = 'login';
 
@@ -56,44 +61,87 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     const [isLoading, setIsLoading] = useState(false);
     const { login, loginWithCredential } = useAuth();
 
-    const [, googleResponse, promptGoogleAsync] = Google.useAuthRequest({
+    const [, googleResponse, promptGoogleAsync] = Google.useIdTokenAuthRequest({
         iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
         androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
         webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
     });
 
+    const lastGoogleIdToken = useRef<string | null>(null);
+
     useEffect(() => {
         trackEvent('auth_screen_viewed', { screen: SCREEN });
     }, []);
 
-    useEffect(() => {
-        if (googleResponse?.type === 'success') {
-            const idToken = googleResponse.params?.id_token;
-            if (idToken) {
-                const credential = GoogleAuthProvider.credential(idToken);
-                handleSocialLogin(credential, 'google');
+    const handleSocialLogin = useCallback(
+        async (credential: any, method: 'google' | 'apple') => {
+            setIsLoading(true);
+            try {
+                await trackEvent('login_started', { screen: SCREEN, method });
+                await loginWithCredential(credential);
+                await registerForPushNotifications();
+                await trackEvent('login_success', { screen: SCREEN, method });
+            } catch (error: any) {
+                const reason = getAuthErrorReason(error);
+                await trackEvent('auth_error', { screen: SCREEN, reason });
+                Alert.alert('Sign In Failed', error.message || 'An error occurred');
+            } finally {
+                setIsLoading(false);
             }
-        }
-    }, [googleResponse]);
+        },
+        [loginWithCredential]
+    );
 
-    const handleSocialLogin = async (credential: any, method: 'google' | 'apple') => {
-        setIsLoading(true);
-        try {
-            await trackEvent('login_started', { screen: SCREEN, method });
-            await loginWithCredential(credential);
-            await registerForPushNotifications();
-            await trackEvent('login_success', { screen: SCREEN, method });
-        } catch (error: any) {
-            const reason = getAuthErrorReason(error);
-            await trackEvent('auth_error', { screen: SCREEN, reason });
-            Alert.alert('Sign In Failed', error.message || 'An error occurred');
-        } finally {
-            setIsLoading(false);
+    useEffect(() => {
+        if (!googleResponse) return;
+
+        if (googleResponse.type === 'error') {
+            const msg =
+                googleResponse.params?.error_description ||
+                googleResponse.params?.error ||
+                googleResponse.error?.message ||
+                'Google sign-in failed';
+            void trackEvent('auth_error', { screen: SCREEN, reason: 'google_error' });
+            Alert.alert('Google Sign In Failed', String(msg));
+            return;
         }
-    };
+
+        if (googleResponse.type !== 'success') return;
+
+        const idToken = extractGoogleIdToken(googleResponse);
+        if (!idToken) {
+            // Native flow: code exchange fills `id_token` shortly after success — wait for next update.
+            return;
+        }
+
+        if (lastGoogleIdToken.current === idToken) return;
+        lastGoogleIdToken.current = idToken;
+
+        const accessToken = extractGoogleAccessToken(googleResponse);
+        const credential = accessToken
+            ? GoogleAuthProvider.credential(idToken, accessToken)
+            : GoogleAuthProvider.credential(idToken);
+
+        void handleSocialLogin(credential, 'google');
+    }, [googleResponse, handleSocialLogin]);
 
     const handleGoogleLogin = async () => {
-        await promptGoogleAsync();
+        try {
+            const result = await promptGoogleAsync();
+            if (result.type === 'cancel' || result.type === 'dismiss') return;
+            if (result.type === 'error') {
+                const msg =
+                    result.params?.error_description ||
+                    result.params?.error ||
+                    result.error?.message ||
+                    'Google sign-in failed';
+                await trackEvent('auth_error', { screen: SCREEN, reason: 'google_error' });
+                Alert.alert('Google Sign In Failed', String(msg));
+            }
+        } catch (e: any) {
+            await trackEvent('auth_error', { screen: SCREEN, reason: 'google_prompt_error' });
+            Alert.alert('Google Sign In Failed', e?.message || 'Could not open Google sign-in');
+        }
     };
 
     const handleAppleLogin = async () => {
