@@ -2,6 +2,19 @@ import * as Crypto from 'expo-crypto';
 import type { AuthSessionResult } from 'expo-auth-session';
 
 /**
+ * **Web only** — `expo-auth-session` Google provider on `Platform.OS === 'web'`.
+ * Uses the Web OAuth client; browser redirects are allowed for that client type.
+ *
+ * **Native (iOS/Android)** — use `@react-native-google-signin/google-signin` instead. A WEB client
+ * cannot use native custom-scheme redirect URIs; an iOS client ID makes the ID token `aud` wrong for
+ * Firebase if you only use `expo-auth-session` without the native SDK’s `webClientId` behavior.
+ */
+export const googleWebAuthRequestConfig = {
+    clientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+};
+
+/**
  * After Google OAuth, the ID token may appear on `params` (implicit / merged)
  * or on `authentication` (authorization code exchange). Both must be checked for Firebase.
  */

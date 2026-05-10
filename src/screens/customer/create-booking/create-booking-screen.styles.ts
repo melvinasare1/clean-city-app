@@ -124,6 +124,64 @@ export const styles = StyleSheet.create({
     color: COLORS.primary,
     fontWeight: "600",
   },
+  frequencyCardInner: {
+    width: "100%",
+    gap: 6,
+  },
+  frequencyCardTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    flexWrap: "wrap",
+    gap: VARS.xxsmall,
+  },
+  frequencyCardTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: COLORS.text,
+  },
+  frequencyCardTitleSelected: {
+    color: COLORS.primary,
+  },
+  frequencyDiscountBadge: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    backgroundColor: "#E8F5E9",
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+  },
+  frequencyDiscountBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: COLORS.primary,
+  },
+  frequencyCardDetail: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: COLORS.textSecondary,
+  },
+  frequencyCardDetailSelected: {
+    color: COLORS.text,
+  },
+  frequencyPriceRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 2,
+  },
+  frequencyPriceOriginal: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    textDecorationLine: "line-through",
+  },
+  frequencyPriceDiscount: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: COLORS.primary,
+  },
   dayDropdown: {
     marginTop: VARS.xsmall,
     marginBottom: VARS.medium,
@@ -141,6 +199,13 @@ export const styles = StyleSheet.create({
   dayDropdownPlaceholder: {
     fontSize: 16,
     color: COLORS.textSecondary,
+  },
+  collectionHelperText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: COLORS.textSecondary,
+    marginTop: VARS.xxsmall,
+    lineHeight: 18,
   },
   dayModalOverlay: {
     flex: 1,

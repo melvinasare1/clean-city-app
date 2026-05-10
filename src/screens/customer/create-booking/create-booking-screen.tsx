@@ -1,14 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, TouchableOpacity, Alert, ScrollView, Modal } from 'react-native';
-import DateTimePicker, {
-  DateTimePickerEvent,
-} from '@react-native-community/datetimepicker';
+import { View, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AppText, AppButton } from '@/components';
 import { useAuth } from '@/hooks/useAuth';
 import { TIME_WINDOWS, TimeWindowId } from '@/lib/time-windows';
 import type { BookingType } from '@/types/booking';
-import type { SubscriptionInterval } from '@/types/subscription';
 import { createBooking, initiatePaymentForBooking, updateBooking } from '@/services/booking-service';
 import { createSubscription, confirmFreeBooking } from '@/services/payments';
 import { saveSubscriptionRecord } from '@/services/subscription-service';
@@ -16,6 +12,13 @@ import * as Linking from 'expo-linking';
 import { CustomerStackParamList } from '@/navigation/types';
 import { styles } from './create-booking-screen.styles';
 import { trackEvent } from '@/services/analytics';
+import { SubscriptionCollectionCalendarModal } from './subscription-collection-calendar-modal';
+import {
+  getSubscriptionDiscount,
+  intervalWeeksToDiscountFrequency,
+  formatSubscriptionDiscountBadge,
+  type SubscriptionDiscountFrequency,
+} from '@/lib/subscription-discount';
 
 type CreateBookingScreenProps = NativeStackScreenProps<
   CustomerStackParamList,
@@ -34,30 +37,43 @@ const COLLECTION_DAYS = [
   'saturday',
 ] as const;
 
-const DAY_TO_NUMBER: Record<string, number> = {
-  sunday: 0,
-  monday: 1,
-  tuesday: 2,
-  wednesday: 3,
-  thursday: 4,
-  friday: 5,
-  saturday: 6,
-};
+function startOfDayLocal(d: Date): Date {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
 
-/** Next occurrence of the given day of week (e.g. "tuesday"), from today onward. */
-function getNextDateForDay(dayOfWeek: string): Date {
-  const targetDay = DAY_TO_NUMBER[dayOfWeek.toLowerCase()] ?? 0;
-  const now = new Date();
-  const today = now.getDay();
-  let daysAhead = targetDay - today;
-  if (daysAhead <= 0) daysAhead += 7;
-  const next = new Date(now);
-  next.setDate(now.getDate() + daysAhead);
-  return next;
+function addDaysLocal(d: Date, n: number): Date {
+  const x = new Date(d);
+  x.setDate(x.getDate() + n);
+  return startOfDayLocal(x);
+}
+
+/** First selectable subscription start: past + today + next 2 calendar days blocked. */
+function formatSubscriptionStartDisplay(d: Date): string {
+  return d.toLocaleDateString('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
 }
 
 const formatDayLabel = (day: string) =>
   day.charAt(0).toUpperCase() + day.slice(1);
+
+function subscriptionRecurringHelperCopy(
+  intervalWeeks: number,
+  weekdayDisplay: string
+): string {
+  if (intervalWeeks === 1) {
+    return `Your pickups will repeat every ${weekdayDisplay} from this date`;
+  }
+  if (intervalWeeks === 2) {
+    return `Your pickups will repeat every other ${weekdayDisplay} from this date`;
+  }
+  return `Your pickups will repeat on the ${weekdayDisplay} of each month from this date`;
+}
 
 const formatDate = (date: Date) =>
   date.toLocaleDateString(undefined, {
@@ -69,6 +85,56 @@ const formatDate = (date: Date) =>
 
 const formatPrice = (value: number) => `GHS ${value.toFixed(2)}`;
 
+/** Pickups included in each billed period (weekly/biweekly: 28-day cycle; monthly: one calendar pickup). */
+function pickupsPerBillingPeriod(intervalWeeks: number): number {
+  if (intervalWeeks === 1) return 4;
+  if (intervalWeeks === 2) return 2;
+  return 1;
+}
+
+function subscriptionPeriodAmounts(onePickupTotal: number, intervalWeeks: number) {
+  const pickups = pickupsPerBillingPeriod(intervalWeeks);
+  const undiscounted = onePickupTotal * pickups;
+  const frequency = intervalWeeksToDiscountFrequency(intervalWeeks);
+  const discountRate = getSubscriptionDiscount(frequency);
+  const discounted = undiscounted * (1 - discountRate);
+  return { pickups, undiscounted, discounted, discountRate, frequency };
+}
+
+const FREQUENCY_OPTIONS: {
+  intervalWeeks: 1 | 2 | 4;
+  frequency: SubscriptionDiscountFrequency;
+  title: string;
+  pickupsCopy: string;
+  billingCopy: string;
+  pricePeriodSuffix: string;
+}[] = [
+  {
+    intervalWeeks: 1,
+    frequency: "weekly",
+    title: "Weekly",
+    pickupsCopy: "4 pickups covered",
+    billingCopy: "Billed every 28 days",
+    pricePeriodSuffix: "/28 days",
+  },
+  {
+    intervalWeeks: 2,
+    frequency: "biweekly",
+    title: "Biweekly",
+    pickupsCopy: "2 pickups covered",
+    billingCopy: "Billed every 28 days",
+    pricePeriodSuffix: "/28 days",
+  },
+  {
+    intervalWeeks: 4,
+    frequency: "monthly",
+    title: "Monthly",
+    pickupsCopy: "1 pickup covered",
+    billingCopy: "Billed monthly",
+    pricePeriodSuffix: "/month",
+  },
+];
+
 export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
   route,
   navigation,
@@ -76,7 +142,7 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
   const { items, totalPrice } = route.params;
   const { user } = useAuth();
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showOneOffCalendar, setShowOneOffCalendar] = useState(false);
   const [selectedWindowId, setSelectedWindowId] = useState<TimeWindowId | null>(
     null
   );
@@ -86,22 +152,21 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
   /** Map intervalWeeks to collectionFrequency: 1=weekly, 2=biweekly, 4=monthly. Billing is always monthly. */
   const collectionFrequency: "weekly" | "biweekly" | "monthly" =
     intervalWeeks === 1 ? "weekly" : intervalWeeks === 2 ? "biweekly" : "monthly";
-  const [collectionDayOfWeek, setCollectionDayOfWeek] = useState<string | null>(null);
-  const [showDayPicker, setShowDayPicker] = useState(false);
+  const [subscriptionStartDate, setSubscriptionStartDate] = useState<Date | null>(null);
+  const [showSubscriptionCalendar, setShowSubscriptionCalendar] = useState(false);
+
+  const collectionDayKey = useMemo(() => {
+    if (!subscriptionStartDate) return null;
+    return COLLECTION_DAYS[subscriptionStartDate.getDay()];
+  }, [subscriptionStartDate]);
+
+  const minimumPickupCalendarDate = useMemo(
+    () => addDaysLocal(startOfDayLocal(new Date()), 3),
+    []
+  );
 
   const locationMissing = !user?.location;
   const hasItems = items.length > 0;
-
-  const dateLabel = selectedDate
-    ? formatDate(selectedDate)
-    : 'Select a date (today or later)';
-
-  const handleDateChange = (_: DateTimePickerEvent, date?: Date) => {
-    setShowDatePicker(false);
-    if (date) {
-      setSelectedDate(date);
-    }
-  };
 
   const isOneTimeConfirmDisabled =
     !user ||
@@ -113,18 +178,30 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
 
   const isSubscription = bookingType === "subscription";
 
+  const subscriptionPeriodPricing = useMemo(
+    () => subscriptionPeriodAmounts(totalPrice, intervalWeeks),
+    [totalPrice, intervalWeeks]
+  );
+
   const discountedTotal = useMemo(() => {
     if (!isSubscription) {
       return totalPrice;
     }
-    return totalPrice * 0.9;
-  }, [isSubscription, totalPrice]);
+    return subscriptionPeriodPricing.discounted;
+  }, [isSubscription, totalPrice, subscriptionPeriodPricing.discounted]);
+
+  const subscriptionUndiscountedTotal = useMemo(() => {
+    if (!isSubscription) {
+      return totalPrice;
+    }
+    return subscriptionPeriodPricing.undiscounted;
+  }, [isSubscription, totalPrice, subscriptionPeriodPricing.undiscounted]);
 
   const isSubscriptionStartDisabled =
     !user ||
     !user?.location ||
     !hasItems ||
-    !collectionDayOfWeek ||
+    !subscriptionStartDate ||
     discountedTotal <= 0 ||
     isSaving;
 
@@ -139,8 +216,15 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
     if (!isSubscription) {
       return 0;
     }
-    return totalPrice - discountedTotal;
-  }, [isSubscription, totalPrice, discountedTotal]);
+    return subscriptionUndiscountedTotal - discountedTotal;
+  }, [isSubscription, subscriptionUndiscountedTotal, discountedTotal]);
+
+  const selectedSubscriptionDiscountPercent = useMemo(() => {
+    if (!isSubscription) {
+      return 0;
+    }
+    return Math.round(getSubscriptionDiscount(collectionFrequency) * 100);
+  }, [isSubscription, collectionFrequency]);
 
   useEffect(() => {
     trackEvent('checkout_viewed', { screen: 'checkout' });
@@ -161,20 +245,20 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
       );
       return;
     }
-    if (!collectionDayOfWeek) {
-      Alert.alert('Please select a collection day');
+    if (!subscriptionStartDate || !collectionDayKey) {
+      Alert.alert('Please select your first collection date');
       return;
     }
     try {
       setIsSaving(true);
-      const firstCollectionDate = getNextDateForDay(collectionDayOfWeek);
+      const startDateIso = subscriptionStartDate.toISOString().slice(0, 10);
       const defaultWindow = TIME_WINDOWS[0];
       let bookingId: string;
       try {
         bookingId = await createBooking({
           userId: user.id,
           userEmail: user.email,
-          date: firstCollectionDate.toISOString().slice(0, 10),
+          date: startDateIso,
           windowId: defaultWindow.id,
           windowLabel: defaultWindow.label,
           location: user.location ?? '',
@@ -203,9 +287,10 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
           amount: discountedTotal,
           bookingId,
           collectionFrequency,
-          collectionDay: collectionDayOfWeek.toLowerCase(),
+          collectionDay: collectionDayKey.toLowerCase(),
+          startDate: startDateIso,
           interval: intervalWeeks === 1 ? 'weekly' : 'monthly',
-          collectionDayOfWeek: collectionDayOfWeek.toLowerCase(),
+          collectionDayOfWeek: collectionDayKey.toLowerCase(),
           items: items.map((i) => ({
             type: i.type,
             quantity: i.quantity ?? 1,
@@ -217,6 +302,7 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
             binType: items.map((i) => i.type).join(', '),
             quantity: items.reduce((acc, i) => acc + (i.quantity ?? 1), 0),
             location: user.location ?? '',
+            startDate: startDateIso,
           },
         });
         authorizationUrl = result.authorizationUrl;
@@ -245,7 +331,7 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
           status: 'pending',
           amount: discountedTotal,
           interval: intervalWeeks === 1 ? 'weekly' : 'monthly',
-          metadata: { items: items.length },
+          metadata: { items: items.length, startDate: startDateIso },
         });
       }
 
@@ -443,107 +529,95 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
             </AppText>
             <AppText style={styles.label}>Collection frequency</AppText>
             <View style={styles.windowButtonsContainer}>
-              <TouchableOpacity
-                style={[
-                  styles.windowButton,
-                  intervalWeeks === 1 && styles.windowButtonSelected,
-                ]}
-                onPress={() => setIntervalWeeks(1)}
-              >
-                <AppText
-                  style={[
-                    styles.windowButtonText,
-                    intervalWeeks === 1 && styles.windowButtonTextSelected,
-                  ]}
-                >
-                  Weekly
-                </AppText>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.windowButton,
-                  intervalWeeks === 2 && styles.windowButtonSelected,
-                ]}
-                onPress={() => setIntervalWeeks(2)}
-              >
-                <AppText
-                  style={[
-                    styles.windowButtonText,
-                    intervalWeeks === 2 && styles.windowButtonTextSelected,
-                  ]}
-                >
-                  Biweekly
-                </AppText>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.windowButton,
-                  intervalWeeks === 4 && styles.windowButtonSelected,
-                ]}
-                onPress={() => setIntervalWeeks(4)}
-              >
-                <AppText
-                  style={[
-                    styles.windowButtonText,
-                    intervalWeeks === 4 && styles.windowButtonTextSelected,
-                  ]}
-                >
-                  Monthly
-                </AppText>
-              </TouchableOpacity>
+              {FREQUENCY_OPTIONS.map((opt) => {
+                const isSelected = intervalWeeks === opt.intervalWeeks;
+                const { undiscounted, discounted } = subscriptionPeriodAmounts(
+                  totalPrice,
+                  opt.intervalWeeks
+                );
+                return (
+                  <TouchableOpacity
+                    key={opt.intervalWeeks}
+                    style={[
+                      styles.windowButton,
+                      isSelected && styles.windowButtonSelected,
+                    ]}
+                    onPress={() => setIntervalWeeks(opt.intervalWeeks)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: isSelected }}
+                  >
+                    <View style={styles.frequencyCardInner}>
+                      <View style={styles.frequencyCardTitleRow}>
+                        <AppText
+                          style={[
+                            styles.frequencyCardTitle,
+                            isSelected && styles.frequencyCardTitleSelected,
+                          ]}
+                        >
+                          {opt.title}
+                        </AppText>
+                        <View style={styles.frequencyDiscountBadge}>
+                          <AppText style={styles.frequencyDiscountBadgeText}>
+                            {formatSubscriptionDiscountBadge(opt.frequency)}
+                          </AppText>
+                        </View>
+                      </View>
+                      <AppText
+                        style={[
+                          styles.frequencyCardDetail,
+                          isSelected && styles.frequencyCardDetailSelected,
+                        ]}
+                      >
+                        {`${opt.pickupsCopy} · ${opt.billingCopy}`}
+                      </AppText>
+                      <View style={styles.frequencyPriceRow}>
+                        <AppText style={styles.frequencyPriceOriginal}>
+                          {formatPrice(undiscounted)}
+                          {opt.pricePeriodSuffix}
+                        </AppText>
+                        <AppText style={styles.frequencyPriceDiscount}>
+                          {formatPrice(discounted)}
+                          {opt.pricePeriodSuffix}
+                        </AppText>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
             <AppText style={styles.label}>Select your collection day</AppText>
             <TouchableOpacity
               style={styles.dayDropdown}
-              onPress={() => setShowDayPicker(true)}
+              onPress={() => setShowSubscriptionCalendar(true)}
             >
               <AppText
                 style={
-                  collectionDayOfWeek
+                  subscriptionStartDate
                     ? styles.dayDropdownText
                     : styles.dayDropdownPlaceholder
                 }
               >
-                {collectionDayOfWeek
-                  ? formatDayLabel(collectionDayOfWeek)
-                  : 'Select day'}
+                {subscriptionStartDate
+                  ? formatSubscriptionStartDisplay(subscriptionStartDate)
+                  : 'Select first collection date'}
               </AppText>
             </TouchableOpacity>
-            <Modal
-              visible={showDayPicker}
-              transparent
-              animationType="fade"
-              onRequestClose={() => setShowDayPicker(false)}
-            >
-              <View style={styles.dayModalOverlay}>
-                <View style={styles.dayModal}>
-                  <AppText style={styles.dayModalTitle}>
-                    Select your collection day
-                  </AppText>
-                  {COLLECTION_DAYS.map((day) => (
-                    <TouchableOpacity
-                      key={day}
-                      style={styles.dayOption}
-                      onPress={() => {
-                        setCollectionDayOfWeek(day);
-                        setShowDayPicker(false);
-                      }}
-                    >
-                      <AppText style={styles.dayOptionText}>
-                        {formatDayLabel(day)}
-                      </AppText>
-                    </TouchableOpacity>
-                  ))}
-                  <TouchableOpacity
-                    style={styles.dayModalCancel}
-                    onPress={() => setShowDayPicker(false)}
-                  >
-                    <AppText style={styles.dayModalCancelText}>Cancel</AppText>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </Modal>
+            {subscriptionStartDate && collectionDayKey && (
+              <AppText style={styles.collectionHelperText}>
+                {subscriptionRecurringHelperCopy(
+                  intervalWeeks,
+                  formatDayLabel(collectionDayKey)
+                )}
+              </AppText>
+            )}
+            <SubscriptionCollectionCalendarModal
+              visible={showSubscriptionCalendar}
+              onClose={() => setShowSubscriptionCalendar(false)}
+              minimumDate={minimumPickupCalendarDate}
+              selectedDate={subscriptionStartDate}
+              onSelectDate={setSubscriptionStartDate}
+            />
           </>
         )}
 
@@ -569,7 +643,7 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
                 <AppText
                   style={[styles.summaryOriginalValue, { marginRight: 8 }]}
                 >
-                  {formatPrice(totalPrice)}
+                  {formatPrice(subscriptionUndiscountedTotal)}
                 </AppText>
                 <AppText style={styles.summaryTotalValue}>
                   {formatPrice(discountedTotal)}
@@ -584,14 +658,14 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
           {isSubscription && savings > 0 && (
             <View style={{ marginTop: 4 }}>
               <AppText style={styles.summarySavingsText}>
-                You’re saving {formatPrice(savings)} with a 10% subscription discount.
+                You’re saving {formatPrice(savings)} with a {selectedSubscriptionDiscountPercent}% subscription discount.
               </AppText>
             </View>
           )}
-          {isSubscription && collectionDayOfWeek && (
+          {isSubscription && subscriptionStartDate && collectionDayKey && (
             <View style={{ marginTop: 8 }}>
               <AppText style={styles.summaryItemMeta}>
-                Collection Day: {formatDayLabel(collectionDayOfWeek)}
+                First collection: {formatSubscriptionStartDisplay(subscriptionStartDate)}
               </AppText>
             </View>
           )}
@@ -609,21 +683,28 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
           <>
             <AppText style={styles.label}>Date</AppText>
             <TouchableOpacity
-              style={styles.dateSelector}
-              onPress={() => setShowDatePicker(true)}
+              style={styles.dayDropdown}
+              onPress={() => setShowOneOffCalendar(true)}
             >
-              <AppText style={styles.dateSelectorText}>{dateLabel}</AppText>
+              <AppText
+                style={
+                  selectedDate ? styles.dayDropdownText : styles.dayDropdownPlaceholder
+                }
+              >
+                {selectedDate
+                  ? formatSubscriptionStartDisplay(selectedDate)
+                  : 'Select pickup date'}
+              </AppText>
             </TouchableOpacity>
-
-            {showDatePicker && (
-              <DateTimePicker
-                value={selectedDate ?? new Date()}
-                mode="date"
-                display="default"
-                minimumDate={new Date()}
-                onChange={handleDateChange}
-              />
-            )}
+            <SubscriptionCollectionCalendarModal
+              visible={showOneOffCalendar}
+              onClose={() => setShowOneOffCalendar(false)}
+              minimumDate={minimumPickupCalendarDate}
+              selectedDate={selectedDate}
+              onSelectDate={setSelectedDate}
+              title="Pickup date"
+              subtitle="Choose when you'd like your pickup. Past dates and the next two days are not available."
+            />
 
             <AppText style={styles.label}>Time window</AppText>
             <View style={styles.windowButtonsContainer}>

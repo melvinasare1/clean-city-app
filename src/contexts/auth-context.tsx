@@ -5,6 +5,7 @@ import React, {
     useState,
     useCallback,
 } from 'react';
+import { Platform } from 'react-native';
 import {
     doc,
     getDoc,
@@ -20,6 +21,8 @@ import {
     type User as FirebaseUser,
 } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
+import { signOutGoogleSession } from '@/lib/google-session';
+import { ensureGoogleSignInConfigured } from '@/lib/google-signin-config';
 import { setDocAtPath } from '@/lib/utils';
 import { registerForPushNotifications, removePushTokenFromFirestore } from '@/lib/push';
 import { loadReminderSettingsAndReschedule, loadWeeklyReminderSettingsAndReschedule } from '@/lib/reminders';
@@ -94,6 +97,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [user, setUser] = useState<AppUser | null>(null);
     const [loading, setLoading] = useState(true);
     const [currentFirebaseUser, setCurrentFirebaseUser] = useState<FirebaseUser | null>(null);
+
+    useEffect(() => {
+        if (Platform.OS !== 'web') {
+            ensureGoogleSignInConfigured();
+        }
+    }, []);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -228,6 +237,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 // Don't throw - continue with logout even if token removal fails
             }
         }
+        await signOutGoogleSession();
         await signOut(auth);
     };
 

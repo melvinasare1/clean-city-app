@@ -61,6 +61,8 @@ export interface CreateSubscriptionRequest {
   /** Collection frequency (pickup schedule). Billing is always calendar monthly. */
   collectionFrequency: CollectionFrequency;
   collectionDay: string;
+  /** ISO date (YYYY-MM-DD) — first collection / anchor for 28-day billing windows. */
+  startDate?: string;
   /** Required: booking id for the subscription (created before calling this). */
   bookingId: string;
   /** Items being purchased (stored on subscription + payment for records). */

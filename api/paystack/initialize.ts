@@ -93,7 +93,23 @@ interface InitializeRequest {
   /** For subscription_initial: items (type, quantity, unitPrice, totalPrice) and location to store on subscription + payment. */
   items?: PaymentItemSnapshot[];
   location?: string;
+  /** ISO YYYY-MM-DD — anchors the first 28-day billing period for subscription_initial. */
+  startDate?: string;
   metadata?: Record<string, unknown>;
+}
+
+function addDaysDate(d: Date, n: number): Date {
+  const x = new Date(d.getTime());
+  x.setDate(x.getDate() + n);
+  return x;
+}
+
+/** Parse YYYY-MM-DD to local calendar date at noon (avoid TZ drift). */
+function parseStartDateIso(iso: string): Date {
+  const part = iso.trim().split("T")[0];
+  const [y, m, d] = part.split("-").map((s) => parseInt(s, 10));
+  if (!y || !m || !d) return new Date();
+  return new Date(y, m - 1, d, 12, 0, 0, 0);
 }
 
 function getNextBillingDate(billingDay: number): Date {
@@ -213,9 +229,29 @@ async function handleNewSubscription(
     : collectionFrequency;
   const effectiveCollectionDay = useLegacy ? String(collectionDayOfWeek ?? "") : String(collectionDay ?? "");
   const effectiveBillingDay = Math.min(28, Math.max(1, Math.floor(Number(billingDay) || 1)));
-  const nextBillingDate = getNextBillingDate(effectiveBillingDay);
 
-  // Items: prefer body.items; fallback to metadata.binType + metadata.quantity for backward compat
+  let billingPeriodStart: Date;
+  let billingPeriodEnd: Date;
+  let nextBillingDateForSub: Date;
+
+  const startRaw = typeof body.startDate === "string" ? body.startDate.trim() : "";
+  if (startRaw) {
+    const anchor = parseStartDateIso(startRaw);
+    anchor.setHours(0, 0, 0, 0);
+    billingPeriodStart = anchor;
+    billingPeriodEnd = addDaysDate(anchor, 28);
+    nextBillingDateForSub = billingPeriodEnd;
+  } else {
+    nextBillingDateForSub = getNextBillingDate(effectiveBillingDay);
+    billingPeriodStart = new Date(
+      nextBillingDateForSub.getFullYear(),
+      nextBillingDateForSub.getMonth(),
+      nextBillingDateForSub.getDate()
+    );
+    billingPeriodEnd = getBillingPeriodEnd(billingPeriodStart);
+  }
+
+  const nextBillingDate = nextBillingDateForSub;
   let itemsSnapshot: PaymentItemSnapshot[] | undefined;
   if (Array.isArray(body.items) && body.items.length > 0) {
     itemsSnapshot = body.items.map((i: any) => ({
@@ -263,13 +299,14 @@ async function handleNewSubscription(
       updatedAt: admin.firestore.Timestamp.fromDate(now),
       ...(extraMetadata && Object.keys(extraMetadata).length ? { metadata: extraMetadata } : {}),
     };
+    if (startRaw) {
+      subDoc.startDate = startRaw;
+      subDoc.subscriptionAnchorDate = admin.firestore.Timestamp.fromDate(billingPeriodStart);
+    }
     if (itemsSnapshot?.length) subDoc.items = itemsSnapshot;
     if (locationToStore) subDoc.location = locationToStore;
     await docRef.set(subDoc, { merge: false });
   }
-
-  const billingPeriodStart = new Date(nextBillingDate.getFullYear(), nextBillingDate.getMonth(), nextBillingDate.getDate());
-  const billingPeriodEnd = getBillingPeriodEnd(billingPeriodStart);
 
   const metadata: Record<string, string> = {
     type: "subscription",
@@ -280,6 +317,7 @@ async function handleNewSubscription(
     billingDay: String(effectiveBillingDay),
     billingPeriodStart: billingPeriodStart.toISOString(),
     billingPeriodEnd: billingPeriodEnd.toISOString(),
+    ...(startRaw ? { startDate: startRaw } : {}),
   };
 
   const paystackResponse = await fetch(

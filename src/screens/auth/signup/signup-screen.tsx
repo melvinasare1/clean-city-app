@@ -1,5 +1,5 @@
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
     View,
     Text,
@@ -9,9 +9,8 @@ import {
     KeyboardAvoidingView,
     Platform,
 } from 'react-native';
-import * as Google from 'expo-auth-session/providers/google';
 import * as AppleAuthentication from 'expo-apple-authentication';
-import { GoogleAuthProvider, OAuthProvider } from 'firebase/auth';
+import { OAuthProvider, type AuthCredential } from 'firebase/auth';
 import { styles } from './signup-screen.styles';
 import { AppText, AppTextInput } from '@/components';
 import { useAuth } from '@/hooks/useAuth';
@@ -20,14 +19,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { SignupScreenProps } from '../types';
 import { trackEvent } from '@/services/analytics';
 import type { AppUserRole } from '@/contexts/auth-context';
-import {
-    generateNonce,
-    sha256,
-    extractGoogleIdToken,
-    extractGoogleAccessToken,
-} from '@/lib/social-auth';
+import { generateNonce, sha256 } from '@/lib/social-auth';
+import { GoogleAuthButton } from '../google-auth-button';
 
 const SCREEN = 'signup';
+
+/** Sign in with Apple is only available on iOS; Android shows Google only. */
+const SHOW_APPLE_SIGN_IN = Platform.OS === 'ios';
 
 const getSignupErrorReason = (error: any): string => {
     const code = error?.code as string | undefined;
@@ -59,14 +57,6 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({ navigation }) => {
     const [isLoading, setIsLoading] = useState(false);
     const { signup, loginWithCredential } = useAuth();
 
-    const [, googleResponse, promptGoogleAsync] = Google.useIdTokenAuthRequest({
-        iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-        androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-        webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-    });
-
-    const lastGoogleIdToken = useRef<string | null>(null);
-
     useEffect(() => {
         trackEvent('auth_screen_viewed', { screen: SCREEN });
     }, []);
@@ -88,55 +78,6 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({ navigation }) => {
         },
         [loginWithCredential]
     );
-
-    useEffect(() => {
-        if (!googleResponse) return;
-
-        if (googleResponse.type === 'error') {
-            const msg =
-                googleResponse.params?.error_description ||
-                googleResponse.params?.error ||
-                googleResponse.error?.message ||
-                'Google sign-in failed';
-            void trackEvent('auth_error', { screen: SCREEN, reason: 'google_error' });
-            Alert.alert('Google Sign Up Failed', String(msg));
-            return;
-        }
-
-        if (googleResponse.type !== 'success') return;
-
-        const idToken = extractGoogleIdToken(googleResponse);
-        if (!idToken) return;
-
-        if (lastGoogleIdToken.current === idToken) return;
-        lastGoogleIdToken.current = idToken;
-
-        const accessToken = extractGoogleAccessToken(googleResponse);
-        const credential = accessToken
-            ? GoogleAuthProvider.credential(idToken, accessToken)
-            : GoogleAuthProvider.credential(idToken);
-
-        void handleSocialSignup(credential, 'google');
-    }, [googleResponse, handleSocialSignup]);
-
-    const handleGoogleSignup = async () => {
-        try {
-            const result = await promptGoogleAsync();
-            if (result.type === 'cancel' || result.type === 'dismiss') return;
-            if (result.type === 'error') {
-                const msg =
-                    result.params?.error_description ||
-                    result.params?.error ||
-                    result.error?.message ||
-                    'Google sign-in failed';
-                await trackEvent('auth_error', { screen: SCREEN, reason: 'google_error' });
-                Alert.alert('Google Sign Up Failed', String(msg));
-            }
-        } catch (e: any) {
-            await trackEvent('auth_error', { screen: SCREEN, reason: 'google_prompt_error' });
-            Alert.alert('Google Sign Up Failed', e?.message || 'Could not open Google sign-in');
-        }
-    };
 
     const handleAppleSignup = async () => {
         try {
@@ -261,15 +202,7 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({ navigation }) => {
                             <View style={styles.dividerLine} />
                         </View>
 
-                        <TouchableOpacity
-                            style={[styles.socialButton, isLoading && styles.buttonDisabled]}
-                            onPress={handleGoogleSignup}
-                            disabled={isLoading}
-                        >
-                            <AppText style={styles.socialButtonText}>Continue with Google</AppText>
-                        </TouchableOpacity>
-
-                        {Platform.OS === 'ios' && (
+                        {SHOW_APPLE_SIGN_IN && (
                             <TouchableOpacity
                                 style={[styles.socialButton, styles.appleButton, isLoading && styles.buttonDisabled]}
                                 onPress={handleAppleSignup}
@@ -280,6 +213,16 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({ navigation }) => {
                                 </AppText>
                             </TouchableOpacity>
                         )}
+
+                        <GoogleAuthButton
+                            screen={SCREEN}
+                            disabled={isLoading}
+                            style={[styles.socialButton, isLoading && styles.buttonDisabled]}
+                            textStyle={styles.socialButtonText}
+                            onGoogleCredential={(credential: AuthCredential) =>
+                                handleSocialSignup(credential, 'google')
+                            }
+                        />
 
                         <AppText style={styles.dividerText}>
                             Social sign-in creates a customer account
