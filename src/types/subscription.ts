@@ -17,6 +17,8 @@ export type SubscriptionPayment = {
   reference?: string;
 };
 
+export type SubscriptionCancelledBy = "customer" | "admin" | "system";
+
 export type Subscription = {
   id: string;
   userId: string;
@@ -49,6 +51,12 @@ export type Subscription = {
   lastChargeDate?: Timestamp | null;
   /** Current payment cycle state */
   payment?: SubscriptionPayment;
+  /** Timestamp when the subscription was cancelled */
+  cancelledAt?: Timestamp | null;
+  /** Who cancelled the subscription */
+  cancelledBy?: SubscriptionCancelledBy;
+  /** Prior status before cancellation, for billing/support history */
+  cancelledFromStatus?: string;
   metadata?: Record<string, unknown>;
   createdAt: Timestamp | null;
   updatedAt?: Timestamp | null;

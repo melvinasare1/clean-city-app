@@ -152,6 +152,10 @@ export function subscribeToUserSubscriptions(
           bookingId: typeof data.bookingId === "string" ? data.bookingId : undefined,
           nextChargeDate: (data.nextChargeDate ?? data.nextBillingDate) as Subscription["nextChargeDate"] ?? null,
           lastChargeDate: (data.lastChargeDate as Subscription["lastChargeDate"]) ?? null,
+          cancelledAt: (data.cancelledAt as Subscription["cancelledAt"]) ?? null,
+          cancelledBy: data.cancelledBy as Subscription["cancelledBy"] | undefined,
+          cancelledFromStatus:
+            typeof data.cancelledFromStatus === "string" ? data.cancelledFromStatus : undefined,
           payment: payment
             ? {
                 status: payment.status ?? "none",

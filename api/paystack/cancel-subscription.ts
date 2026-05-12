@@ -4,6 +4,17 @@ import { getSubscriptionById } from "./bookings";
 
 const SUBSCRIPTIONS_COLLECTION = "subscriptions";
 
+// Initialize Firebase Admin here as well so cancellation does not depend on
+// side effects from another import path.
+if (!admin.apps.length && process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+  try {
+    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+    admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+  } catch (e) {
+    console.error("Firebase init failed:", e);
+  }
+}
+
 /**
  * POST /api/paystack/cancel-subscription
  * MoMo only; no Paystack subscription. Updates Firestore status to "cancelled".
@@ -67,6 +78,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
+    const previousStatus =
+      typeof subscription.status === "string" ? subscription.status : "unknown";
+
+    if (previousStatus === "cancelled") {
+      return res.status(200).json({
+        ok: true,
+        message: "Subscription already cancelled",
+      });
+    }
+
     await admin
       .firestore()
       .collection(SUBSCRIPTIONS_COLLECTION)
@@ -74,6 +95,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .set(
         {
           status: "cancelled",
+          cancelledAt: admin.firestore.FieldValue.serverTimestamp(),
+          cancelledBy: "customer",
+          cancelledFromStatus: previousStatus,
+          paymentDueSince: admin.firestore.FieldValue.delete(),
+          currentPaymentReference: admin.firestore.FieldValue.delete(),
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         },
         { merge: true },
