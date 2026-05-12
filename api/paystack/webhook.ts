@@ -284,6 +284,38 @@ export default async function handler(
                       );
                       console.log(`Subscription ${subscriptionId} charge.success: nextBilling=${nextBilling.toISOString()}`);
 
+                      const subscriptionBookingId =
+                        typeof metadata?.bookingId === 'string' && metadata.bookingId.trim() !== ''
+                          ? metadata.bookingId.trim()
+                          : typeof subData?.bookingId === 'string' && subData.bookingId.trim() !== ''
+                            ? subData.bookingId.trim()
+                            : '';
+                      if (subscriptionBookingId) {
+                        try {
+                          await firestore
+                            .collection('bookings')
+                            .doc(subscriptionBookingId)
+                            .set(
+                              {
+                                payment: {
+                                  status: 'paid',
+                                  reference,
+                                  paidAt: FieldValue.serverTimestamp(),
+                                },
+                              },
+                              { merge: true }
+                            );
+                          console.log(
+                            `Booking ${subscriptionBookingId} marked paid (subscription ${subscriptionId})`
+                          );
+                        } catch (bookingPayErr) {
+                          console.error(
+                            `Failed to mark booking ${subscriptionBookingId} paid for subscription:`,
+                            bookingPayErr
+                          );
+                        }
+                      }
+
                       // Generate jobs only after successful payment; do not generate if subscription was overdue
                       if (!wasOverdue) {
                         const collectionFrequency = (subData?.collectionFrequency ?? 'monthly') as JobCollectionFrequency;

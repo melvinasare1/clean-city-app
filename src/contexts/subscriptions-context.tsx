@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
 import type { Unsubscribe } from "firebase/firestore";
+import { useAuth } from "@/hooks/useAuth";
 import type { Subscription } from "@/types/subscription";
 import { subscribeToUserSubscriptions } from "@/services/subscription-service";
 
@@ -17,6 +18,7 @@ interface SubscriptionsContextValue extends SubscriptionsState {
 const SubscriptionsContext = createContext<SubscriptionsContextValue | undefined>(undefined);
 
 export const SubscriptionsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
   const [state, setState] = useState<SubscriptionsState>({
     subscriptions: [],
     loading: false,
@@ -59,6 +61,25 @@ export const SubscriptionsProvider: React.FC<{ children: React.ReactNode }> = ({
     unsubscribeRef.current = unsubscribe;
     return unsubscribe;
   }, []);
+
+  /** Real-time subscriptions for the signed-in user (app-wide, not tied to one tab). */
+  useEffect(() => {
+    if (!user?.id) {
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+        unsubscribeRef.current = null;
+      }
+      setState({ subscriptions: [], loading: false, error: null });
+      return;
+    }
+    subscribe(user.id);
+    return () => {
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+        unsubscribeRef.current = null;
+      }
+    };
+  }, [user?.id, subscribe]);
 
   const refreshSubscriptions = useCallback(() => {
     setState((prev) => ({ ...prev }));

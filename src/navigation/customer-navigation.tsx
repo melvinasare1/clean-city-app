@@ -5,6 +5,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { CustomerHomeScreen } from '../screens/customer/customer-home-screen/customer-home-screen';
 import { NewBookingScreen } from '../screens/customer/new-booking-screen/new-booking-screen';
 import { MyBookingsScreen } from '../screens/customer/my-bookings/my-bookings-screen';
+import { BookingDetailScreen } from '../screens/customer/booking-detail/booking-detail-screen';
 import { CompleteProfileScreen } from '../screens/customer/complete-profile/complete-profile-screen';
 import { CreateBookingScreen } from '../screens/customer/create-booking/create-booking-screen';
 import { PaymentCallbackScreen } from '../screens/customer/payment/payment-callback-screen';
@@ -81,8 +82,9 @@ const CustomerTabs = () => (
             component={MyBookingsScreen}
             options={{
                 title: 'My Bookings',
-                tabBarLabel: 'My Bookings',
+                tabBarLabel: 'Bookings',
                 tabBarIcon: () => <IconsComponent name='BookingIcon' />,
+                headerTitleAlign: 'center',
             }}
         />
     </Tab.Navigator>
@@ -110,6 +112,11 @@ export const CustomerNavigator: React.FC = () => {
                 name="CreateBooking"
                 component={CreateBookingScreen}
                 options={{ title: 'Schedule Pickup' }}
+            />
+            <Stack.Screen
+                name="BookingDetail"
+                component={BookingDetailScreen}
+                options={{ title: 'Booking Details', headerTitleAlign: 'center' }}
             />
             <Stack.Screen
                 name="CompleteProfile"

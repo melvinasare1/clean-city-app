@@ -9,6 +9,39 @@ const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 const JOBS_COLLECTION = "jobs";
 const PAYMENTS_COLLECTION = "payments";
 
+function pickQueryParam(
+  value: string | string[] | undefined
+): string {
+  if (value == null) return "";
+  const s = Array.isArray(value) ? String(value[0] ?? "") : String(value);
+  return s.trim();
+}
+
+async function resolveReferenceFromSubscriptionId(
+  firestore: import("firebase-admin").firestore.Firestore,
+  subscriptionId: string
+): Promise<string | undefined> {
+  try {
+    const subSnap = await firestore.collection("subscriptions").doc(subscriptionId).get();
+    if (!subSnap.exists) return undefined;
+    const d = subSnap.data() as Record<string, unknown>;
+    const payment = d?.payment as { reference?: string; status?: string } | undefined;
+    const refPay = typeof payment?.reference === "string" ? payment.reference.trim() : "";
+    const refLast =
+      typeof d?.lastPaymentReference === "string" ? d.lastPaymentReference.trim() : "";
+    const refCurrent =
+      typeof d?.currentPaymentReference === "string" ? d.currentPaymentReference.trim() : "";
+    const refDirect = typeof d?.reference === "string" ? d.reference.trim() : "";
+    // Prefer nested payment + lastPaymentReference (webhook) over root reference so verify
+    // matches the transaction Paystack knows after charge.success (currentPaymentReference is deleted).
+    const combined = refPay || refLast || refCurrent || refDirect;
+    return combined || undefined;
+  } catch (e) {
+    console.error("[Verify] subscription reference lookup failed:", e);
+    return undefined;
+  }
+}
+
 /**
  * When the booking doc never received `payment.reference` (e.g. client closed before
  * Firestore write), resolve the latest Paystack reference from `payments/{ref}` docs
@@ -49,10 +82,10 @@ async function resolveReferenceFromPaymentsCollection(
 }
 
 /**
- * GET /api/paystack/verify?reference=...
- * POST /api/paystack/verify (with body.reference OR body.bookingId)
+ * GET /api/paystack/verify?reference=...&subscriptionId=...&bookingId=...
+ * POST /api/paystack/verify (with body.reference OR body.bookingId OR body.subscriptionId)
  *
- * Verify a Paystack transaction by reference or bookingId
+ * Verify a Paystack transaction by reference, bookingId, or subscriptionId (subscription resolves reference from Firestore).
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "GET" && req.method !== "POST") {
@@ -88,6 +121,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       (body.reference as string | undefined);
 
     bookingId = body.bookingId as string | undefined;
+    if (bookingId == null || bookingId === "") {
+      const fromQuery = pickQueryParam(req.query.bookingId as string | string[] | undefined);
+      if (fromQuery) bookingId = fromQuery;
+    }
     if (bookingId != null && typeof bookingId !== "string") {
       bookingId = String(bookingId).trim();
     } else if (typeof bookingId === "string") {
@@ -96,15 +133,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       bookingId = undefined;
     }
 
-    let reference = directReference;
+    const subscriptionIdFromRequest =
+      pickQueryParam(req.query.subscriptionId as string | string[] | undefined) ||
+      (typeof (body as Record<string, unknown>).subscriptionId === "string"
+        ? String((body as Record<string, unknown>).subscriptionId).trim()
+        : "");
 
-    // Require either reference or a non-empty bookingId string for POST
-    if (!reference) {
-      if (bookingId === undefined || bookingId === null || bookingId === "") {
-        return res.status(400).json({
-          ok: false,
-          error: "bookingId is required and must be a string",
-        });
+    let reference =
+      directReference != null && String(directReference).trim() !== ""
+        ? String(directReference).trim()
+        : undefined;
+
+    // Subscription MoMo: allow GET ?subscriptionId=… (and optional reference) so the app
+    // does not depend on POST JSON body parsing.
+    if (!reference && subscriptionIdFromRequest) {
+      try {
+        const firestore = getFirestore();
+        const fromSub = await resolveReferenceFromSubscriptionId(
+          firestore,
+          subscriptionIdFromRequest
+        );
+        if (fromSub) {
+          reference = fromSub;
+          console.log(
+            `[Verify] Resolved reference from subscription ${subscriptionIdFromRequest}`
+          );
+        }
+      } catch (subLookupErr) {
+        console.error("[Verify] subscriptionId lookup error:", subLookupErr);
       }
     }
 
@@ -175,7 +231,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!reference) {
       return res.status(400).json({
         ok: false,
-        error: "reference or bookingId is required",
+        error: subscriptionIdFromRequest
+          ? "No payment reference found for this subscription. Complete or retry payment first."
+          : "reference, bookingId, or subscriptionId is required, or no stored reference was found.",
       });
     }
 
@@ -273,7 +331,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             .where("bookingId", "==", resolvedBookingId)
             .limit(1)
             .get();
-          if (existingJob.empty) {
+          const bookingType = (booking as { type?: string }).type;
+          if (existingJob.empty && bookingType !== "subscription") {
             const items: JobItemSnapshot[] = Array.isArray(booking.items)
               ? (booking.items as any[]).map((i: any, idx: number) => ({
                   id:

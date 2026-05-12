@@ -24,6 +24,10 @@ export type CustomerStackParamList = {
     items: BookingBinItem[];
     totalPrice: number;
   };
+  BookingDetail: {
+    kind: 'subscription' | 'booking';
+    id: string;
+  };
   CompleteProfile: undefined;
   PaymentCallback: {
     reference: string;

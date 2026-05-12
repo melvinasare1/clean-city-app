@@ -1,16 +1,72 @@
 import { StyleSheet } from "react-native";
 import { COLORS, VARS } from "@/lib/constants";
+import { MY_BOOKINGS_DASHBOARD_TITLE_COLOR, MY_BOOKINGS_PAGE_BG } from "./my-bookings-screen.utils";
+
+export const SCREEN_PADDING_H = 16;
 
 export const styles = StyleSheet.create({
-  content: {
-    padding: VARS.medium,
-    gap: VARS.small,
+  scrollRoot: {
+    flex: 1,
+    backgroundColor: MY_BOOKINGS_PAGE_BG,
   },
-  headerRow: {
+  scrollInner: {
+    paddingHorizontal: SCREEN_PADDING_H,
+    paddingTop: 16,
+    paddingBottom: VARS.large,
+  },
+  pageHeaderBlock: {
+    marginBottom: 20,
+  },
+  dashboardTitle: {
+    fontSize: 26,
+    fontWeight: "800",
+    color: MY_BOOKINGS_DASHBOARD_TITLE_COLOR,
+    letterSpacing: -0.4,
+    lineHeight: 32,
+    marginBottom: 8,
+  },
+  dashboardSubtitle: {
+    fontSize: 14,
+    lineHeight: 21,
+    color: COLORS.textSecondary,
+    fontWeight: "400",
+    maxWidth: 360,
+  },
+  sectionBlock: {
+    marginTop: 26,
+  },
+  sectionBlockFirst: {
+    marginTop: 8,
+  },
+  sectionHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: VARS.small,
+    marginBottom: 12,
+  },
+  sectionCapsLabel: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: COLORS.textSecondary,
+    letterSpacing: 1.2,
+    marginBottom: 12,
+  },
+  sectionCapsLabelInline: {
+    flex: 1,
+    marginBottom: 0,
+    marginRight: 8,
+  },
+  schedulePill: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 22,
+  },
+  schedulePillText: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: COLORS.white,
+    letterSpacing: 0.2,
   },
   headerOptionsButton: {
     marginRight: VARS.small,
@@ -29,25 +85,10 @@ export const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: COLORS.white,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: "700",
-    marginBottom: VARS.small,
-    color: COLORS.text,
-  },
-  newBookingButton: {
-    backgroundColor: COLORS.primary,
-    paddingVertical: 8,
-    paddingHorizontal: VARS.small,
-    borderRadius: VARS.xsmall,
-  },
-  newBookingButtonText: {
-    color: COLORS.white,
-    fontWeight: "600",
-  },
   profileBanner: {
     backgroundColor: COLORS.white,
-    padding: VARS.medium,
+    paddingVertical: VARS.medium,
+    paddingHorizontal: SCREEN_PADDING_H,
     borderRadius: VARS.small,
     borderWidth: 1,
     borderColor: "#E0E0E0",
@@ -71,14 +112,15 @@ export const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: COLORS.white,
-    padding: VARS.medium,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
     borderRadius: VARS.small,
-    marginBottom: VARS.small,
+    marginBottom: 12,
     shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    elevation: 3,
   },
   cardHeader: {
     flexDirection: "row",
@@ -91,15 +133,33 @@ export const styles = StyleSheet.create({
     fontWeight: "600",
     color: COLORS.text,
   },
-  statusBadge: {
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 20,
+  bookingCardTitleRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 2,
   },
-  statusText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: COLORS.white,
+  bookingListStatusBadge: {
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    flexShrink: 0,
+  },
+  bookingListStatusText: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.6,
+  },
+  bookingCardMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 8,
+  },
+  bookingCardMetaIcon: {
+    fontSize: 14,
+    lineHeight: 18,
   },
   cardPrice: {
     fontSize: 16,
@@ -153,7 +213,8 @@ export const styles = StyleSheet.create({
   },
   errorState: {
     backgroundColor: "#FFEBEE",
-    padding: VARS.medium,
+    paddingVertical: VARS.medium,
+    paddingHorizontal: SCREEN_PADDING_H,
     borderRadius: VARS.small,
     gap: VARS.xsmall,
   },
@@ -174,7 +235,8 @@ export const styles = StyleSheet.create({
   },
   emptyState: {
     backgroundColor: "#E8F5E9",
-    padding: VARS.medium,
+    paddingVertical: VARS.medium,
+    paddingHorizontal: SCREEN_PADDING_H,
     borderRadius: VARS.small,
     alignItems: "center",
     gap: VARS.xsmall,
@@ -269,18 +331,10 @@ export const styles = StyleSheet.create({
     fontWeight: "600",
     color: COLORS.error,
   },
-  subscriptionSection: {
-    marginBottom: VARS.medium,
-  },
-  subscriptionSectionTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: COLORS.text,
-    marginBottom: VARS.xsmall,
-  },
   subscriptionCard: {
     backgroundColor: COLORS.white,
-    padding: VARS.medium,
+    paddingVertical: 18,
+    paddingHorizontal: SCREEN_PADDING_H,
     borderRadius: VARS.small,
     marginBottom: VARS.small,
     shadowColor: "#000",
@@ -329,7 +383,8 @@ export const styles = StyleSheet.create({
   },
   subscriptionEmptyCard: {
     backgroundColor: "#E8F5E9",
-    padding: VARS.medium,
+    paddingVertical: VARS.medium,
+    paddingHorizontal: SCREEN_PADDING_H,
     borderRadius: VARS.small,
     alignItems: "center",
     gap: VARS.xsmall,
@@ -430,5 +485,48 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: COLORS.error,
+  },
+  bookingCardTouchable: {
+    flexDirection: "row",
+    alignItems: "center",
+    minHeight: 56,
+  },
+  bookingCardMain: {
+    flex: 1,
+    minWidth: 0,
+  },
+  bookingCardType: {
+    flexShrink: 1,
+    fontSize: 16,
+    fontWeight: "700",
+    color: COLORS.text,
+    letterSpacing: -0.15,
+    lineHeight: 22,
+  },
+  bookingCardTitleMuted: {
+    color: "#616161",
+  },
+  oneTimeStatusCaps: {
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.7,
+    marginTop: 6,
+  },
+  bookingCardNext: {
+    flexShrink: 1,
+    fontSize: 13,
+    lineHeight: 18,
+    color: COLORS.textSecondary,
+    fontWeight: "500",
+  },
+  bookingCardChevron: {
+    fontSize: 22,
+    fontWeight: "300",
+    color: "#9E9E9E",
+    marginLeft: 4,
+    alignSelf: "center",
+  },
+  bookingCardMuted: {
+    opacity: 0.65,
   },
 });

@@ -69,7 +69,7 @@ export interface CreateSubscriptionRequest {
   items?: PaymentItemSnapshot[];
   /** Location/address (stored on subscription + payment for records). */
   location?: string;
-  /** Legacy: still sent for backward compat */
+  /** @deprecated Do not send — use collectionFrequency + collectionDay so biweekly is preserved. */
   interval?: SubscriptionInterval;
   collectionDayOfWeek?: string;
   metadata?: Record<string, unknown>;

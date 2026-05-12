@@ -139,19 +139,21 @@ export async function verifyPayment(
 }
 
 /**
- * Verify payment by Paystack reference (e.g. for subscription payments).
- * Calls POST /api/paystack/verify with reference.
- * Returns { ok: boolean, paid: boolean }.
+ * Verify payment by Paystack reference (e.g. subscription MoMo).
+ * Uses GET /api/paystack/verify?reference=… (same as verifyPayment) so the request does not rely on POST JSON.
  */
 export async function verifyPaymentByReference(
   reference: string
 ): Promise<VerifyBookingPaymentResponse> {
-  const base = (process.env.EXPO_PUBLIC_API_URL || "").replace(/\/$/, "");
-  const url = `${base}/api/paystack/verify`;
+  const ref = reference != null ? String(reference).trim() : "";
+  if (!ref) {
+    throw new Error("reference is required to verify payment");
+  }
+  const base = getApiBaseUrl().replace(/\/+$/, "");
+  const url = `${base}/api/paystack/verify?reference=${encodeURIComponent(ref)}`;
   const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ reference }),
+    method: "GET",
+    headers: { Accept: "application/json" },
   });
   const text = await res.text();
   let json: any;
@@ -163,7 +165,45 @@ export async function verifyPaymentByReference(
   if (!res.ok) {
     throw new Error(json?.error || json?.message || `Verify failed (status ${res.status})`);
   }
-  const paid = json?.status === "success";
+  const paid = json?.status === "success" || json?.paid === true;
+  return { ok: true, paid, status: json?.status, message: json?.message };
+}
+
+/**
+ * Verify subscription payment: GET with subscriptionId (and optional Paystack reference).
+ * Prefer this over verifyPaymentByReference alone so verification works even when the client reference is missing.
+ */
+export async function verifySubscriptionPayment(
+  subscriptionId: string,
+  reference?: string | null
+): Promise<VerifyBookingPaymentResponse> {
+  const sid = subscriptionId != null ? String(subscriptionId).trim() : "";
+  if (!sid) {
+    throw new Error("subscriptionId is required to verify subscription payment");
+  }
+  const base = getApiBaseUrl().replace(/\/+$/, "");
+  const params = new URLSearchParams();
+  params.set("subscriptionId", sid);
+  const ref = reference != null ? String(reference).trim() : "";
+  if (ref) {
+    params.set("reference", ref);
+  }
+  const url = `${base}/api/paystack/verify?${params.toString()}`;
+  const res = await fetch(url, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+  const text = await res.text();
+  let json: any;
+  try {
+    json = JSON.parse(text);
+  } catch (e) {
+    throw new Error(`Verify returned non-JSON: ${text.slice(0, 120)}`);
+  }
+  if (!res.ok) {
+    throw new Error(json?.error || json?.message || `Verify failed (status ${res.status})`);
+  }
+  const paid = json?.status === "success" || json?.paid === true;
   return { ok: true, paid, status: json?.status, message: json?.message };
 }
 

@@ -1,13 +1,14 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AppText, AppButton } from '@/components';
 import { useAuth } from '@/hooks/useAuth';
 import { TIME_WINDOWS, TimeWindowId } from '@/lib/time-windows';
 import type { BookingType } from '@/types/booking';
+import { serverTimestamp } from 'firebase/firestore';
 import { createBooking, initiatePaymentForBooking, updateBooking } from '@/services/booking-service';
 import { createSubscription, confirmFreeBooking } from '@/services/payments';
-import { saveSubscriptionRecord } from '@/services/subscription-service';
+import { mergeSubscriptionPaymentReference, saveSubscriptionRecord } from '@/services/subscription-service';
 import * as Linking from 'expo-linking';
 import { CustomerStackParamList } from '@/navigation/types';
 import { styles } from './create-booking-screen.styles';
@@ -154,6 +155,7 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
     intervalWeeks === 1 ? "weekly" : intervalWeeks === 2 ? "biweekly" : "monthly";
   const [subscriptionStartDate, setSubscriptionStartDate] = useState<Date | null>(null);
   const [showSubscriptionCalendar, setShowSubscriptionCalendar] = useState(false);
+  const subscriptionFlowInFlightRef = useRef(false);
 
   const collectionDayKey = useMemo(() => {
     if (!subscriptionStartDate) return null;
@@ -231,6 +233,9 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
   }, []);
 
   const handleStartSubscription = async () => {
+    if (subscriptionFlowInFlightRef.current) {
+      return;
+    }
     if (!user?.email) {
       Alert.alert(
         'Email required',
@@ -249,6 +254,7 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
       Alert.alert('Please select your first collection date');
       return;
     }
+    subscriptionFlowInFlightRef.current = true;
     try {
       setIsSaving(true);
       const startDateIso = subscriptionStartDate.toISOString().slice(0, 10);
@@ -289,8 +295,6 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
           collectionFrequency,
           collectionDay: collectionDayKey.toLowerCase(),
           startDate: startDateIso,
-          interval: intervalWeeks === 1 ? 'weekly' : 'monthly',
-          collectionDayOfWeek: collectionDayKey.toLowerCase(),
           items: items.map((i) => ({
             type: i.type,
             quantity: i.quantity ?? 1,
@@ -308,8 +312,22 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
         authorizationUrl = result.authorizationUrl;
         reference = result.reference;
         subscriptionId = result.subscriptionId;
+        await updateBooking(bookingId, {
+          ...(subscriptionId ? { subscriptionId } : {}),
+          payment: {
+            status: 'initiated',
+            reference,
+            authorizationUrl,
+            amount: discountedTotal,
+            initiatedAt: serverTimestamp(),
+          },
+        });
         if (subscriptionId) {
-          await updateBooking(bookingId, { subscriptionId });
+          try {
+            await mergeSubscriptionPaymentReference(subscriptionId, reference);
+          } catch (mergeErr) {
+            console.warn('Subscription reference merge (client):', mergeErr);
+          }
         }
       } catch (subscriptionErr: any) {
         console.error('Subscription start error:', subscriptionErr);
@@ -330,6 +348,10 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
           reference,
           status: 'pending',
           amount: discountedTotal,
+          collectionFrequency,
+          collectionDay: collectionDayKey.toLowerCase(),
+          startDate: startDateIso,
+          bookingId,
           interval: intervalWeeks === 1 ? 'weekly' : 'monthly',
           metadata: { items: items.length, startDate: startDateIso },
         });
@@ -354,6 +376,7 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
       await trackEvent('activation_failed', { screen: SCREEN, reason: 'subscription_init' });
       Alert.alert('Error', err?.message ?? 'Could not start subscription. Please try again.');
     } finally {
+      subscriptionFlowInFlightRef.current = false;
       setIsSaving(false);
     }
   };

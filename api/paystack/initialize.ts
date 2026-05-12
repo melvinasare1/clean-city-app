@@ -204,7 +204,7 @@ async function handleNewSubscription(
     userId,
     email,
     amount,
-    collectionFrequency = "monthly",
+    collectionFrequency,
     collectionDay = "",
     billingDay = 1,
     interval,
@@ -223,11 +223,23 @@ async function handleNewSubscription(
     return res.status(400).json({ ok: false, error: "Valid amount (GHS) is required" });
   }
 
-  const useLegacy = body.interval != null && body.collectionDayOfWeek != null;
-  const effectiveFrequency: CollectionFrequency = useLegacy
-    ? (interval === "monthly" ? "monthly" : "weekly")
-    : collectionFrequency;
-  const effectiveCollectionDay = useLegacy ? String(collectionDayOfWeek ?? "") : String(collectionDay ?? "");
+  const validFrequencies: CollectionFrequency[] = ["weekly", "biweekly", "monthly"];
+  const hasExplicitCollectionFrequency =
+    collectionFrequency != null && validFrequencies.includes(collectionFrequency as CollectionFrequency);
+  const useLegacy =
+    !hasExplicitCollectionFrequency && interval != null && collectionDayOfWeek != null;
+  const effectiveFrequency: CollectionFrequency = hasExplicitCollectionFrequency
+    ? (collectionFrequency as CollectionFrequency)
+    : useLegacy
+      ? interval === "monthly"
+        ? "monthly"
+        : "weekly"
+      : "monthly";
+  const effectiveCollectionDay = hasExplicitCollectionFrequency
+    ? String(collectionDay || collectionDayOfWeek || "").trim()
+    : useLegacy
+      ? String(collectionDayOfWeek ?? "").trim()
+      : String(collectionDay ?? "").trim();
   const effectiveBillingDay = Math.min(28, Math.max(1, Math.floor(Number(billingDay) || 1)));
 
   let billingPeriodStart: Date;
@@ -291,6 +303,7 @@ async function handleNewSubscription(
       paymentMethod: "momo",
       collectionFrequency: effectiveFrequency,
       collectionDay: effectiveCollectionDay,
+      bookingId: body.bookingId,
       amount: amountNum,
       billingDay: effectiveBillingDay,
       nextBillingDate: admin.firestore.Timestamp.fromDate(nextBillingDate),
@@ -389,6 +402,20 @@ async function handleNewSubscription(
           payment: { status: "initiated", reference },
           currentPaymentReference: reference,
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+      // Mirror one_time flow: store Paystack reference on the subscription booking so
+      // verify-by-bookingId and support tooling can confirm payment like one-off bookings.
+      await firestore.collection("bookings").doc(body.bookingId).set(
+        {
+          payment: {
+            status: "initiated",
+            reference,
+            authorizationUrl,
+            amount: amountNum,
+            initiatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          },
         },
         { merge: true }
       );
