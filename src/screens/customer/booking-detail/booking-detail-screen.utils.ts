@@ -114,6 +114,9 @@ export function getServiceSummaryCollectionLabel(sub: Subscription): string {
 }
 
 export function getCollectionDayEveryLabel(sub: Subscription): string {
+  if (sub.collectionFrequency === "monthly" || sub.interval === "monthly") {
+    return "Every 28 days";
+  }
   const day = getSubscriptionCollectionDayLabel(sub);
   if (!day || day === "—") return "—";
   return `Every ${day}`;

@@ -491,7 +491,9 @@ export const BookingDetailScreen: React.FC<Props> = ({ navigation, route }) => {
       : null;
 
   const dueMetaLine =
-    s && dueByShort
+    showAmountAsPaid
+      ? "Paid"
+      : s && dueByShort
       ? `Due by ${dueByShort}`
       : b && dueByShort
         ? `Pickup on ${dueByShort}`
@@ -644,7 +646,7 @@ export const BookingDetailScreen: React.FC<Props> = ({ navigation, route }) => {
               <AppText style={styles.paymentTotalAmount}>{amountValue}</AppText>
             </View>
             <View style={styles.paymentMetaRight}>
-              <AppText style={styles.paymentMetaSmall}>via Paystack</AppText>
+              <AppText style={styles.paymentMetaSmall}>via MoMo</AppText>
               {dueMetaLine ? (
                 <AppText style={styles.paymentMetaSmallTight}>{dueMetaLine}</AppText>
               ) : null}
