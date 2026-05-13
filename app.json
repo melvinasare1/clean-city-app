@@ -7,9 +7,9 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "cover",
-      "backgroundColor": "#ffffff"
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F5F5F5"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -40,12 +40,13 @@
       "aptabaseKey": "${EXPO_PUBLIC_APTABASE_KEY}"
     },
     "plugins": [
+      "expo-adi-registration",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/splash.png",
-          "resizeMode": "cover",
-          "backgroundColor": "#ffffff"
+          "image": "./assets/icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#F5F5F5"
         }
       ],
       [

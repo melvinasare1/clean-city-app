@@ -34,6 +34,18 @@
       "autoIncrement": true,
       "node": "22.0.0",
       "channel": "production"
+    },
+    "play-ownership-verify": {
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://clean-city-backend-plum.vercel.app",
+        "EXPO_PUBLIC_APTABASE_KEY": "A-EU-6592512622",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "430221189966-g7n61r2j30jttfo20j2d2765beok7hsf.apps.googleusercontent.com"
+      },
+      "android": {
+        "buildType": "apk"
+      },
+      "node": "22.0.0",
+      "channel": "production"
     }
   },
   "submit": {

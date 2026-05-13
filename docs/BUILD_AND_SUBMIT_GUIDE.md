@@ -78,7 +78,6 @@ eas build --platform ios --profile development
 
 #### Preview Build (for TestFlight)
 ```bash
-eas build --platform ios --profile preview
 ```
 
 #### Production Build (for App Store)
