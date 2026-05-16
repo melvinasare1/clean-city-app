@@ -2,8 +2,8 @@ import React, { useCallback, useEffect, useRef } from 'react';
 import { TouchableOpacity, Alert } from 'react-native';
 import * as Google from 'expo-auth-session/providers/google';
 import { GoogleAuthProvider } from 'firebase/auth';
-import { AppText } from '@/components';
 import { trackEvent } from '@/services/analytics';
+import { SocialButtonLabel } from './social-button-label';
 import {
     extractGoogleIdToken,
     extractGoogleAccessToken,
@@ -82,7 +82,7 @@ export function GoogleAuthButton({
 
     return (
         <TouchableOpacity style={style} onPress={handlePress} disabled={disabled}>
-            <AppText style={textStyle}>Continue with Google</AppText>
+            <SocialButtonLabel provider="google" label="Continue with Google" textStyle={textStyle} />
         </TouchableOpacity>
     );
 }

@@ -2,8 +2,6 @@ export const PRICES = {
   smallBag: 0.2,
   standardBin: 20,
   wheelieBin: 35,
-  /** Free product – booking is confirmed immediately, no payment. */
-  complimentaryPickup: 0,
 };
 
 export const BOOKINGS_COLLECTION = "bookings";
@@ -13,6 +11,10 @@ export const COLORS = {
   primary: "#2E7D32",
   secondary: "#66BB6A",
   accent: "#FFA726",
+  amber: "#E8A838",
+  amberDark: "#5C4A1F",
+  amberLight: "#FFF8E7",
+  amberMuted: "#B8956A",
   background: "#F5F5F5",
   text: "#212121",
   textSecondary: "#757575",

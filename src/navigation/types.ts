@@ -33,6 +33,7 @@ export type CustomerStackParamList = {
     reference: string;
   };
   PrivacyPolicy: undefined;
+  TermsAndConditions: undefined;
   ReferralProgram: undefined;
   RecyclingGuides: undefined;
 };

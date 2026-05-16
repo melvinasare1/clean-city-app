@@ -11,6 +11,8 @@ import { CompositeScreenProps } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { PRICES } from '@/lib/constants';
+import { useAuth } from '@/hooks/useAuth';
+import { isProfileComplete } from '@/lib/referral-utils';
 import { BookingBinItem } from '@/types/booking';
 import {
   CustomerStackParamList,
@@ -28,11 +30,14 @@ const formatPrice = (value: number) => `GHS ${value.toFixed(2)}`;
 export const NewBookingScreen: React.FC<NewBookingScreenProps> = ({
   navigation,
 }) => {
+  const { user } = useAuth();
+  const profileComplete =
+    user?.profileComplete ?? isProfileComplete(user ?? {});
+
   const [smallBags, setSmallBags] = useState(0);
   const [largeBags, setLargeBags] = useState(0);
   const [standardBins, setStandardBins] = useState(0);
   const [wheelieBins, setWheelieBins] = useState(0);
-  const [complimentaryPickups, setComplimentaryPickups] = useState(0);
   const [showBinInfoSheet, setShowBinInfoSheet] = useState(false);
 
   const buildItems = (): BookingBinItem[] => {
@@ -58,13 +63,6 @@ export const NewBookingScreen: React.FC<NewBookingScreenProps> = ({
         unitPrice: PRICES.wheelieBin,
         totalPrice: wheelieBins * PRICES.wheelieBin,
       },
-      {
-        id: 'COMPLIMENTARY_PICKUP',
-        type: 'Complimentary Pickup',
-        quantity: complimentaryPickups,
-        unitPrice: PRICES.complimentaryPickup,
-        totalPrice: complimentaryPickups * PRICES.complimentaryPickup,
-      },
     ];
 
     return selections.filter((item) => item.quantity > 0);
@@ -72,7 +70,7 @@ export const NewBookingScreen: React.FC<NewBookingScreenProps> = ({
 
   const totalPrice = useMemo(() => {
     return buildItems().reduce((sum, item) => sum + item.totalPrice, 0);
-  }, [smallBags, largeBags, standardBins, wheelieBins, complimentaryPickups]);
+  }, [smallBags, largeBags, standardBins, wheelieBins]);
 
   const handleOpenBinInfo = () => {
     setShowBinInfoSheet(true);
@@ -83,6 +81,11 @@ export const NewBookingScreen: React.FC<NewBookingScreenProps> = ({
   };
 
   const handleProceed = () => {
+    if (!profileComplete) {
+      navigation.getParent()?.navigate('CompleteProfile');
+      return;
+    }
+
     const selectedItems = buildItems();
     if (!selectedItems.length) {
       Alert.alert('No bins selected', 'Please select at least one bin to continue.');
@@ -172,28 +175,6 @@ export const NewBookingScreen: React.FC<NewBookingScreenProps> = ({
               </View>
             </View>
 
-            <View style={styles.binCard}>
-              <View style={styles.binInfo}>
-                <Text style={styles.binName}>Complimentary Pickup</Text>
-                <Text style={styles.binPrice}>Free</Text>
-              </View>
-              <View style={styles.counter}>
-                <TouchableOpacity
-                  style={styles.counterButton}
-                  onPress={() => setComplimentaryPickups(Math.max(0, complimentaryPickups - 1))}
-                >
-                  <Text style={styles.counterButtonText}>-</Text>
-                </TouchableOpacity>
-                <Text style={styles.counterValue}>{complimentaryPickups}</Text>
-                <TouchableOpacity
-                  style={styles.counterButton}
-                  onPress={() => setComplimentaryPickups(complimentaryPickups + 1)}
-                >
-                  <Text style={styles.counterButtonText}>+</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
             <View style={styles.binInfoStandaloneContainer}>
               <TouchableOpacity onPress={handleOpenBinInfo}>
                 <Text style={styles.binInfoLink}>See bin size examples</Text>
@@ -241,8 +222,8 @@ export const NewBookingScreen: React.FC<NewBookingScreenProps> = ({
               <View style={styles.bottomSheetRow}>
                 <Text style={styles.bottomSheetRowTitle}>Wheelie Bins</Text>
                 <Text style={styles.bottomSheetRowSubtitle}>
-                  Large wheeled bin, like those used for weekly council collections. Best for
-                  big clean‑ups or businesses.
+                  Large wheeled bin, like those used for zoomlion collections. Best for
+                  big clean ups or businesses.
                 </Text>
               </View>
 

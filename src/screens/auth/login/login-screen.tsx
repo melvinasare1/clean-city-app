@@ -20,6 +20,7 @@ import { trackEvent } from '@/services/analytics';
 import { registerForPushNotifications } from '@/services/notifications';
 import { generateNonce, sha256 } from '@/lib/social-auth';
 import { GoogleAuthButton } from '../google-auth-button';
+import { SocialButtonLabel } from '../social-button-label';
 
 const SCREEN = 'login';
 
@@ -203,9 +204,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                                     onPress={handleAppleLogin}
                                     disabled={isLoading}
                                 >
-                                    <AppText style={[styles.socialButtonText, styles.appleButtonText]}>
-                                        Continue with Apple
-                                    </AppText>
+                                    <SocialButtonLabel
+                                        provider="apple"
+                                        label="Continue with Apple"
+                                        textStyle={[styles.socialButtonText, styles.appleButtonText]}
+                                    />
                                 </TouchableOpacity>
                             )}
 

@@ -27,6 +27,7 @@ import { setDocAtPath } from '@/lib/utils';
 import { registerForPushNotifications, removePushTokenFromFirestore } from '@/lib/push';
 import { loadReminderSettingsAndReschedule, loadWeeklyReminderSettingsAndReschedule } from '@/lib/reminders';
 import { createReferralIfValid } from '@/services/referralService';
+import { isProfileComplete, toMillis } from '@/lib/referral-utils';
 
 export type AppUserRole = 'customer' | 'driver' | 'admin';
 
@@ -34,8 +35,19 @@ export interface AppUser {
     id: string;
     email: string;
     role: AppUserRole | null;
-    phone?: string
-    location?: string
+    phone?: string;
+    location?: string;
+    signupAt?: string;
+    referralCodeUsed?: string | null;
+    referralCodeApplied?: boolean;
+    firstBookingAt?: string | null;
+    profileComplete?: boolean;
+    referralCode?: string;
+    referralStats?: {
+        friendsReferred: number;
+        freePickupsEarned: number;
+        freePickupThreshold: number;
+    };
 }
 
 interface AuthContextProps {
@@ -56,7 +68,20 @@ interface AuthContextProps {
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
 
-const mapProfile = (firebaseUser: FirebaseUser | null, data?: { email?: string; role?: AppUserRole | null, phone: string | null, location: string | null }): AppUser => {
+type ProfileData = {
+    email?: string;
+    role?: AppUserRole | null;
+    phone?: string | null;
+    location?: string | null;
+    createdAt?: unknown;
+    referredBy?: string | null;
+    referralCodeUsed?: string | null;
+    referralCodeApplied?: boolean;
+    firstBookingAt?: unknown;
+    referralCode?: string;
+};
+
+const mapProfile = (firebaseUser: FirebaseUser | null, data?: ProfileData): AppUser => {
     if (!firebaseUser) {
         return {
             id: '',
@@ -64,12 +89,27 @@ const mapProfile = (firebaseUser: FirebaseUser | null, data?: { email?: string; 
             role: null,
         };
     }
+
+    const phone = data?.phone ?? undefined;
+    const location = data?.location ?? undefined;
+    const signupMs = toMillis(data?.createdAt);
+    const firstBookingMs = toMillis(data?.firstBookingAt);
+
     return {
         id: firebaseUser.uid,
         email: data?.email ?? firebaseUser.email ?? '',
-        phone: data?.phone ?? undefined,
-        location: data?.location ?? undefined,
+        phone: phone || undefined,
+        location: location || undefined,
         role: data?.role ?? null,
+        signupAt: signupMs ? new Date(signupMs).toISOString() : undefined,
+        referralCodeUsed: data?.referralCodeUsed ?? data?.referredBy ?? null,
+        referralCodeApplied: data?.referralCodeApplied === true,
+        firstBookingAt: firstBookingMs ? new Date(firstBookingMs).toISOString() : null,
+        profileComplete: isProfileComplete({ phone: phone || undefined, location: location || undefined }),
+        referralCode:
+            typeof data?.referralCode === 'string'
+                ? data.referralCode
+                : `CC-${firebaseUser.uid.slice(0, 6).toUpperCase()}`,
     };
 };
 
@@ -89,7 +129,7 @@ const fetchUserProfile = async (firebaseUser: FirebaseUser | null): Promise<AppU
         return mapProfile(firebaseUser);
     }
 
-    const data = snap.data() as { email?: string; role?: AppUserRole | null, phone: string | null, location: string | null } | undefined;
+    const data = snap.data() as ProfileData | undefined;
     return mapProfile(firebaseUser, data);
 };
 
@@ -204,7 +244,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             phone: null,
             location: null,
             referralCode: generatedReferralCode,
-            referredBy: referralCode?.trim() || null,
+            referredBy: null,
+            referralCodeUsed: null,
+            referralCodeApplied: false,
             creditBalance: 0,
             referralRewarded: false,
         }, {
@@ -214,11 +256,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // Create pending referral document if the supplied code is valid.
         if (referralCode && referralCode.trim()) {
+            const trimmed = referralCode.trim().toUpperCase();
             await createReferralIfValid({
                 newUserId: firebaseUser.uid,
                 newUserEmail: email,
-                referralCode: referralCode.trim(),
+                referralCode: trimmed,
             });
+
+            const referralSnap = await getDoc(doc(db, 'referrals', firebaseUser.uid));
+            if (referralSnap.exists()) {
+                await setDocAtPath(['profiles', firebaseUser.uid], {
+                    referredBy: trimmed,
+                    referralCodeUsed: trimmed,
+                    referralCodeApplied: true,
+                    referralDiscount: {
+                        type: 'percent',
+                        value: 10,
+                        appliesTo: 'first_booking',
+                    },
+                }, { merge: true, addTimestamps: false });
+            }
         }
     };
 

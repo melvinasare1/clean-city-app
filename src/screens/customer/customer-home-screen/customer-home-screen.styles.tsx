@@ -1,5 +1,5 @@
-import { COLORS, VARS } from "@/lib/constants";
-import { StyleSheet } from "react-native";
+import { COLORS, VARS } from '@/lib/constants';
+import { StyleSheet } from 'react-native';
 
 export const styles = StyleSheet.create({
     container: {
@@ -26,6 +26,62 @@ export const styles = StyleSheet.create({
     content: {
         padding: VARS.small,
     },
+    profileBanner: {
+        backgroundColor: '#E8F5E9',
+        borderRadius: VARS.medium,
+        padding: VARS.medium,
+        marginBottom: VARS.small,
+        borderWidth: 1,
+        borderColor: '#C8E6C9',
+    },
+    profileBannerRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: VARS.small,
+        marginBottom: VARS.small,
+    },
+    profileBannerIcon: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: COLORS.primary,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    profileBannerTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: COLORS.text,
+        marginBottom: 2,
+    },
+    profileBannerSubtitle: {
+        fontSize: 13,
+        color: COLORS.textSecondary,
+        lineHeight: 18,
+        flex: 1,
+    },
+    profileProgressRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 6,
+    },
+    profileProgressLabel: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: COLORS.success,
+    },
+    profileProgressBarBg: {
+        height: 4,
+        borderRadius: 2,
+        backgroundColor: '#C8E6C9',
+        overflow: 'hidden',
+    },
+    profileProgressBarFill: {
+        height: '100%',
+        backgroundColor: COLORS.primary,
+        borderRadius: 2,
+    },
     card: {
         backgroundColor: COLORS.white,
         borderRadius: VARS.xsmall,
@@ -50,10 +106,19 @@ export const styles = StyleSheet.create({
         marginBottom: VARS.xsmall,
         alignItems: 'center',
     },
+    actionButtonMuted: {
+        opacity: 0.85,
+    },
     actionButtonText: {
         color: COLORS.white,
         fontSize: VARS.small,
         fontWeight: '600',
+    },
+    actionButtonHint: {
+        color: COLORS.white,
+        fontSize: 11,
+        opacity: 0.9,
+        marginTop: 4,
     },
     actionButtonSecondary: {
         backgroundColor: COLORS.white,
@@ -62,25 +127,6 @@ export const styles = StyleSheet.create({
     },
     actionButtonTextSecondary: {
         color: COLORS.primary,
-        fontSize: VARS.small,
-        fontWeight: '600',
-    },
-    placeholderText: {
-        color: COLORS.textSecondary,
-        fontSize: VARS.xsmall + 2,
-        fontStyle: 'italic',
-    },
-    testStyle: {
-        flex: 1,
-        justifyContent: 'flex-end'
-    },
-    logoutButton: {
-        marginTop: VARS.small,
-        padding: VARS.small,
-        alignItems: 'center',
-    },
-    logoutButtonText: {
-        color: COLORS.error,
         fontSize: VARS.small,
         fontWeight: '600',
     },

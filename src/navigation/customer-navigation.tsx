@@ -10,6 +10,7 @@ import { CompleteProfileScreen } from '../screens/customer/complete-profile/comp
 import { CreateBookingScreen } from '../screens/customer/create-booking/create-booking-screen';
 import { PaymentCallbackScreen } from '../screens/customer/payment/payment-callback-screen';
 import { PrivacyPolicyScreen } from '../screens/privacy-policy/privacy-policy-screen';
+import { TermsAndConditionsScreen } from '../screens/terms-and-conditions/terms-and-conditions-screen';
 import { ReferralProgramScreen } from "@/screens/referral/referral-program-screen";
 import { RecyclingGuidesScreen } from '../screens/customer/recycling-guides/recycling-guides-screen';
 import { COLORS } from '../lib/constants';
@@ -82,7 +83,7 @@ const CustomerTabs = () => (
             component={MyBookingsScreen}
             options={{
                 title: 'My Bookings',
-                tabBarLabel: 'Bookings',
+                tabBarLabel: 'Pickups',
                 tabBarIcon: () => <IconsComponent name='BookingIcon' />,
                 headerTitleAlign: 'center',
             }}
@@ -101,12 +102,13 @@ export const CustomerNavigator: React.FC = () => {
                 headerTitleStyle: {
                     fontWeight: '600',
                 },
+                headerBackTitleVisible: false,
             }}
         >
             <Stack.Screen
                 name="CustomerTabs"
                 component={CustomerTabs}
-                options={{ headerShown: false }}
+                options={{ headerShown: false, title: '' }}
             />
             <Stack.Screen
                 name="CreateBooking"
@@ -132,6 +134,11 @@ export const CustomerNavigator: React.FC = () => {
                 name="PrivacyPolicy"
                 component={PrivacyPolicyScreen}
                 options={{ title: 'Privacy Policy' }}
+            />
+            <Stack.Screen
+                name="TermsAndConditions"
+                component={TermsAndConditionsScreen}
+                options={{ title: 'Terms & Conditions' }}
             />
             <Stack.Screen
               name="ReferralProgram"

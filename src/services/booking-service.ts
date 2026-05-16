@@ -20,7 +20,7 @@ import type {
   PaymentStatus,
 } from "@/types/booking";
 import { BOOKINGS_COLLECTION } from "@/lib/constants";
-import { setDocAtPath } from "@/lib/utils";
+import { setDocAtPath, PROFILES_COLLECTION } from "@/lib/utils";
 import { rewardReferralIfEligible } from "@/services/referralService";
 import { initializePayment, verifyPayment, verifyBookingPaymentWithBackend } from "@/services/payments";
 
@@ -418,6 +418,23 @@ export const handleBookingPaymentSuccess = async (
   paymentReference?: string
 ): Promise<void> => {
   await markBookingAsPaid(bookingId, paymentReference);
+
+  if (referredUserId) {
+    try {
+      const profileRef = doc(db, PROFILES_COLLECTION, referredUserId);
+      const profileSnap = await getDoc(profileRef);
+      const profileData = profileSnap.data();
+      if (!profileData?.firstBookingAt) {
+        await setDocAtPath(
+          [PROFILES_COLLECTION, referredUserId],
+          { firstBookingAt: serverTimestamp() },
+          { merge: true, addTimestamps: false }
+        );
+      }
+    } catch (error) {
+      console.error('Failed to set firstBookingAt on profile:', error);
+    }
+  }
 
   // Trigger referral rewards if eligible
   if (referredUserId) {

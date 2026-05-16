@@ -19,6 +19,17 @@ import {
 import { db } from "@/lib/firebase";
 import { setDocAtPath, PROFILES_COLLECTION } from "@/lib/utils";
 
+function timestampToIso(value: unknown): string | null {
+  if (!value) return null;
+  if (typeof value === "string") return value;
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === "object" && value !== null && "toDate" in value) {
+    const toDate = (value as { toDate?: () => Date }).toDate;
+    if (typeof toDate === "function") return toDate.call(value).toISOString();
+  }
+  return null;
+}
+
 const REFERRALS_COLLECTION = "referrals";
 
 export type ReferralStatus = "pending" | "completed";
@@ -39,6 +50,11 @@ export type ReferralDoc = ReferralDocument & { id: string };
 export interface ProfileReferralData {
   referralCode: string | null;
   creditBalance: number;
+  referredBy?: string | null;
+  referralCodeUsed?: string | null;
+  referralCodeApplied?: boolean;
+  signupAt?: string | null;
+  firstBookingAt?: string | null;
 }
 
 const DEFAULT_REFERRAL_REWARD_AMOUNT = 20; // Reward per successful referral (in app currency units)
@@ -226,7 +242,20 @@ export function listenToProfile(
       const creditBalance: number =
         typeof raw.creditBalance === "number" ? raw.creditBalance : 0;
 
-      onData({ referralCode, creditBalance });
+      onData({
+        referralCode,
+        creditBalance,
+        referredBy: typeof raw.referredBy === "string" ? raw.referredBy : null,
+        referralCodeUsed:
+          typeof raw.referralCodeUsed === "string"
+            ? raw.referralCodeUsed
+            : typeof raw.referredBy === "string"
+              ? raw.referredBy
+              : null,
+        referralCodeApplied: raw.referralCodeApplied === true,
+        signupAt: timestampToIso(raw.createdAt),
+        firstBookingAt: timestampToIso(raw.firstBookingAt),
+      });
     },
     (error) => {
       console.error("Error listening to profile referrals:", error);

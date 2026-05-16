@@ -6,9 +6,9 @@ import {
     type SignInResponse,
 } from '@react-native-google-signin/google-signin';
 import { GoogleAuthProvider } from 'firebase/auth';
-import { AppText } from '@/components';
 import { trackEvent } from '@/services/analytics';
 import { ensureGoogleSignInConfigured } from '@/lib/google-signin-config';
+import { SocialButtonLabel } from './social-button-label';
 import type { GoogleAuthButtonProps } from './google-auth-button.types';
 
 export function GoogleAuthButton({
@@ -55,7 +55,7 @@ export function GoogleAuthButton({
 
     return (
         <TouchableOpacity style={style} onPress={handlePress} disabled={disabled}>
-            <AppText style={textStyle}>Continue with Google</AppText>
+            <SocialButtonLabel provider="google" label="Continue with Google" textStyle={textStyle} />
         </TouchableOpacity>
     );
 }
