@@ -2,7 +2,11 @@ export type ReferralApplyErrorCode =
   | 'invalid_code'
   | 'window_closed'
   | 'self_referral'
-  | 'already_used';
+  | 'already_used'
+  | 'unauthorized'
+  | 'profile_not_found'
+  | 'server_error'
+  | 'network_error';
 
 export interface ReferralDiscount {
   type: 'percent';

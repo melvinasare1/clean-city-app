@@ -5,7 +5,7 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import { db } from './firebase';
 
 /**
@@ -82,10 +82,15 @@ export const savePushTokenToFirestore = async (
 ): Promise<void> => {
   try {
     const userRef = doc(db, 'profiles', userId);
-    await updateDoc(userRef, {
-      expoPushToken: token,
-      pushTokenUpdatedAt: new Date().toISOString(),
-    });
+    // merge: true — profile may not exist yet (e.g. first Google sign-in)
+    await setDoc(
+      userRef,
+      {
+        expoPushToken: token,
+        pushTokenUpdatedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
     console.log('Push token saved to Firestore for user:', userId);
   } catch (error) {
     console.error('Error saving push token to Firestore:', error);
@@ -139,10 +144,14 @@ export const removePushTokenFromFirestore = async (
 ): Promise<void> => {
   try {
     const userRef = doc(db, 'profiles', userId);
-    await updateDoc(userRef, {
-      expoPushToken: null,
-      pushTokenUpdatedAt: null,
-    });
+    await setDoc(
+      userRef,
+      {
+        expoPushToken: null,
+        pushTokenUpdatedAt: null,
+      },
+      { merge: true }
+    );
     console.log('Push token removed from Firestore for user:', userId);
   } catch (error) {
     console.error('Error removing push token from Firestore:', error);

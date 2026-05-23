@@ -92,7 +92,11 @@ const mapProfile = (firebaseUser: FirebaseUser | null, data?: ProfileData): AppU
 
     const phone = data?.phone ?? undefined;
     const location = data?.location ?? undefined;
-    const signupMs = toMillis(data?.createdAt);
+    const signupMs =
+        toMillis(data?.createdAt) ??
+        (firebaseUser.metadata.creationTime
+            ? new Date(firebaseUser.metadata.creationTime).getTime()
+            : null);
     const firstBookingMs = toMillis(data?.firstBookingAt);
 
     return {
@@ -113,6 +117,29 @@ const mapProfile = (firebaseUser: FirebaseUser | null, data?: ProfileData): AppU
     };
 };
 
+/** Create profiles/{uid} for first-time social sign-in (Apple, Google) and other auth paths. */
+const createProfileIfMissing = async (firebaseUser: FirebaseUser): Promise<void> => {
+    const docRef = doc(db, 'profiles', firebaseUser.uid);
+    const snap = await getDoc(docRef);
+    if (snap.exists()) return;
+
+    const generatedReferralCode = `CC-${firebaseUser.uid.slice(0, 6).toUpperCase()}`;
+    await setDocAtPath(
+        ['profiles', firebaseUser.uid],
+        {
+            email: firebaseUser.email ?? '',
+            role: 'customer' as AppUserRole,
+            phone: null,
+            location: null,
+            referralCode: generatedReferralCode,
+            referredBy: null,
+            creditBalance: 0,
+            referralRewarded: false,
+        },
+        { merge: true, addTimestamps: true }
+    );
+};
+
 const fetchUserProfile = async (firebaseUser: FirebaseUser | null): Promise<AppUser> => {
     if (!firebaseUser) {
         return {
@@ -122,6 +149,8 @@ const fetchUserProfile = async (firebaseUser: FirebaseUser | null): Promise<AppU
         };
     }
 
+    await createProfileIfMissing(firebaseUser);
+
     const docRef = doc(db, 'profiles', firebaseUser.uid);
     const snap = await getDoc(docRef);
 
@@ -129,7 +158,18 @@ const fetchUserProfile = async (firebaseUser: FirebaseUser | null): Promise<AppU
         return mapProfile(firebaseUser);
     }
 
-    const data = snap.data() as ProfileData | undefined;
+    let data = snap.data() as ProfileData | undefined;
+
+    if (data && typeof data.referralCode !== 'string') {
+        const generatedReferralCode = `CC-${firebaseUser.uid.slice(0, 6).toUpperCase()}`;
+        await setDocAtPath(
+            ['profiles', firebaseUser.uid],
+            { referralCode: generatedReferralCode },
+            { merge: true, addTimestamps: false }
+        );
+        data = { ...data, referralCode: generatedReferralCode };
+    }
+
     return mapProfile(firebaseUser, data);
 };
 
@@ -206,24 +246,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const loginWithCredential = async (credential: AuthCredential) => {
         const result = await signInWithCredential(auth, credential);
-        const firebaseUser = result.user;
-
-        const docRef = doc(db, 'profiles', firebaseUser.uid);
-        const snap = await getDoc(docRef);
-
-        if (!snap.exists()) {
-            const generatedReferralCode = `CC-${firebaseUser.uid.slice(0, 6).toUpperCase()}`;
-            await setDocAtPath(['profiles', firebaseUser.uid], {
-                email: firebaseUser.email ?? '',
-                role: 'customer' as AppUserRole,
-                phone: null,
-                location: null,
-                referralCode: generatedReferralCode,
-                referredBy: null,
-                creditBalance: 0,
-                referralRewarded: false,
-            }, { merge: true, addTimestamps: true });
-        }
+        // Apple & Google (login + signup screens) — ensure Firestore profile exists
+        await createProfileIfMissing(result.user);
     };
 
     const signup = async (

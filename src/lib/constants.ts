@@ -1,11 +1,11 @@
-export const PRICES = {
-  smallBag: 0.2,
-  standardBin: 20,
-  wheelieBin: 35,
-};
+/** @deprecated Use `usePricing()` — re-exported for backward compatibility. */
+export { PRICES } from '@/lib/pricing';
 
 export const BOOKINGS_COLLECTION = "bookings";
 export const SUBSCRIPTIONS_COLLECTION = "subscriptions";
+
+/** Set to true to show Refer & Earn on the home screen. */
+export const REFERRALS_UI_ENABLED = false;
 
 export const COLORS = {
   primary: "#2E7D32",

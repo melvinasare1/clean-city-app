@@ -6,6 +6,7 @@
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   limit,
   onSnapshot,
@@ -16,8 +17,16 @@ import {
   type Firestore,
   type DocumentReference,
 } from "firebase/firestore";
+import { auth } from "@/lib/firebase";
 import { db } from "@/lib/firebase";
 import { setDocAtPath, PROFILES_COLLECTION } from "@/lib/utils";
+import {
+  isReferralCodeFormatValid,
+  normalizeReferralCodeInput,
+  REFERRAL_WINDOW_HOURS,
+  toMillis,
+} from "@/lib/referral-utils";
+import type { ApplyReferralCodeResponse } from "@/types/referral";
 
 function timestampToIso(value: unknown): string | null {
   if (!value) return null;
@@ -117,6 +126,150 @@ export async function createReferralIfValid(params: {
       addTimestamps: false,
     }
   );
+}
+
+function expectedReferralCodeForUid(uid: string): string {
+  return `CC-${uid.slice(0, 6).toUpperCase()}`;
+}
+
+/**
+ * Apply a referral code directly in Firestore (used when the API route is not deployed).
+ * Mirrors api/referrals/apply.ts validation rules.
+ */
+export async function applyReferralCodeLocally(
+  code: string
+): Promise<ApplyReferralCodeResponse> {
+  const user = auth.currentUser;
+  if (!user) {
+    return { success: false, error: "unauthorized" };
+  }
+
+  const normalized = normalizeReferralCodeInput(code);
+  if (!isReferralCodeFormatValid(normalized)) {
+    return { success: false, error: "invalid_code" };
+  }
+
+  const profileRef = doc(db, PROFILES_COLLECTION, user.uid);
+  const profileSnap = await getDoc(profileRef);
+  const profileData = profileSnap.exists() ? profileSnap.data() : {};
+
+  let signupMs = toMillis(profileData.createdAt);
+  if (!signupMs && user.metadata.creationTime) {
+    signupMs = new Date(user.metadata.creationTime).getTime();
+  }
+
+  if (profileData.referralCodeApplied === true) {
+    return { success: false, error: "already_used" };
+  }
+
+  if (profileData.firstBookingAt) {
+    return { success: false, error: "window_closed" };
+  }
+
+  if (
+    !signupMs ||
+    Date.now() - signupMs >= REFERRAL_WINDOW_HOURS * 60 * 60 * 1000
+  ) {
+    return { success: false, error: "window_closed" };
+  }
+
+  const ownCode =
+    typeof profileData.referralCode === "string"
+      ? profileData.referralCode
+      : expectedReferralCodeForUid(user.uid);
+
+  if (ownCode === normalized) {
+    return { success: false, error: "self_referral" };
+  }
+
+  const profilesRef = collection(db, PROFILES_COLLECTION);
+  const referrerQuery = query(
+    profilesRef,
+    where("referralCode", "==", normalized),
+    limit(1)
+  );
+  const referrerSnap = await getDocs(referrerQuery);
+
+  if (referrerSnap.empty) {
+    return { success: false, error: "invalid_code" };
+  }
+
+  const referrerDoc = referrerSnap.docs[0];
+  const referrerId = referrerDoc.id;
+  const referrerData = referrerDoc.data();
+
+  if (referrerId === user.uid) {
+    return { success: false, error: "self_referral" };
+  }
+
+  if (referrerData?.banned === true || referrerData?.suspended === true) {
+    return { success: false, error: "invalid_code" };
+  }
+
+  const referralRef = doc(db, REFERRALS_COLLECTION, user.uid);
+  const existingReferral = await getDoc(referralRef);
+  if (existingReferral.exists()) {
+    return { success: false, error: "already_used" };
+  }
+
+  try {
+    await runTransaction(db, async (tx) => {
+      const freshProfile = await tx.get(profileRef);
+      const data = freshProfile.data() ?? {};
+
+      if (data.referralCodeApplied === true || data.referredBy) {
+        throw new Error("already_used");
+      }
+      if (data.firstBookingAt) {
+        throw new Error("window_closed");
+      }
+
+      tx.set(referralRef, {
+        referrerUserId: referrerId,
+        referrerReferralCode: normalized,
+        referredUserId: user.uid,
+        referredEmail: data.email ?? user.email ?? null,
+        status: "pending",
+        rewardAmount: DEFAULT_REFERRAL_REWARD_AMOUNT,
+        createdAt: serverTimestamp(),
+      });
+
+      tx.set(
+        profileRef,
+        {
+          referredBy: normalized,
+          referralCodeUsed: normalized,
+          referralCodeApplied: true,
+          referralDiscount: {
+            type: "percent",
+            value: 10,
+            appliesTo: "first_booking",
+          },
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (message === "already_used") {
+      return { success: false, error: "already_used" };
+    }
+    if (message === "window_closed") {
+      return { success: false, error: "window_closed" };
+    }
+    console.error("[applyReferralCodeLocally] error:", error);
+    return { success: false, error: "server_error" };
+  }
+
+  return {
+    success: true,
+    discount: {
+      type: "percent",
+      value: 10,
+      appliesTo: "first_booking",
+    },
+  };
 }
 
 /**

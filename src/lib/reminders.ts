@@ -4,7 +4,7 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
-import { doc, getDoc, updateDoc, deleteField } from 'firebase/firestore';
+import { doc, getDoc, setDoc, deleteField } from 'firebase/firestore';
 import { db } from './firebase';
 import { setupNotificationChannel, requestPushPermissions } from './push';
 
@@ -95,9 +95,7 @@ const saveReminderSettings = async (
       cleanedSettings.notificationId = settings.notificationId;
     }
     
-    await updateDoc(userRef, {
-      reminders: cleanedSettings,
-    });
+    await setDoc(userRef, { reminders: cleanedSettings }, { merge: true });
   } catch (error) {
     console.error('Error saving reminder settings:', error);
     throw error;
@@ -382,9 +380,7 @@ const saveWeeklyReminderSettings = async (
       cleanedSettings.notificationId = settings.notificationId;
     }
     
-    await updateDoc(userRef, {
-      weeklyReminders: cleanedSettings,
-    });
+    await setDoc(userRef, { weeklyReminders: cleanedSettings }, { merge: true });
   } catch (error) {
     console.error('Error saving weekly reminder settings:', error);
     throw error;

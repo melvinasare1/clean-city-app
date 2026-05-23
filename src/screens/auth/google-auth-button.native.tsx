@@ -48,8 +48,13 @@ export function GoogleAuthButton({
         } catch (error: unknown) {
             const err = error as { code?: string; message?: string };
             if (err.code === statusCodes.SIGN_IN_CANCELLED) return;
-            await trackEvent('auth_error', { screen, reason: 'google_native_error' });
-            Alert.alert(alertTitle, err.message || 'Could not complete Google sign-in');
+            await trackEvent('auth_error', { screen, reason: 'google_native_error', code: err.code });
+            // Android configuration mismatch (missing/wrong SHA-1 in Firebase).
+            const isDeveloperError = err.code === '10';
+            const message = isDeveloperError
+                ? 'Google Sign-In is not configured for this Android build. In Firebase Console, add the SHA-1 fingerprints for your EAS/Play signing keys to the Android app (com.cleancity.app), enable Google sign-in under Authentication, download an updated google-services.json, then rebuild the native app.'
+                : err.message || 'Could not complete Google sign-in';
+            Alert.alert(alertTitle, message);
         }
     };
 

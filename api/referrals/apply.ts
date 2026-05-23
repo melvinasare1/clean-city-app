@@ -4,12 +4,14 @@
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { FieldValue } from '../lib/firebase-admin';
-import { getFirestore } from '../lib/firebase-admin';
+import { admin, getFirestore } from '../lib/firebase-admin';
 import { PROFILES_COLLECTION } from '../lib/collections';
+import { parseRequestBody } from '../lib/parse-request-body';
 import { verifyAuthHeader } from '../lib/verify-auth';
 
 const REFERRALS_COLLECTION = 'referrals';
 const REFERRAL_WINDOW_HOURS = 48;
+const DEFAULT_REWARD_AMOUNT = 20;
 const CODE_PATTERN = /^[A-Z0-9-]{6,15}$/;
 
 function normalizeCode(raw: unknown): string | null {
@@ -22,6 +24,10 @@ function normalizeCode(raw: unknown): string | null {
 function toMillis(value: unknown): number | null {
   if (!value) return null;
   if (typeof value === 'number') return value;
+  if (typeof value === 'string') {
+    const parsed = Date.parse(value);
+    return Number.isNaN(parsed) ? null : parsed;
+  }
   if (value instanceof Date) return value.getTime();
   if (typeof value === 'object' && value !== null && 'toMillis' in value) {
     const fn = (value as { toMillis?: () => number }).toMillis;
@@ -30,9 +36,69 @@ function toMillis(value: unknown): number | null {
   return null;
 }
 
+function expectedReferralCodeForUid(uid: string): string {
+  return `CC-${uid.slice(0, 6).toUpperCase()}`;
+}
+
+async function getSignupMs(
+  profile: Record<string, unknown>,
+  uid: string
+): Promise<number | null> {
+  const fromProfile = toMillis(profile.createdAt);
+  if (fromProfile) return fromProfile;
+
+  try {
+    const authUser = await admin.auth().getUser(uid);
+    if (authUser.metadata.creationTime) {
+      return new Date(authUser.metadata.creationTime).getTime();
+    }
+  } catch {
+    // ignore
+  }
+
+  return null;
+}
+
+async function findReferrerByCode(
+  firestore: admin.firestore.Firestore,
+  code: string
+): Promise<admin.firestore.QueryDocumentSnapshot | null> {
+  const byField = await firestore
+    .collection(PROFILES_COLLECTION)
+    .where('referralCode', '==', code)
+    .limit(1)
+    .get();
+
+  if (!byField.empty) {
+    return byField.docs[0];
+  }
+
+  // Legacy profiles may only use the generated CC-{uidPrefix} format without referralCode stored
+  if (!code.startsWith('CC-')) {
+    return null;
+  }
+
+  const uidPrefix = code.slice(3).toUpperCase();
+  if (uidPrefix.length < 4 || uidPrefix.length > 8) {
+    return null;
+  }
+
+  const snapshot = await firestore.collection(PROFILES_COLLECTION).limit(500).get();
+  const match = snapshot.docs.find(
+    (docSnap) => docSnap.id.slice(0, uidPrefix.length).toUpperCase() === uidPrefix
+  );
+
+  return match ?? null;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ success: false, error: 'method_not_allowed' });
+  }
+
+  if (!admin.apps.length) {
+    console.error('[referrals/apply] Firebase Admin not initialized');
+    return res.status(503).json({ success: false, error: 'server_error' });
   }
 
   try {
@@ -41,7 +107,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(401).json({ success: false, error: 'unauthorized' });
     }
 
-    const body = typeof req.body === 'object' && req.body !== null ? req.body : {};
+    const body = parseRequestBody(req);
     const code = normalizeCode(body.code);
     if (!code) {
       return res.status(400).json({ success: false, error: 'invalid_code' });
@@ -49,14 +115,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const firestore = getFirestore();
     const profileRef = firestore.collection(PROFILES_COLLECTION).doc(uid);
-    const profileSnap = await profileRef.get();
+    let profileSnap = await profileRef.get();
 
     if (!profileSnap.exists) {
-      return res.status(404).json({ success: false, error: 'profile_not_found' });
+      let email: string | null = null;
+      try {
+        const authUser = await admin.auth().getUser(uid);
+        email = authUser.email ?? null;
+      } catch {
+        // ignore
+      }
+
+      const referralCode = expectedReferralCodeForUid(uid);
+      await profileRef.set(
+        {
+          email,
+          referralCode,
+          referredBy: null,
+          referralCodeApplied: false,
+          creditBalance: 0,
+          referralRewarded: false,
+          createdAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+      profileSnap = await profileRef.get();
     }
 
     const profile = profileSnap.data() ?? {};
-    const signupMs = toMillis(profile.createdAt);
+    const signupMs = await getSignupMs(profile, uid);
     const now = Date.now();
 
     if (profile.referralCodeApplied === true) {
@@ -71,21 +159,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ success: false, error: 'window_closed' });
     }
 
-    if (profile.referralCode === code) {
+    const ownCode =
+      typeof profile.referralCode === 'string'
+        ? profile.referralCode
+        : expectedReferralCodeForUid(uid);
+
+    if (ownCode === code) {
       return res.status(400).json({ success: false, error: 'self_referral' });
     }
 
-    const referrerQuery = await firestore
-      .collection(PROFILES_COLLECTION)
-      .where('referralCode', '==', code)
-      .limit(1)
-      .get();
+    const referrerDoc = await findReferrerByCode(firestore, code);
 
-    if (referrerQuery.empty) {
+    if (!referrerDoc) {
       return res.status(400).json({ success: false, error: 'invalid_code' });
     }
 
-    const referrerDoc = referrerQuery.docs[0];
     const referrerId = referrerDoc.id;
 
     if (referrerId === uid) {
@@ -93,6 +181,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const referrerData = referrerDoc.data();
+
+    // Ensure referrer has referralCode indexed for future lookups
+    if (referrerData?.referralCode !== code) {
+      await referrerDoc.ref.set({ referralCode: code }, { merge: true });
+    }
+
     if (referrerData?.banned === true || referrerData?.suspended === true) {
       return res.status(400).json({ success: false, error: 'invalid_code' });
     }
@@ -122,7 +216,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           referredUserId: uid,
           referredEmail: data.email ?? null,
           status: 'pending',
-          rewardAmount: 0,
+          rewardAmount: DEFAULT_REWARD_AMOUNT,
           createdAt: FieldValue.serverTimestamp(),
         },
         { merge: false }

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppText, AppButton } from '@/components';
+import { AppText, AppButton, TimeWindowPicker } from '@/components';
 import { useAuth } from '@/hooks/useAuth';
 import { TIME_WINDOWS, TimeWindowId } from '@/lib/time-windows';
 import type { BookingType } from '@/types/booking';
@@ -730,30 +730,10 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
             />
 
             <AppText style={styles.label}>Time window</AppText>
-            <View style={styles.windowButtonsContainer}>
-              {TIME_WINDOWS.map((window) => {
-                const isSelected = window.id === selectedWindowId;
-                return (
-                  <TouchableOpacity
-                    key={window.id}
-                    style={[
-                      styles.windowButton,
-                      isSelected && styles.windowButtonSelected,
-                    ]}
-                    onPress={() => setSelectedWindowId(window.id)}
-                  >
-                    <AppText
-                      style={[
-                        styles.windowButtonText,
-                        isSelected && styles.windowButtonTextSelected,
-                      ]}
-                    >
-                      {window.label}
-                    </AppText>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+            <TimeWindowPicker
+              selectedWindowId={selectedWindowId}
+              onSelect={setSelectedWindowId}
+            />
           </>
         )}
 

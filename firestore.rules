@@ -1,0 +1,69 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Remote app config (bin prices) — readable without auth
+    match /config/pricing {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn()
+        && get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    match /profiles/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if false;
+    }
+
+    match /bookings/{bookingId} {
+      allow read: if isSignedIn()
+        && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn()
+        && resource.data.userId == request.auth.uid;
+      allow delete: if isSignedIn()
+        && resource.data.userId == request.auth.uid;
+    }
+
+    match /subscriptions/{subscriptionId} {
+      allow read: if isSignedIn()
+        && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn()
+        && resource.data.userId == request.auth.uid;
+      allow delete: if false;
+    }
+
+    match /referrals/{referralId} {
+      allow read: if isSignedIn()
+        && (resource.data.referrerUserId == request.auth.uid
+          || resource.data.referredUserId == request.auth.uid);
+      allow create: if isSignedIn()
+        && request.resource.data.referredUserId == request.auth.uid;
+      allow update: if isSignedIn()
+        && (resource.data.referrerUserId == request.auth.uid
+          || resource.data.referredUserId == request.auth.uid);
+      allow delete: if false;
+    }
+
+    // Driver/admin job reads are handled by the API (Admin SDK).
+    match /jobs/{jobId} {
+      allow read, write: if false;
+    }
+  }
+}

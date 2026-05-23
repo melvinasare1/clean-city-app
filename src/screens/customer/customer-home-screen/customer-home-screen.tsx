@@ -12,7 +12,7 @@ import {
 } from '@/navigation/types';
 import { AppText } from '@/components';
 import { trackEvent } from '@/services/analytics';
-import { COLORS } from '@/lib/constants';
+import { COLORS, REFERRALS_UI_ENABLED } from '@/lib/constants';
 import {
   getProfileCompletionCount,
   isProfileComplete,
@@ -133,17 +133,19 @@ export const CustomerHomeScreen: React.FC<CustomerHomeScreenProps> = ({
             </AppText>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.actionButton, styles.actionButtonSecondary]}
-            onPress={() => {
-              trackEvent('referral_cta_tapped', { screen: SCREEN }).catch(() => {});
-              navigation.getParent()?.navigate('ReferralProgram');
-            }}
-          >
-            <AppText style={styles.actionButtonTextSecondary}>
-              Refer & Earn Free Pickups
-            </AppText>
-          </TouchableOpacity>
+          {REFERRALS_UI_ENABLED ? (
+            <TouchableOpacity
+              style={[styles.actionButton, styles.actionButtonSecondary]}
+              onPress={() => {
+                trackEvent('referral_cta_tapped', { screen: SCREEN }).catch(() => {});
+                navigation.getParent()?.navigate('ReferralProgram');
+              }}
+            >
+              <AppText style={styles.actionButtonTextSecondary}>
+                Refer & Earn Free Pickups
+              </AppText>
+            </TouchableOpacity>
+          ) : null}
         </View>
 
         <TouchableOpacity

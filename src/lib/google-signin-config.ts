@@ -7,6 +7,7 @@ let configured = false;
  * the same Firebase/Google Cloud project so the returned ID token `aud` matches Firebase Auth.
  * On native, the Google Sign-In SDK uses the iOS/Android OAuth clients from Firebase config files;
  * `webClientId` is still required so the ID token audience is the web client (Firebase expectation).
+ * Must match the Web client in `firebase/google-services.json` / `GoogleService-Info.plist` (see eas.json).
  */
 export function ensureGoogleSignInConfigured(): void {
     if (Platform.OS === 'web') return;

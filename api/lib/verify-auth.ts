@@ -15,7 +15,8 @@ export async function verifyAuthHeader(
   }
 
   if (!admin.apps.length) {
-    throw new Error('Firebase Admin not initialized');
+    console.error('Firebase Admin not initialized');
+    return null;
   }
 
   try {

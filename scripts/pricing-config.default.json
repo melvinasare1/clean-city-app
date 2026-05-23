@@ -1,0 +1,17 @@
+{
+  "currency": "GHS",
+  "bins": {
+    "smallBag": {
+      "unitPrice": 0.2,
+      "enabled": true
+    },
+    "standardBin": {
+      "unitPrice": 20,
+      "enabled": true
+    },
+    "wheelieBin": {
+      "unitPrice": 35,
+      "enabled": true
+    }
+  }
+}

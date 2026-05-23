@@ -10,6 +10,7 @@ import { RootNavigator } from './src/navigation/root-navigation';
 import { AuthProvider } from '@/contexts/auth-context';
 import { BookingsProvider } from '@/contexts/bookings-context';
 import { SubscriptionsProvider } from '@/contexts/subscriptions-context';
+import { PricingProvider } from '@/contexts/pricing-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import '@/services/notifications/notificationHandler';
@@ -48,6 +49,7 @@ export default function App() {
     useNotificationListeners();
 
     return (
+        <PricingProvider>
         <AuthProvider>
             <BookingsProvider>
                 <SubscriptionsProvider>
@@ -62,6 +64,7 @@ export default function App() {
                 </SubscriptionsProvider>
             </BookingsProvider>
         </AuthProvider>
+        </PricingProvider>
     );
 }
 

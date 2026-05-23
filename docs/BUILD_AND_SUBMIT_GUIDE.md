@@ -158,6 +158,27 @@ This will:
 
 ## 🤖 Android Build and Submit
 
+### Google Sign-In on Android (required before testing social login)
+
+Native Google Sign-In uses `@react-native-google-signin/google-signin` with `firebase/google-services.json`. If sign-in fails with **Developer error** (`code: 10`), the Android OAuth client is not registered for the keystore that signed the APK/AAB.
+
+1. **Enable Google in Firebase**
+   - Firebase Console → Authentication → Sign-in method → enable **Google**.
+
+2. **Register SHA-1 fingerprints** (Firebase → Project settings → Your apps → Android `com.cleancity.app` → Add fingerprint):
+   - **EAS development / preview / production** — run `eas credentials -p android` and copy each keystore’s SHA-1 (or from the Expo build credentials page).
+   - **Google Play App Signing** — Play Console → Your app → Setup → App signing → **App signing key certificate** SHA-1 (required for store builds even if EAS SHA-1 is already added).
+
+3. **Download `google-services.json`** after adding fingerprints and replace `firebase/google-services.json`. A correct file includes an Android OAuth client (`client_type`: 1), not only Web (`client_type`: 3).
+
+4. **Align the Web client ID** — `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` in `eas.json` must match the Web client in `google-services.json` (same Firebase project). Rebuild the native app after changing env or `google-services.json` (OTA updates are not enough).
+
+```bash
+eas build --platform android --profile production --clear-cache
+```
+
+---
+
 ### Step 1: Configure Google Play Console
 
 1. **Create App in Play Console:**

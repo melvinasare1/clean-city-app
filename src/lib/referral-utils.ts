@@ -30,6 +30,14 @@ export function getReferralErrorMessage(error: ReferralApplyErrorCode): string {
       return "You can't use your own referral code.";
     case 'already_used':
       return "You've already applied a referral code.";
+    case 'unauthorized':
+      return 'Please sign in again and try applying your code.';
+    case 'profile_not_found':
+      return "We couldn't load your profile. Try again after signing in.";
+    case 'network_error':
+      return "Couldn't reach the server. Check your connection and try again.";
+    case 'server_error':
+      return "We couldn't apply your code right now. Please try again in a moment.";
     default:
       return 'Something went wrong. Please try again.';
   }
