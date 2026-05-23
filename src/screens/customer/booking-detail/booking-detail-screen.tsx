@@ -461,8 +461,19 @@ export const BookingDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const showBookingPaymentActions =
     kind === "booking" &&
     (unifiedStatus === "awaiting_payment" || unifiedStatus === "payment_required");
+  const canDeleteUnpaidBooking =
+    kind === "booking" &&
+    b != null &&
+    b.payment.status !== "paid" &&
+    (b.payment.status === "unpaid" || b.payment.status === "initiated");
+
   const showCancelBooking =
     kind === "booking" && unifiedStatus === "active" && b!.status === "pending";
+
+  const showDeleteUnpaidBooking =
+    kind === "booking" &&
+    canDeleteUnpaidBooking &&
+    (unifiedStatus === "awaiting_payment" || unifiedStatus === "payment_required");
 
   const showPaymentAlert =
     unifiedStatus === "payment_required" || unifiedStatus === "awaiting_payment";
@@ -755,6 +766,21 @@ export const BookingDetailScreen: React.FC<Props> = ({ navigation, route }) => {
               <AppText style={styles.secondaryButtonText}>Verify Payment</AppText>
             )}
           </TouchableOpacity>
+          {showDeleteUnpaidBooking ? (
+            <TouchableOpacity
+              style={[styles.secondaryButton, styles.dangerOutlineButton]}
+              onPress={() => handleDeleteBooking(b)}
+              disabled={processingPayment || verifyingBooking || deletingBooking}
+            >
+              {deletingBooking ? (
+                <ActivityIndicator color={COLORS.error} />
+              ) : (
+                <AppText style={[styles.secondaryButtonText, styles.dangerOutlineText]}>
+                  Cancel Booking
+                </AppText>
+              )}
+            </TouchableOpacity>
+          ) : null}
         </View>
       ) : null}
 

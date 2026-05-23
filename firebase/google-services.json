@@ -15,7 +15,15 @@
       },
       "oauth_client": [
         {
-          "client_id": "430221189966-fk5hbi7oosf4hhappmu7484sj5ia3ie4.apps.googleusercontent.com",
+          "client_id": "430221189966-fpu5ocv7p8g91t2dhph8a19il68d3en7.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.cleancity.app",
+            "certificate_hash": "cb3f5d049347b128e7e50bf0a6151f0657ee9a2e"
+          }
+        },
+        {
+          "client_id": "430221189966-g7n61r2j30jttfo20j2d2765beok7hsf.apps.googleusercontent.com",
           "client_type": 3
         }
       ],
@@ -32,10 +40,11 @@
               "client_type": 3
             },
             {
-              "client_id": "430221189966-modpfqh3d92cl92ib4hq59ad2lpqoac0.apps.googleusercontent.com",
+              "client_id": "430221189966-h6jkblo4etiaecv5i8j30tlrfsrarerl.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
-                "bundle_id": "com.cleancity.app"
+                "bundle_id": "com.cleancity.app",
+                "app_store_id": "6757098396"
               }
             }
           ]
