@@ -475,6 +475,17 @@ export const BookingDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     canDeleteUnpaidBooking &&
     (unifiedStatus === "awaiting_payment" || unifiedStatus === "payment_required");
 
+  const canCancelUnpaidSubscription =
+    kind === "subscription" &&
+    s != null &&
+    s.status !== "cancelled" &&
+    (s.payment?.status ?? "none") !== "paid";
+
+  const showCancelUnpaidSubscription =
+    kind === "subscription" &&
+    canCancelUnpaidSubscription &&
+    (unifiedStatus === "awaiting_payment" || unifiedStatus === "payment_required");
+
   const showPaymentAlert =
     unifiedStatus === "payment_required" || unifiedStatus === "awaiting_payment";
 
@@ -720,7 +731,9 @@ export const BookingDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           <TouchableOpacity
             style={styles.primaryButton}
             onPress={() => handleCompleteSubscriptionPayment(s)}
-            disabled={completingSubscriptionPayment || verifyingSubscriptionPayment}
+            disabled={
+              completingSubscriptionPayment || verifyingSubscriptionPayment || cancellingSubscription
+            }
           >
             {completingSubscriptionPayment ? (
               <ActivityIndicator color={COLORS.white} />
@@ -731,7 +744,9 @@ export const BookingDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           <TouchableOpacity
             style={styles.secondaryButton}
             onPress={() => handleVerifySubscriptionPayment(s)}
-            disabled={completingSubscriptionPayment || verifyingSubscriptionPayment}
+            disabled={
+              completingSubscriptionPayment || verifyingSubscriptionPayment || cancellingSubscription
+            }
           >
             {verifyingSubscriptionPayment ? (
               <ActivityIndicator color={COLORS.primary} />
@@ -739,6 +754,23 @@ export const BookingDetailScreen: React.FC<Props> = ({ navigation, route }) => {
               <AppText style={styles.secondaryButtonText}>Verify Payment</AppText>
             )}
           </TouchableOpacity>
+          {showCancelUnpaidSubscription ? (
+            <TouchableOpacity
+              style={[styles.secondaryButton, styles.dangerOutlineButton]}
+              onPress={() => handleCancelSubscription(s)}
+              disabled={
+                completingSubscriptionPayment || verifyingSubscriptionPayment || cancellingSubscription
+              }
+            >
+              {cancellingSubscription ? (
+                <ActivityIndicator color={COLORS.error} />
+              ) : (
+                <AppText style={[styles.secondaryButtonText, styles.dangerOutlineText]}>
+                  Cancel Subscription
+                </AppText>
+              )}
+            </TouchableOpacity>
+          ) : null}
         </View>
       ) : null}
 
