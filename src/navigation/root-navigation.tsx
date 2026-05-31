@@ -5,7 +5,6 @@ import { AuthNavigator } from './auth-navigation';
 import { CustomerNavigator } from './customer-navigation';
 import { DriverNavigator } from './driver-navigation';
 import { AdminNavigator } from './admin-navigation';
-import { DriverPendingApprovalScreen } from '@/screens/driver';
 import { DriverStatusProvider } from '@/contexts/driver-status-context';
 import { getDriverStatus, type DriverStatus } from '@/services/driver-api';
 import { COLORS } from '../lib/constants';
@@ -47,12 +46,23 @@ export const RootNavigator: React.FC = () => {
         }
         let cancelled = false;
         setDriverStatusLoading(true);
-        getDriverStatus(user.id).then((s) => {
-            if (!cancelled) {
-                setDriverStatusResult(s ?? null);
-                setDriverStatusLoading(false);
-            }
-        });
+        getDriverStatus(user.id)
+            .then((s) => {
+                if (!cancelled) {
+                    setDriverStatusResult(s ?? null);
+                }
+            })
+            .catch((err) => {
+                console.error('[RootNavigator] getDriverStatus failed:', err);
+                if (!cancelled) {
+                    setDriverStatusResult(null);
+                }
+            })
+            .finally(() => {
+                if (!cancelled) {
+                    setDriverStatusLoading(false);
+                }
+            });
         return () => {
             cancelled = true;
         };
@@ -83,12 +93,16 @@ export const RootNavigator: React.FC = () => {
     }
 
     if (user.role === 'driver') {
-        const inactive = driverStatusResult === null || !driverStatusResult.isActive;
-        if (inactive) {
-            return <DriverPendingApprovalScreen />;
-        }
+        const isApproved =
+            driverStatusResult !== null && driverStatusResult.isActive === true;
         return (
-            <DriverStatusProvider value={{ refreshDriverStatus }}>
+            <DriverStatusProvider
+                value={{
+                    refreshDriverStatus,
+                    isApproved,
+                    statusLoading: driverStatusLoading,
+                }}
+            >
                 <DriverNavigator />
             </DriverStatusProvider>
         );

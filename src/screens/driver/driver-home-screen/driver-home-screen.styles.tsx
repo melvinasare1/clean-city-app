@@ -93,6 +93,9 @@ export const styles = StyleSheet.create({
         fontSize: VARS.small,
         fontWeight: '600',
     },
+    actionButtonDisabled: {
+        opacity: 0.55,
+    },
     placeholderText: {
         color: COLORS.textSecondary,
         fontSize: VARS.xsmall + 2,

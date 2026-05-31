@@ -1,6 +1,10 @@
 
+import 'react-native-get-random-values';
+import 'react-native-url-polyfill/auto';
 import 'react-native-gesture-handler';
 import * as WebBrowser from 'expo-web-browser';
+import * as SplashScreen from 'expo-splash-screen';
+import { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 
 // Required for Google (and other) auth redirects to return into the app via deep link.
@@ -17,6 +21,10 @@ import '@/services/notifications/notificationHandler';
 import { useNotificationListeners } from '@/services/notifications';
 import { init } from '@aptabase/react-native';
 import Constants from 'expo-constants';
+
+SplashScreen.preventAutoHideAsync().catch(() => {
+    // Splash may already be hidden on fast reload.
+});
 
 // Initialize Aptabase as early as possible in the app lifecycle.
 // The App Key is provided via Expo env as EXPO_PUBLIC_APTABASE_KEY (set in eas.json or CI).
@@ -47,6 +55,10 @@ if (APTABASE_APP_KEY) {
 export default function App() {
     // Mount push notification listeners once at the root of the app.
     useNotificationListeners();
+
+    useEffect(() => {
+        SplashScreen.hideAsync().catch(() => {});
+    }, []);
 
     return (
         <PricingProvider>

@@ -11,6 +11,8 @@ import {
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp, useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '@/hooks/useAuth';
+import { useDriverApproved } from '@/hooks/useDriverApproved';
+import { DriverApprovalBanner } from '@/components/driver/DriverApprovalBanner';
 import { styles } from './driver-job-details-screen.styles';
 import {
   getJobSingle,
@@ -33,6 +35,7 @@ type DriverJobDetailScreenProps = {
 export const DriverJobDetailScreen: React.FC<DriverJobDetailScreenProps> = ({ navigation, route }) => {
   const { jobId } = route.params;
   const { user } = useAuth();
+  const { isApproved, showPendingAlert } = useDriverApproved();
   const driverId = user?.id ?? '';
 
   const [job, setJob] = useState<DriverJob & { addressSnapshot?: { addressLine1: string; area: string; phoneNumber: string } } | null>(null);
@@ -60,6 +63,14 @@ export const DriverJobDetailScreen: React.FC<DriverJobDetailScreenProps> = ({ na
       loadJob();
     }, [loadJob])
   );
+
+  const guardAction = (action: () => void) => {
+    if (!isApproved) {
+      showPendingAlert();
+      return;
+    }
+    action();
+  };
 
   const handleStartJob = async () => {
     if (!driverId || !jobId) return;
@@ -117,6 +128,7 @@ export const DriverJobDetailScreen: React.FC<DriverJobDetailScreenProps> = ({ na
 
   return (
     <ScrollView style={styles.container}>
+      {!isApproved && <DriverApprovalBanner />}
       <View style={styles.content}>
         <View style={styles.header}>
           <Text style={styles.title}>Job Details</Text>
@@ -139,7 +151,7 @@ export const DriverJobDetailScreen: React.FC<DriverJobDetailScreenProps> = ({ na
             <Text style={styles.infoText}>Phone: {phone}</Text>
             <TouchableOpacity
               style={styles.actionButtonSecondary}
-              onPress={() => Linking.openURL(`tel:${phone}`)}
+              onPress={() => guardAction(() => Linking.openURL(`tel:${phone}`))}
             >
               <Text style={styles.actionButtonTextSecondary}>Call Customer</Text>
             </TouchableOpacity>
@@ -167,7 +179,7 @@ export const DriverJobDetailScreen: React.FC<DriverJobDetailScreenProps> = ({ na
         {canStart && (
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={handleStartJob}
+            onPress={() => guardAction(handleStartJob)}
             disabled={actionLoading}
           >
             {actionLoading ? (
@@ -181,7 +193,7 @@ export const DriverJobDetailScreen: React.FC<DriverJobDetailScreenProps> = ({ na
         {canComplete && (
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={handleCompleteJob}
+            onPress={() => guardAction(handleCompleteJob)}
             disabled={actionLoading}
           >
             {actionLoading ? (

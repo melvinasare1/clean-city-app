@@ -67,7 +67,7 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({ navigation }) => {
             setIsLoading(true);
             try {
                 await trackEvent('signup_started', { screen: SCREEN, method });
-                await loginWithCredential(credential);
+                await loginWithCredential(credential, role);
                 await trackEvent('signup_completed', { screen: SCREEN, method });
             } catch (error: any) {
                 const reason = getSignupErrorReason(error);
@@ -77,7 +77,7 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({ navigation }) => {
                 setIsLoading(false);
             }
         },
-        [loginWithCredential]
+        [loginWithCredential, role]
     );
 
     const handleAppleSignup = async () => {
@@ -228,7 +228,7 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({ navigation }) => {
                         />
 
                         <AppText style={styles.dividerText}>
-                            Social sign-in creates a customer account
+                            Social sign-in creates a {role} account
                         </AppText>
                     </View>
 

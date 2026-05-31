@@ -1,8 +1,9 @@
 import React, { createContext, useContext } from "react";
-import type { DriverStatus } from "@/services/driver-api";
 
 type DriverStatusContextValue = {
   refreshDriverStatus: () => Promise<void>;
+  isApproved: boolean;
+  statusLoading: boolean;
 };
 
 const DriverStatusContext = createContext<DriverStatusContextValue | undefined>(undefined);

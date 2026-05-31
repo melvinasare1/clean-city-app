@@ -4,6 +4,7 @@
  */
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { setDocAtPath } from "@/lib/utils";
 import { getApiBaseUrl } from "@/lib/apiBase";
 
 const getBase = () => getApiBaseUrl();
@@ -18,20 +19,63 @@ export interface DriverStatus {
  * Used only for UI/UX gating; backend already protects driver endpoints.
  */
 export async function getDriverStatus(uid: string): Promise<DriverStatus | null> {
-  const driverRef = doc(db, "drivers", uid);
-  const driverSnap = await getDoc(driverRef);
-  if (driverSnap.exists()) {
-    const d = driverSnap.data();
-    return { isActive: d?.isActive !== false };
+  try {
+    const driverRef = doc(db, "drivers", uid);
+    const driverSnap = await getDoc(driverRef);
+    if (driverSnap.exists()) {
+      const d = driverSnap.data();
+      return { isActive: d?.isActive !== false };
+    }
+  } catch (err) {
+    // drivers/{uid} may exist but be unreadable until rules are deployed
+    if (__DEV__) {
+      console.warn("[getDriverStatus] drivers read failed, falling back to profile:", err);
+    }
   }
-  const profileRef = doc(db, "profiles", uid);
-  const profileSnap = await getDoc(profileRef);
-  if (profileSnap.exists()) {
-    const d = profileSnap.data();
-    if (d?.role !== "driver") return null;
-    return { isActive: d?.isActive !== false };
+
+  try {
+    const profileRef = doc(db, "profiles", uid);
+    const profileSnap = await getDoc(profileRef);
+    if (profileSnap.exists()) {
+      const d = profileSnap.data();
+      if (d?.role !== "driver") return null;
+      return { isActive: d?.isActive !== false };
+    }
+  } catch (err) {
+    console.error("[getDriverStatus] profile read failed:", err);
   }
+
   return null;
+}
+
+/**
+ * Create drivers/{uid} in Firestore on driver signup.
+ * Transactional email is handled by the separate backend service.
+ */
+export async function registerDriverAccount(userId: string, email: string): Promise<void> {
+  if (!userId) {
+    throw new Error("You must be signed in to register as a driver.");
+  }
+  const trimmedEmail = email.trim();
+  if (!trimmedEmail) {
+    throw new Error("An email address is required to register as a driver.");
+  }
+
+  const driverRef = doc(db, "drivers", userId);
+  const existing = await getDoc(driverRef);
+  if (existing.exists()) {
+    return;
+  }
+
+  await setDocAtPath(
+    ["drivers", userId],
+    {
+      userId,
+      email: trimmedEmail,
+      isActive: false,
+    },
+    { merge: true, addTimestamps: true }
+  );
 }
 
 export interface DriverJob {

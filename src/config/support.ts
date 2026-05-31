@@ -8,3 +8,14 @@ export function buildWhatsAppSupportUrl(phoneDigits: string, message: string): s
   const text = encodeURIComponent(message);
   return `https://wa.me/${phoneDigits}?text=${text}`;
 }
+
+export function buildDeleteAccountMessage(userId: string): string {
+  return `I want to delete my account. User ID: ${userId}`;
+}
+
+export function getDeleteAccountWhatsAppUrl(userId: string): string {
+  return buildWhatsAppSupportUrl(
+    BUSINESS_WHATSAPP_NUMBER,
+    buildDeleteAccountMessage(userId)
+  );
+}

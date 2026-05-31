@@ -1,0 +1,85 @@
+[debug] [2026-05-26T17:08:34.022Z] ----------------------------------------------------------------------
+[debug] [2026-05-26T17:08:34.026Z] Command:       /Users/melvinasare/.nvm/versions/node/v20.20.2/bin/node /Users/melvinasare/.nvm/versions/node/v20.20.2/bin/firebase functions:secrets:set RESEND_API_KEY
+[debug] [2026-05-26T17:08:34.027Z] CLI Version:   15.18.0
+[debug] [2026-05-26T17:08:34.027Z] Platform:      darwin
+[debug] [2026-05-26T17:08:34.027Z] Node Version:  v20.20.2
+[debug] [2026-05-26T17:08:34.027Z] Time:          Tue May 26 2026 18:08:34 GMT+0100 (British Summer Time)
+[debug] [2026-05-26T17:08:34.027Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-05-26T17:08:34.352Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-05-26T17:08:34.352Z] > authorizing via signed-in user (melvinasareb@gmail.com)
+[debug] [2026-05-26T17:08:34.353Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-05-26T17:08:34.353Z] > authorizing via signed-in user (melvinasareb@gmail.com)
+[debug] [2026-05-26T17:08:34.354Z] [iam] checking project clean-city-app-f9d73 for permissions ["firebase.projects.get","secretmanager.secrets.create","secretmanager.secrets.get","secretmanager.secrets.update","secretmanager.versions.add"]
+[debug] [2026-05-26T17:08:34.355Z] Checked if tokens are valid: true, expires at: 1779818889105
+[debug] [2026-05-26T17:08:34.355Z] Checked if tokens are valid: true, expires at: 1779818889105
+[debug] [2026-05-26T17:08:34.357Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/clean-city-app-f9d73:testIamPermissions [none]
+[debug] [2026-05-26T17:08:34.357Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/clean-city-app-f9d73:testIamPermissions  x-goog-user-project=clean-city-app-f9d73
+[debug] [2026-05-26T17:08:34.357Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/clean-city-app-f9d73:testIamPermissions {"permissions":["firebase.projects.get","secretmanager.secrets.create","secretmanager.secrets.get","secretmanager.secrets.update","secretmanager.versions.add"]}
+[debug] [2026-05-26T17:08:36.115Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/clean-city-app-f9d73:testIamPermissions 200
+[debug] [2026-05-26T17:08:36.115Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/clean-city-app-f9d73:testIamPermissions {"permissions":["firebase.projects.get","secretmanager.secrets.create","secretmanager.secrets.get","secretmanager.secrets.update","secretmanager.versions.add"]}
+[debug] [2026-05-26T17:08:36.116Z] Checked if tokens are valid: true, expires at: 1779818889105
+[debug] [2026-05-26T17:08:36.116Z] Checked if tokens are valid: true, expires at: 1779818889105
+[debug] [2026-05-26T17:08:36.116Z] >>> [apiv2][query] GET https://cloudresourcemanager.googleapis.com/v1/projects/clean-city-app-f9d73 [none]
+[debug] [2026-05-26T17:08:36.429Z] <<< [apiv2][status] GET https://cloudresourcemanager.googleapis.com/v1/projects/clean-city-app-f9d73 200
+[debug] [2026-05-26T17:08:36.429Z] <<< [apiv2][body] GET https://cloudresourcemanager.googleapis.com/v1/projects/clean-city-app-f9d73 {"projectNumber":"430221189966","projectId":"clean-city-app-f9d73","lifecycleState":"ACTIVE","name":"Clean City App","labels":{"firebase":"enabled","firebase-core":"disabled"},"createTime":"2025-11-24T17:38:00.937014Z"}
+[debug] [2026-05-26T17:08:36.430Z] Checked if tokens are valid: true, expires at: 1779818889105
+[debug] [2026-05-26T17:08:36.430Z] Checked if tokens are valid: true, expires at: 1779818889105
+[debug] [2026-05-26T17:08:36.430Z] >>> [apiv2][query] GET https://secretmanager.googleapis.com/v1/projects/clean-city-app-f9d73/secrets/RESEND_API_KEY [none]
+[debug] [2026-05-26T17:08:37.143Z] <<< [apiv2][status] GET https://secretmanager.googleapis.com/v1/projects/clean-city-app-f9d73/secrets/RESEND_API_KEY 404
+[debug] [2026-05-26T17:08:37.144Z] <<< [apiv2][body] GET https://secretmanager.googleapis.com/v1/projects/clean-city-app-f9d73/secrets/RESEND_API_KEY {"error":{"code":404,"message":"Secret [projects/430221189966/secrets/RESEND_API_KEY] not found.","status":"NOT_FOUND"}}
+[debug] [2026-05-26T17:08:37.144Z] Checked if tokens are valid: true, expires at: 1779818889105
+[debug] [2026-05-26T17:08:37.145Z] Checked if tokens are valid: true, expires at: 1779818889105
+[debug] [2026-05-26T17:08:37.145Z] >>> [apiv2][query] POST https://secretmanager.googleapis.com/v1/projects/clean-city-app-f9d73/secrets secretId=RESEND_API_KEY
+[debug] [2026-05-26T17:08:37.145Z] >>> [apiv2][body] POST https://secretmanager.googleapis.com/v1/projects/clean-city-app-f9d73/secrets {"name":"RESEND_API_KEY","replication":{"automatic":{}},"labels":{"firebase-managed":"functions"}}
+[debug] [2026-05-26T17:08:38.790Z] <<< [apiv2][status] POST https://secretmanager.googleapis.com/v1/projects/clean-city-app-f9d73/secrets 200
+[debug] [2026-05-26T17:08:38.790Z] <<< [apiv2][body] POST https://secretmanager.googleapis.com/v1/projects/clean-city-app-f9d73/secrets {"name":"projects/430221189966/secrets/RESEND_API_KEY","replication":{"automatic":{}},"createTime":"2026-05-26T17:08:37.767830Z","labels":{"firebase-managed":"functions"},"etag":"\"1652bb8bdc45fa\""}
+[debug] [2026-05-26T17:10:35.866Z] ExitPromptError: User force closed the prompt with SIGINT
+    at Interface.sigint (/Users/melvinasare/.nvm/versions/node/v20.20.2/lib/node_modules/firebase-tools/node_modules/@inquirer/core/dist/commonjs/lib/create-prompt.js:101:37)
+    at Interface.emit (node:events:524:28)
+    at [_ttyWrite] [as _ttyWrite] (node:internal/readline/interface:1134:18)
+    at ReadStream.onkeypress (node:internal/readline/interface:267:20)
+    at ReadStream.emit (node:events:536:35)
+    at emitKeys (node:internal/readline/utils:371:14)
+    at emitKeys.next (<anonymous>)
+    at ReadStream.onData (node:internal/readline/emitKeypressEvents:64:36)
+    at ReadStream.emit (node:events:524:28)
+    at addChunk (node:internal/streams/readable:561:12)
+[error] 
+[error] Error: An unexpected error has occurred.
+[debug] [2026-05-26T17:10:37.323Z] ----------------------------------------------------------------------
+[debug] [2026-05-26T17:10:37.327Z] Command:       /Users/melvinasare/.nvm/versions/node/v20.20.2/bin/node /Users/melvinasare/.nvm/versions/node/v20.20.2/bin/firebase functions:secrets:set RESEND_FROM_EMAIL
+[debug] [2026-05-26T17:10:37.327Z] CLI Version:   15.18.0
+[debug] [2026-05-26T17:10:37.328Z] Platform:      darwin
+[debug] [2026-05-26T17:10:37.328Z] Node Version:  v20.20.2
+[debug] [2026-05-26T17:10:37.328Z] Time:          Tue May 26 2026 18:10:37 GMT+0100 (British Summer Time)
+[debug] [2026-05-26T17:10:37.328Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-05-26T17:10:37.689Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-05-26T17:10:37.690Z] > authorizing via signed-in user (melvinasareb@gmail.com)
+[debug] [2026-05-26T17:10:37.690Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-05-26T17:10:37.691Z] > authorizing via signed-in user (melvinasareb@gmail.com)
+[debug] [2026-05-26T17:10:37.691Z] [iam] checking project clean-city-app-f9d73 for permissions ["firebase.projects.get","secretmanager.secrets.create","secretmanager.secrets.get","secretmanager.secrets.update","secretmanager.versions.add"]
+[debug] [2026-05-26T17:10:37.692Z] Checked if tokens are valid: true, expires at: 1779818889105
+[debug] [2026-05-26T17:10:37.693Z] Checked if tokens are valid: true, expires at: 1779818889105
+[debug] [2026-05-26T17:10:37.694Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/clean-city-app-f9d73:testIamPermissions [none]
+[debug] [2026-05-26T17:10:37.694Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/clean-city-app-f9d73:testIamPermissions  x-goog-user-project=clean-city-app-f9d73
+[debug] [2026-05-26T17:10:37.694Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/clean-city-app-f9d73:testIamPermissions {"permissions":["firebase.projects.get","secretmanager.secrets.create","secretmanager.secrets.get","secretmanager.secrets.update","secretmanager.versions.add"]}
+[debug] [2026-05-26T17:10:38.513Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/clean-city-app-f9d73:testIamPermissions 200
+[debug] [2026-05-26T17:10:38.514Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/clean-city-app-f9d73:testIamPermissions {"permissions":["firebase.projects.get","secretmanager.secrets.create","secretmanager.secrets.get","secretmanager.secrets.update","secretmanager.versions.add"]}
+[debug] [2026-05-26T17:10:38.515Z] Checked if tokens are valid: true, expires at: 1779818889105
+[debug] [2026-05-26T17:10:38.515Z] Checked if tokens are valid: true, expires at: 1779818889105
+[debug] [2026-05-26T17:10:38.515Z] >>> [apiv2][query] GET https://cloudresourcemanager.googleapis.com/v1/projects/clean-city-app-f9d73 [none]
+[debug] [2026-05-26T17:10:39.010Z] <<< [apiv2][status] GET https://cloudresourcemanager.googleapis.com/v1/projects/clean-city-app-f9d73 200
+[debug] [2026-05-26T17:10:39.010Z] <<< [apiv2][body] GET https://cloudresourcemanager.googleapis.com/v1/projects/clean-city-app-f9d73 {"projectNumber":"430221189966","projectId":"clean-city-app-f9d73","lifecycleState":"ACTIVE","name":"Clean City App","labels":{"firebase":"enabled","firebase-core":"disabled"},"createTime":"2025-11-24T17:38:00.937014Z"}
+[debug] [2026-05-26T17:10:39.011Z] Checked if tokens are valid: true, expires at: 1779818889105
+[debug] [2026-05-26T17:10:39.011Z] Checked if tokens are valid: true, expires at: 1779818889105
+[debug] [2026-05-26T17:10:39.011Z] >>> [apiv2][query] GET https://secretmanager.googleapis.com/v1/projects/clean-city-app-f9d73/secrets/RESEND_FROM_EMAIL [none]
+[debug] [2026-05-26T17:10:39.883Z] <<< [apiv2][status] GET https://secretmanager.googleapis.com/v1/projects/clean-city-app-f9d73/secrets/RESEND_FROM_EMAIL 404
+[debug] [2026-05-26T17:10:39.884Z] <<< [apiv2][body] GET https://secretmanager.googleapis.com/v1/projects/clean-city-app-f9d73/secrets/RESEND_FROM_EMAIL {"error":{"code":404,"message":"Secret [projects/430221189966/secrets/RESEND_FROM_EMAIL] not found.","status":"NOT_FOUND"}}
+[debug] [2026-05-26T17:10:39.884Z] Checked if tokens are valid: true, expires at: 1779818889105
+[debug] [2026-05-26T17:10:39.884Z] Checked if tokens are valid: true, expires at: 1779818889105
+[debug] [2026-05-26T17:10:39.885Z] >>> [apiv2][query] POST https://secretmanager.googleapis.com/v1/projects/clean-city-app-f9d73/secrets secretId=RESEND_FROM_EMAIL
+[debug] [2026-05-26T17:10:39.885Z] >>> [apiv2][body] POST https://secretmanager.googleapis.com/v1/projects/clean-city-app-f9d73/secrets {"name":"RESEND_FROM_EMAIL","replication":{"automatic":{}},"labels":{"firebase-managed":"functions"}}
+[debug] [2026-05-26T17:10:42.715Z] <<< [apiv2][status] POST https://secretmanager.googleapis.com/v1/projects/clean-city-app-f9d73/secrets 200
+[debug] [2026-05-26T17:10:42.715Z] <<< [apiv2][body] POST https://secretmanager.googleapis.com/v1/projects/clean-city-app-f9d73/secrets {"name":"projects/430221189966/secrets/RESEND_FROM_EMAIL","replication":{"automatic":{}},"createTime":"2026-05-26T17:10:40.499081Z","labels":{"firebase-managed":"functions"},"etag":"\"1652bb933f05b3\""}

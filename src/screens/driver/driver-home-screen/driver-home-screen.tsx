@@ -3,6 +3,8 @@ import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert } fr
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../../hooks/useAuth';
 import { useDriverStatus } from '@/contexts/driver-status-context';
+import { useDriverApproved } from '@/hooks/useDriverApproved';
+import { DriverApprovalBanner } from '@/components/driver/DriverApprovalBanner';
 import { styles } from './driver-home-screen.styles';
 import { trackEvent } from '@/services/analytics';
 import {
@@ -12,6 +14,7 @@ import {
   type DriverJob,
   type DriverShift,
 } from '@/services/driver-api';
+import { openDeleteAccountSupport } from '@/lib/delete-account';
 
 type DriverStackParamList = {
   DriverHome: undefined;
@@ -40,6 +43,7 @@ function groupByWindow(jobs: DriverJob[]): Record<string, DriverJob[]> {
 export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }) => {
   const { user, logout } = useAuth();
   const { refreshDriverStatus } = useDriverStatus();
+  const { isApproved, showPendingAlert } = useDriverApproved();
   const [jobs, setJobs] = useState<DriverJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [shiftLoading, setShiftLoading] = useState(false);
@@ -76,6 +80,14 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
   useEffect(() => {
     loadJobs();
   }, [loadJobs]);
+
+  const guardAction = (action: () => void) => {
+    if (!isApproved) {
+      showPendingAlert();
+      return;
+    }
+    action();
+  };
 
   const handleStartShift = async () => {
     if (!driverId) return;
@@ -116,6 +128,15 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
     }
   };
 
+  const handleDeleteAccount = async () => {
+    try {
+      await openDeleteAccountSupport(user?.id, logout);
+      await trackEvent('logout', { screen: 'settings', reason: 'delete_account' });
+    } catch (error) {
+      console.error('Delete account error:', error);
+    }
+  };
+
   const grouped = groupByWindow(jobs);
 
   return (
@@ -124,6 +145,8 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
         <Text style={styles.title}>Driver Dashboard</Text>
         <Text style={styles.subtitle}>{user?.email}</Text>
       </View>
+
+      {!isApproved && <DriverApprovalBanner />}
 
       <View style={styles.content}>
         <View style={styles.statsRow}>
@@ -141,8 +164,8 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
           <Text style={styles.cardTitle}>Quick Actions</Text>
 
           <TouchableOpacity
-            style={styles.actionButton}
-            onPress={handleStartShift}
+            style={[styles.actionButton, !isApproved && styles.actionButtonDisabled]}
+            onPress={() => guardAction(handleStartShift)}
             disabled={shiftLoading || !!shift?.shiftStartedAt}
           >
             {shiftLoading ? (
@@ -156,8 +179,12 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
 
           {shift?.shiftStartedAt && !shift?.shiftEndedAt && (
             <TouchableOpacity
-              style={[styles.actionButton, styles.actionButtonSecondary]}
-              onPress={handleEndShift}
+              style={[
+                styles.actionButton,
+                styles.actionButtonSecondary,
+                !isApproved && styles.actionButtonDisabled,
+              ]}
+              onPress={() => guardAction(handleEndShift)}
               disabled={endShiftLoading}
             >
               {endShiftLoading ? (
@@ -176,8 +203,12 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.actionButton, styles.actionButtonSecondary]}
-            onPress={() => {}}
+            style={[
+              styles.actionButton,
+              styles.actionButtonSecondary,
+              !isApproved && styles.actionButtonDisabled,
+            ]}
+            onPress={() => guardAction(() => {})}
           >
             <Text style={styles.actionButtonTextSecondary}>🔍 Find Available Jobs</Text>
           </TouchableOpacity>
@@ -218,6 +249,10 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
 
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <Text style={styles.logoutButtonText}>Logout</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.logoutButton} onPress={handleDeleteAccount}>
+          <Text style={styles.logoutButtonText}>Delete Account</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>

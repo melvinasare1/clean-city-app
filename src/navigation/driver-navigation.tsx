@@ -25,6 +25,8 @@ export const DriverNavigator: React.FC = () => {
                 headerTitleStyle: {
                     fontWeight: '600',
                 },
+                headerBackTitleVisible: false,
+                headerBackButtonDisplayMode: 'minimal',
             }}
         >
             <Stack.Screen

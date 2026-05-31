@@ -40,6 +40,7 @@
       "aptabaseKey": "${EXPO_PUBLIC_APTABASE_KEY}"
     },
     "plugins": [
+      "expo-dev-client",
       "expo-adi-registration",
       [
         "expo-splash-screen",

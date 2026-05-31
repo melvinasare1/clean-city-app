@@ -43,6 +43,7 @@ import {
     getNextPickupIsoForSubscription,
 } from '../booking-detail/booking-detail-screen.utils';
 import { trackEvent } from '@/services/analytics';
+import { openDeleteAccountSupport } from '@/lib/delete-account';
 import { useBookings } from '@/contexts/bookings-context';
 import { useSubscriptions } from '@/contexts/subscriptions-context';
 
@@ -105,15 +106,26 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
                         'We could not log you out. Please try again.'
                     );
                 }
+            } else if (index === 3) {
+                try {
+                    await openDeleteAccountSupport(user?.id, logout);
+                    await trackEvent('logout', { screen: 'settings', reason: 'delete_account' });
+                } catch (err) {
+                    console.error('Error during delete account:', err);
+                    Alert.alert(
+                        'Something went wrong',
+                        'We could not complete your request. Please try again.'
+                    );
+                }
             }
         },
-        [logout]
+        [logout, user?.id]
     );
 
     const showOptionsSheet = useCallback(() => {
-        const options = ['Leave feedback', 'Get support', 'Log out', 'Cancel'];
-        const destructiveButtonIndex = 2;
-        const cancelButtonIndex = 3;
+        const options = ['Leave feedback', 'Get support', 'Log out', 'Delete account', 'Cancel'];
+        const destructiveButtonIndex = 3;
+        const cancelButtonIndex = 4;
 
         if (Platform.OS === 'ios') {
             ActionSheetIOS.showActionSheetWithOptions(
@@ -143,8 +155,12 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
                     },
                     {
                         text: 'Log out',
-                        style: 'destructive',
                         onPress: () => handleActionSelection(2),
+                    },
+                    {
+                        text: 'Delete account',
+                        style: 'destructive',
+                        onPress: () => handleActionSelection(3),
                     },
                     {
                         text: 'Cancel',

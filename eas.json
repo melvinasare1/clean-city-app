@@ -8,7 +8,8 @@
       "env": {
         "EXPO_PUBLIC_API_URL": "https://clean-city-backend-plum.vercel.app/",
         "EXPO_PUBLIC_APTABASE_KEY": "A-EU-6592512622",
-        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "430221189966-fk5hbi7oosf4hhappmu7484sj5ia3ie4.apps.googleusercontent.com"
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "430221189966-fk5hbi7oosf4hhappmu7484sj5ia3ie4.apps.googleusercontent.com",
+        "EAS_BUILD_PROFILE": "development"
       },
       "developmentClient": true,
       "distribution": "internal",

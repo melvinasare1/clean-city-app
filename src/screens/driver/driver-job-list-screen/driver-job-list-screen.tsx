@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '@/hooks/useAuth';
+import { DriverApprovalBanner } from '@/components/driver/DriverApprovalBanner';
+import { useDriverApproved } from '@/hooks/useDriverApproved';
 import { COLORS } from '@/lib/constants';
 import { styles } from './driver-job-list-screen.styles';
 import { getDriverJobs, type DriverJob } from '@/services/driver-api';
@@ -46,6 +48,7 @@ function getStatusColor(status: string): string {
 
 export const DriverJobListScreen: React.FC<DriverJobListScreenProps> = ({ navigation }) => {
   const { user } = useAuth();
+  const { isApproved } = useDriverApproved();
   const [jobs, setJobs] = useState<DriverJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -76,6 +79,7 @@ export const DriverJobListScreen: React.FC<DriverJobListScreenProps> = ({ naviga
 
   return (
     <ScrollView style={styles.container}>
+      {!isApproved && <DriverApprovalBanner />}
       <View style={styles.content}>
         <Text style={styles.title}>Assigned Jobs</Text>
         {error && <Text style={styles.placeholderText}>{error}</Text>}
