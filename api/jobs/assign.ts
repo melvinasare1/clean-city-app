@@ -2,7 +2,7 @@
  * POST /api/jobs/assign
  * Body: { jobId: string, driverId: string, adminId: string }
  * Assigns or reassigns a job to a driver. Returns updated job.
- * Validates driver exists in drivers collection (or profiles fallback) and isActive === true.
+ * Validates driver exists in drivers collection with status approved.
  */
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getFirestore } from "../lib/firebase-admin";
@@ -46,9 +46,9 @@ export default async function handler(
     if (!driver.exists) {
       return res.status(404).json({ error: "Driver not found" });
     }
-    if (!driver.isActive) {
+    if (!driver.isApproved) {
       return res.status(400).json({
-        error: "Job cannot be assigned to an inactive driver.",
+        error: "Job cannot be assigned to a driver who is not approved.",
       });
     }
 

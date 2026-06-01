@@ -3,7 +3,7 @@
  * Body: { jobId: string, driverId: string }
  * Update job: jobStatus = "completed", completedAt = now, completedBy = driverId.
  * Increment totalJobsCompleted on today's driverShift.
- * Validates driver exists (drivers collection or profiles) and isActive. Not allowed if paymentStatus !== "paid" or assignedTo !== driverId.
+ * Validates driver exists in drivers collection and is approved. Not allowed if paymentStatus !== "paid" or assignedTo !== driverId.
  */
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getFirestore } from "../lib/firebase-admin";
@@ -41,8 +41,8 @@ export default async function handler(
     if (!driver.exists) {
       return res.status(404).json({ error: "Driver not found" });
     }
-    if (!driver.isActive) {
-      return res.status(400).json({ error: "Cannot complete job: driver is inactive." });
+    if (!driver.isApproved) {
+      return res.status(400).json({ error: "Cannot complete job: driver is not approved." });
     }
 
     const jobRef = firestore.collection(JOBS_COLLECTION).doc(jobId);

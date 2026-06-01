@@ -1,12 +1,11 @@
 /**
  * GET /api/drivers
- * Returns list of drivers: { id, name, isActive }.
- * Reads from drivers collection first; falls back to profiles (role == 'driver') for backward compatibility.
- * Used by admin panel for assignment dropdown (filter to isActive === true on client).
+ * Returns list of drivers from drivers/ only: { id, name, status, isActive }.
+ * isActive is true when status === "approved" (legacy field for admin UI).
  */
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getFirestore } from "../lib/firebase-admin";
-import { DRIVERS_COLLECTION, PROFILES_COLLECTION, getDriverDisplayName } from "../lib/collections";
+import { DRIVERS_COLLECTION, toAdminDriverSummary } from "../lib/collections";
 
 export default async function handler(
   req: VercelRequest,
@@ -29,34 +28,10 @@ export default async function handler(
       });
     }
 
-    // Drivers collection first; merge with profiles (role === driver) for backward compatibility
     const driversSnap = await firestore.collection(DRIVERS_COLLECTION).get();
-    const profileDriversSnap = await firestore
-      .collection(PROFILES_COLLECTION)
-      .where("role", "==", "driver")
-      .get();
-
-    const byId = new Map<string, { id: string; name: string; isActive: boolean }>();
-    for (const doc of driversSnap.docs) {
-      const d = doc.data();
-      byId.set(doc.id, {
-        id: doc.id,
-        name: getDriverDisplayName(d, doc.id),
-        isActive: d.isActive !== false,
-      });
-    }
-    for (const doc of profileDriversSnap.docs) {
-      if (!byId.has(doc.id)) {
-        const d = doc.data();
-        byId.set(doc.id, {
-          id: doc.id,
-          name: getDriverDisplayName(d, doc.id),
-          isActive: d.isActive !== false,
-        });
-      }
-    }
-
-    const drivers = Array.from(byId.values());
+    const drivers = driversSnap.docs.map((doc) =>
+      toAdminDriverSummary(doc.id, doc.data() as Record<string, unknown>)
+    );
 
     return res.status(200).json(drivers);
   } catch (error: unknown) {

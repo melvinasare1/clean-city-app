@@ -5,9 +5,13 @@ import { getApiBaseUrl } from "@/lib/apiBase";
 
 const getBase = () => getApiBaseUrl();
 
+export type DriverAccountStatus = 'pending' | 'approved' | 'suspended';
+
 export interface AdminDriver {
   id: string;
   name: string;
+  status: DriverAccountStatus;
+  /** @deprecated Use status === 'approved' */
   isActive: boolean;
 }
 

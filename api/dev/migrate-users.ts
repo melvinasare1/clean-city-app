@@ -112,9 +112,17 @@ export default async function handler(
         const existing = await driversRef.get();
         if (existing.exists) continue;
 
+        const legacyActive = data.isActive !== false;
+        const status =
+          data.status === "approved" || data.status === "pending" || data.status === "suspended"
+            ? data.status
+            : legacyActive
+              ? "approved"
+              : "pending";
         const driverData = {
-          userId: uid,
-          isActive: data.isActive !== false,
+          uid,
+          role: "driver",
+          status,
           ...pick(data, DRIVER_FIELDS as unknown as string[]),
           createdAt: data.createdAt ?? now,
           updatedAt: now,

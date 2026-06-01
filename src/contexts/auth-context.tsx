@@ -29,13 +29,20 @@ import { loadReminderSettingsAndReschedule, loadWeeklyReminderSettingsAndResched
 import { createReferralIfValid } from '@/services/referralService';
 import { registerDriverAccount } from '@/services/driver-api';
 import { isProfileComplete, toMillis } from '@/lib/referral-utils';
+import { type DriverAccountStatus, normalizeDriverStatus } from '@/lib/driver-account';
 
 export type AppUserRole = 'customer' | 'driver' | 'admin';
+
+export interface DriverSignupDetails {
+    name?: string;
+    phone?: string;
+}
 
 export interface AppUser {
     id: string;
     email: string;
     role: AppUserRole | null;
+    name?: string;
     phone?: string;
     location?: string;
     signupAt?: string;
@@ -49,19 +56,26 @@ export interface AppUser {
         freePickupsEarned: number;
         freePickupThreshold: number;
     };
+    /** Set when role === 'driver' */
+    driverStatus?: DriverAccountStatus;
 }
 
 interface AuthContextProps {
     user: AppUser | null;
     loading: boolean;
     login: (email: string, password: string) => Promise<void>;
-    loginWithCredential: (credential: AuthCredential, role?: AppUserRole | null) => Promise<void>;
+    loginWithCredential: (
+        credential: AuthCredential,
+        role?: AppUserRole | null,
+        driverDetails?: DriverSignupDetails
+    ) => Promise<void>;
     resetPassword: (email: string) => Promise<void>;
     signup: (
         email: string,
         password: string,
         role?: AppUserRole | null,
-        referralCode?: string | null
+        referralCode?: string | null,
+        driverDetails?: DriverSignupDetails
     ) => Promise<void>;
     logout: () => Promise<void>;
     refreshUserProfile: () => Promise<void>;
@@ -122,24 +136,28 @@ const mapDriver = (firebaseUser: FirebaseUser | null, data?: Record<string, unkn
     if (!firebaseUser) {
         return { id: '', email: '', role: null };
     }
+    const status = normalizeDriverStatus(data);
     return {
         id: firebaseUser.uid,
-        email: (typeof data?.email === 'string' && data.email.trim()) ? data.email : (firebaseUser.email ?? ''),
+        email:
+            typeof data?.email === 'string' && data.email.trim()
+                ? data.email
+                : firebaseUser.email ?? '',
+        name: typeof data?.name === 'string' ? data.name : undefined,
+        phone: typeof data?.phone === 'string' ? data.phone : undefined,
         role: 'driver',
+        driverStatus: status,
     };
 };
 
 /**
- * Create profiles/{uid} for first-time *customer* social sign-in (Apple, Google) and other auth paths.
- * For drivers we avoid creating profiles; driver data should live in drivers/{uid}.
+ * Create profiles/{uid} for first-time customer sign-in only.
+ * Never creates a profile if drivers/{uid} exists.
  */
 const createProfileIfMissing = async (firebaseUser: FirebaseUser): Promise<void> => {
-    // If a driver document already exists, do not create a customer profile for the same UID.
-    try {
-        const driverSnap = await getDoc(doc(db, 'drivers', firebaseUser.uid));
-        if (driverSnap.exists()) return;
-    } catch {
-        // If drivers read permissions are not deployed yet, continue creating the customer profile.
+    const driverSnap = await getDoc(doc(db, 'drivers', firebaseUser.uid));
+    if (driverSnap.exists()) {
+        return;
     }
 
     const docRef = doc(db, 'profiles', firebaseUser.uid);
@@ -172,17 +190,14 @@ const fetchUserProfile = async (firebaseUser: FirebaseUser | null): Promise<AppU
         };
     }
 
-    // Driver data should live in drivers/{uid}. If a driver doc exists, return driver role.
-    try {
-        const driverSnap = await getDoc(doc(db, 'drivers', firebaseUser.uid));
-        if (driverSnap.exists()) {
-            return mapDriver(firebaseUser, driverSnap.data() as Record<string, unknown> | undefined);
+    const driverSnap = await getDoc(doc(db, 'drivers', firebaseUser.uid));
+    if (driverSnap.exists()) {
+        const driverData = driverSnap.data() as Record<string, unknown>;
+        if (driverData?.role === 'driver') {
+            return mapDriver(firebaseUser, driverData);
         }
-    } catch {
-        // Fall back to profiles below.
     }
 
-    // Otherwise treat the account as a customer and ensure profiles/{uid} exists.
     await createProfileIfMissing(firebaseUser);
 
     const docRef = doc(db, 'profiles', firebaseUser.uid);
@@ -193,6 +208,10 @@ const fetchUserProfile = async (firebaseUser: FirebaseUser | null): Promise<AppU
     }
 
     let data = snap.data() as ProfileData | undefined;
+
+    if (data?.role === 'driver') {
+        return mapProfile(firebaseUser, { ...data, role: 'customer' });
+    }
 
     if (data && typeof data.referralCode !== 'string') {
         const generatedReferralCode = `CC-${firebaseUser.uid.slice(0, 6).toUpperCase()}`;
@@ -225,27 +244,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 try {
                     const profile = await fetchUserProfile(firebaseUser);
                     setUser(profile);
-                    
-                    // Register for push notifications after successful login
-                    // This runs in the background and won't block the auth flow
-                    registerForPushNotifications(firebaseUser.uid).catch((err) => {
+
+                    registerForPushNotifications(firebaseUser.uid, profile.role).catch((err) => {
                         console.error('Failed to register push notifications:', err);
-                        // Don't throw - push registration failure shouldn't break auth
                     });
 
-                    // Load and reschedule daily reminders after successful login
-                    // This restores reminders after reinstall or device change
-                    loadReminderSettingsAndReschedule(firebaseUser.uid).catch((err) => {
-                        console.error('Failed to load reminder settings:', err);
-                        // Don't throw - reminder loading failure shouldn't break auth
-                    });
+                    if (profile.role !== 'driver') {
+                        loadReminderSettingsAndReschedule(firebaseUser.uid).catch((err) => {
+                            console.error('Failed to load reminder settings:', err);
+                        });
 
-                    // Load and reschedule weekly reminders after successful login
-                    // This restores weekly rubbish collection reminders after reinstall or device change
-                    loadWeeklyReminderSettingsAndReschedule(firebaseUser.uid).catch((err) => {
-                        console.error('Failed to load weekly reminder settings:', err);
-                        // Don't throw - reminder loading failure shouldn't break auth
-                    });
+                        loadWeeklyReminderSettingsAndReschedule(firebaseUser.uid).catch((err) => {
+                            console.error('Failed to load weekly reminder settings:', err);
+                        });
+                    }
                 } catch (err) {
                     console.error('Error fetching user profile:', err);
                     setUser({
@@ -278,21 +290,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await signInWithEmailAndPassword(auth, email, password);
     };
 
-    const loginWithCredential = async (credential: AuthCredential, role?: AppUserRole | null) => {
+    const loginWithCredential = async (
+        credential: AuthCredential,
+        role?: AppUserRole | null,
+        driverDetails?: DriverSignupDetails
+    ) => {
         const result = await signInWithCredential(auth, credential);
 
-        // Social sign-in should create the correct collection for the selected role.
-        // Drivers must be created in drivers/{uid}, not profiles/{uid}.
         if (role === 'driver') {
             const email = result.user.email;
             if (!email) {
                 throw new Error('Social sign-in did not return an email; cannot create driver account.');
             }
-            await registerDriverAccount(result.user.uid, email);
+            await registerDriverAccount({
+                userId: result.user.uid,
+                email,
+                name: driverDetails?.name,
+                phone: driverDetails?.phone,
+            });
             return;
         }
 
-        // Customer flow (or existing login without a role hint)
         await createProfileIfMissing(result.user);
     };
 
@@ -300,20 +318,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email: string,
         password: string,
         role: AppUserRole | null = 'customer',
-        referralCode: string | null = null
+        referralCode: string | null = null,
+        driverDetails?: DriverSignupDetails
     ) => {
         const result = await createUserWithEmailAndPassword(auth, email, password);
         const firebaseUser = result.user;
 
-        const isDriver = role === 'driver';
-
-        if (isDriver) {
-            // Drivers must be created under drivers/{uid}; do not create driver data in profiles/{uid}.
-            await registerDriverAccount(firebaseUser.uid, email);
+        if (role === 'driver') {
+            await registerDriverAccount({
+                userId: firebaseUser.uid,
+                email,
+                name: driverDetails?.name,
+                phone: driverDetails?.phone,
+            });
             return;
         }
 
-        // Customer flow: create / update profiles/{uid} with referral-related defaults.
         const generatedReferralCode = `CC-${firebaseUser.uid.slice(0, 6).toUpperCase()}`;
         await setDocAtPath(['profiles', firebaseUser.uid], {
             email,
@@ -331,7 +351,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             addTimestamps: true,
         });
 
-        // Create pending referral document if the supplied code is valid.
         if (referralCode && referralCode.trim()) {
             const trimmed = referralCode.trim().toUpperCase();
             await createReferralIfValid({
@@ -361,14 +380,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const logout = async () => {
-        // Remove push token from Firestore before signing out
         const currentUser = auth.currentUser;
+        const roleHint = user?.role;
         if (currentUser) {
             try {
-                await removePushTokenFromFirestore(currentUser.uid);
+                await removePushTokenFromFirestore(currentUser.uid, roleHint);
             } catch (err) {
                 console.error('Failed to remove push token on logout:', err);
-                // Don't throw - continue with logout even if token removal fails
             }
         }
         await signOutGoogleSession();

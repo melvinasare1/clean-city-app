@@ -131,11 +131,32 @@ async function sendExpoPush(message: ExpoPushMessage): Promise<boolean> {
 }
 
 /**
- * Get user's Expo push token from Firestore
- * Checks notificationPreferences.enabled if present
- * 
- * @param userId - User ID (Firebase Auth UID)
- * @returns Promise resolving to push token or null
+ * Expo push token for a driver (drivers/{uid} only).
+ */
+async function getDriverPushToken(driverId: string): Promise<string | null> {
+  try {
+    const driverDoc = await db.doc(`drivers/${driverId}`).get();
+    if (!driverDoc.exists) {
+      logger.warn("Driver document not found", { driverId });
+      return null;
+    }
+    const token = driverDoc.data()?.expoPushToken;
+    if (!token || typeof token !== "string") {
+      logger.warn("No Expo push token found for driver", { driverId });
+      return null;
+    }
+    return token;
+  } catch (error) {
+    logger.error("Error fetching push token for driver", {
+      driverId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
+}
+
+/**
+ * Expo push token for a customer (profiles/{uid}).
  */
 async function getUserPushToken(userId: string): Promise<string | null> {
   try {
@@ -148,14 +169,12 @@ async function getUserPushToken(userId: string): Promise<string | null> {
 
     const userData = userDoc.data();
 
-    // Check notification preferences (if present)
     const preferences = userData?.notificationPreferences;
     if (preferences?.enabled === false) {
       logger.info("Notifications disabled for user", { userId });
       return null;
     }
 
-    // Get Expo push token
     const token = userData?.expoPushToken;
 
     if (!token || typeof token !== "string") {
@@ -175,10 +194,8 @@ async function getUserPushToken(userId: string): Promise<string | null> {
 
 /**
  * Trigger: Job Assigned
- * Fires when a job's assignedWorkerId changes from null/undefined to a UID
- * OR changes to a different UID
- * 
- * Sends push notification to the assigned worker
+ * Fires when jobs.assignedTo changes from null/empty to a driver UID
+ * or changes to a different driver UID.
  */
 export const onJobAssigned = onDocumentUpdated(
   "jobs/{jobId}",
@@ -192,35 +209,32 @@ export const onJobAssigned = onDocumentUpdated(
       return;
     }
 
-    const beforeWorkerId = before?.assignedWorkerId;
-    const afterWorkerId = after?.assignedWorkerId;
+    const beforeDriverId = before?.assignedTo ?? before?.assignedWorkerId;
+    const afterDriverId = after?.assignedTo ?? after?.assignedWorkerId;
 
-    // Check if worker was assigned (changed from null/undefined to a UID)
     const wasUnassigned =
-      !beforeWorkerId || beforeWorkerId === null || beforeWorkerId === "";
+      !beforeDriverId || beforeDriverId === null || beforeDriverId === "";
     const isNowAssigned =
-      afterWorkerId && afterWorkerId !== null && afterWorkerId !== "";
+      afterDriverId && afterDriverId !== null && afterDriverId !== "";
 
-    // Also check if worker changed (different UID)
-    const workerChanged =
-      beforeWorkerId &&
-      afterWorkerId &&
-      beforeWorkerId !== afterWorkerId;
+    const driverChanged =
+      beforeDriverId &&
+      afterDriverId &&
+      beforeDriverId !== afterDriverId;
 
-    if ((wasUnassigned && isNowAssigned) || workerChanged) {
-      logger.info("Job assigned to worker", {
+    if ((wasUnassigned && isNowAssigned) || driverChanged) {
+      logger.info("Job assigned to driver", {
         jobId,
-        workerId: afterWorkerId,
+        driverId: afterDriverId,
         wasUnassigned,
-        workerChanged,
+        driverChanged,
       });
 
-      // Get worker's push token
-      const token = await getUserPushToken(afterWorkerId as string);
+      const token = await getDriverPushToken(afterDriverId as string);
 
       if (!token) {
-        logger.warn("No push token found for worker, skipping notification", {
-          workerId: afterWorkerId,
+        logger.warn("No push token found for driver, skipping notification", {
+          driverId: afterDriverId,
           jobId,
         });
         return;
@@ -238,21 +252,21 @@ export const onJobAssigned = onDocumentUpdated(
       });
 
       if (success) {
-        logger.info("Push notification sent to worker", {
-          workerId: afterWorkerId,
+        logger.info("Push notification sent to driver", {
+          driverId: afterDriverId,
           jobId,
         });
       } else {
-        logger.error("Failed to send push notification to worker", {
-          workerId: afterWorkerId,
+        logger.error("Failed to send push notification to driver", {
+          driverId: afterDriverId,
           jobId,
         });
       }
     } else {
       logger.debug("Job update did not trigger assignment", {
         jobId,
-        beforeWorkerId,
-        afterWorkerId,
+        beforeDriverId,
+        afterDriverId,
       });
     }
   }

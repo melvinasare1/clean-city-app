@@ -36,10 +36,12 @@ export default async function handler(
 
     const now = firestore.Timestamp.now();
     await firestore.collection(DRIVERS_COLLECTION).doc(founderId).set({
-      userId: founderId,
+      uid: founderId,
       email: email ?? null,
       name: name || "Founder Driver",
-      isActive: true,
+      phone: null,
+      role: "driver",
+      status: "approved",
       createdAt: now,
       updatedAt: now,
     });
@@ -47,7 +49,7 @@ export default async function handler(
     return res.status(201).json({
       ok: true,
       message: "Founder driver created",
-      driver: { id: founderId, name: name || "Founder Driver", isActive: true },
+      driver: { id: founderId, name: name || "Founder Driver", status: "approved", isActive: true },
     });
   } catch (initErr) {
     const msg = initErr instanceof Error ? initErr.message : "Service error";

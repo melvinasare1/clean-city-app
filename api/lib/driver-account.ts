@@ -1,0 +1,28 @@
+/**
+ * Driver account status helpers (server).
+ * Legacy `isActive: true|false` maps to approved|pending.
+ */
+
+export type DriverAccountStatus = "pending" | "approved" | "suspended";
+
+const VALID_STATUSES: DriverAccountStatus[] = ["pending", "approved", "suspended"];
+
+export function normalizeDriverStatus(
+  data: Record<string, unknown> | undefined
+): DriverAccountStatus {
+  const status = data?.status;
+  if (typeof status === "string" && VALID_STATUSES.includes(status as DriverAccountStatus)) {
+    return status as DriverAccountStatus;
+  }
+  if (data?.isActive === true) return "approved";
+  if (data?.isActive === false) return "pending";
+  return "pending";
+}
+
+export function isDriverApproved(data: Record<string, unknown> | undefined): boolean {
+  return normalizeDriverStatus(data) === "approved";
+}
+
+export function isDriverRole(data: Record<string, unknown> | undefined): boolean {
+  return data?.role === "driver";
+}

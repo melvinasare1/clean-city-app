@@ -18,7 +18,7 @@ import { COLORS } from '@/lib/constants';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SignupScreenProps } from '../types';
 import { trackEvent } from '@/services/analytics';
-import type { AppUserRole } from '@/contexts/auth-context';
+import type { AppUserRole, DriverSignupDetails } from '@/contexts/auth-context';
 import { generateNonce, sha256 } from '@/lib/social-auth';
 import { GoogleAuthButton } from '../google-auth-button';
 import { SocialButtonLabel } from '../social-button-label';
@@ -53,6 +53,8 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({ navigation }) => {
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [driverName, setDriverName] = useState('');
+    const [driverPhone, setDriverPhone] = useState('');
     const [role, setRole] = useState<AppUserRole>('customer');
     const [referralCode] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -62,12 +64,20 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({ navigation }) => {
         trackEvent('auth_screen_viewed', { screen: SCREEN });
     }, []);
 
+    const driverDetails: DriverSignupDetails | undefined =
+        role === 'driver'
+            ? {
+                  name: driverName.trim() || undefined,
+                  phone: driverPhone.trim() || undefined,
+              }
+            : undefined;
+
     const handleSocialSignup = useCallback(
         async (credential: any, method: 'google' | 'apple') => {
             setIsLoading(true);
             try {
                 await trackEvent('signup_started', { screen: SCREEN, method });
-                await loginWithCredential(credential, role);
+                await loginWithCredential(credential, role, driverDetails);
                 await trackEvent('signup_completed', { screen: SCREEN, method });
             } catch (error: any) {
                 const reason = getSignupErrorReason(error);
@@ -77,7 +87,7 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({ navigation }) => {
                 setIsLoading(false);
             }
         },
-        [loginWithCredential, role]
+        [loginWithCredential, role, driverDetails]
     );
 
     const handleAppleSignup = async () => {
@@ -116,12 +126,16 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({ navigation }) => {
             Alert.alert('Error', 'Please enter both email and password');
             return;
         }
+        if (role === 'driver' && !driverName.trim()) {
+            Alert.alert('Error', 'Please enter your full name');
+            return;
+        }
 
         setIsLoading(true);
 
         try {
             await trackEvent('signup_started', { screen: SCREEN, method: 'email_password' });
-            await signup(email, password, role, referralCode ?? undefined);
+            await signup(email, password, role, referralCode ?? undefined, driverDetails);
             await trackEvent('signup_completed', { screen: SCREEN, method: 'email_password' });
         } catch (error: any) {
             const reason = getSignupErrorReason(error);
@@ -184,6 +198,26 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({ navigation }) => {
                                 </TouchableOpacity>
                             ))}
                         </View>
+
+                        {role === 'driver' && (
+                            <>
+                                <AppTextInput
+                                    style={styles.input}
+                                    placeholder="Full name"
+                                    value={driverName}
+                                    onChangeText={setDriverName}
+                                    editable={!isLoading}
+                                />
+                                <AppTextInput
+                                    style={styles.input}
+                                    placeholder="Phone (optional)"
+                                    value={driverPhone}
+                                    onChangeText={setDriverPhone}
+                                    keyboardType="phone-pad"
+                                    editable={!isLoading}
+                                />
+                            </>
+                        )}
 
                         <TouchableOpacity
                             style={[styles.button, isLoading && styles.buttonDisabled]}

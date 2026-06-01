@@ -2,7 +2,7 @@
  * POST /api/jobs/start
  * Body: { jobId: string, driverId: string }
  * Update job: jobStatus = "in_progress", startedAt = now, startedBy = driverId.
- * Validates driver exists (drivers collection or profiles) and isActive; only allowed if assignedTo === driverId.
+ * Validates driver exists in drivers collection and is approved; only allowed if assignedTo === driverId.
  */
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getFirestore } from "../lib/firebase-admin";
@@ -35,8 +35,8 @@ export default async function handler(
     if (!driver.exists) {
       return res.status(404).json({ error: "Driver not found" });
     }
-    if (!driver.isActive) {
-      return res.status(400).json({ error: "Cannot start job: driver is inactive." });
+    if (!driver.isApproved) {
+      return res.status(400).json({ error: "Cannot start job: driver is not approved." });
     }
 
     const jobRef = firestore.collection(JOBS_COLLECTION).doc(jobId);

@@ -21,23 +21,32 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.role == 'admin';
     }
 
+    function isDriver() {
+      return isSignedIn()
+        && get(/databases/$(database)/documents/drivers/$(request.auth.uid)).data.role == 'driver';
+    }
+
+    // Customers and admins only — never store driver accounts here.
     match /profiles/{userId} {
       allow read: if isOwner(userId) || isAdmin();
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && request.resource.data.role != 'driver';
+      allow update: if isOwner(userId)
+        && request.resource.data.role != 'driver';
       allow delete: if false;
     }
 
-    // Driver profile. Signup creates drivers/{uid} with isActive: false; approval via admin.
+    // All driver data lives here (personal info, status, push token, etc.).
     match /drivers/{userId} {
       allow read: if isOwner(userId) || isAdmin();
       allow create: if isOwner(userId)
-        && request.resource.data.userId == userId
-        && request.resource.data.isActive == false;
+        && request.resource.data.uid == userId
+        && request.resource.data.role == 'driver'
+        && request.resource.data.status == 'pending';
       allow update: if isAdmin()
         || (isOwner(userId)
           && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['expoPushToken', 'updatedAt']));
+            .hasOnly(['expoPushToken', 'pushTokenUpdatedAt', 'updatedAt', 'name', 'phone']));
       allow delete: if false;
     }
 

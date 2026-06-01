@@ -56,7 +56,9 @@ export const AdminJobsScreen: React.FC = () => {
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
   const [assigning, setAssigning] = useState(false);
 
-  const activeDrivers = drivers.filter((d) => d.isActive);
+  const activeDrivers = drivers.filter(
+    (d) => d.status === 'approved' || d.isActive === true
+  );
 
   const loadDrivers = useCallback(async () => {
     try {

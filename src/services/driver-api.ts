@@ -1,58 +1,61 @@
 /**
- * Driver dashboard API client. All driver/job writes go through backend; no direct Firestore.
- * getDriverStatus uses Firestore client for UI gating only (backend enforces security).
+ * Driver dashboard API client. Job/shift writes go through backend.
+ * Driver profile reads use drivers/{uid} only (never profiles).
  */
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { setDocAtPath } from "@/lib/utils";
 import { getApiBaseUrl } from "@/lib/apiBase";
+import {
+  type DriverAccountStatus,
+  isDriverApprovedStatus,
+  normalizeDriverStatus,
+} from "@/lib/driver-account";
 
 const getBase = () => getApiBaseUrl();
 
-/** Result of driver status fetch for UI gating. Backend enforces security. */
+export interface RegisterDriverInput {
+  userId: string;
+  email: string;
+  name?: string;
+  phone?: string;
+}
+
+/** Driver approval state for UI gating. Backend enforces on job endpoints. */
 export interface DriverStatus {
-  isActive: boolean;
+  status: DriverAccountStatus;
+  isApproved: boolean;
 }
 
 /**
- * Fetch driver status from Firestore (drivers/{uid} then profiles/{uid} fallback).
- * Used only for UI/UX gating; backend already protects driver endpoints.
+ * Fetch driver status from Firestore drivers/{uid} only.
  */
 export async function getDriverStatus(uid: string): Promise<DriverStatus | null> {
   try {
-    const driverRef = doc(db, "drivers", uid);
-    const driverSnap = await getDoc(driverRef);
-    if (driverSnap.exists()) {
-      const d = driverSnap.data();
-      return { isActive: d?.isActive !== false };
+    const driverSnap = await getDoc(doc(db, "drivers", uid));
+    if (!driverSnap.exists()) {
+      return null;
     }
+    const data = driverSnap.data() as Record<string, unknown>;
+    if (data?.role !== "driver") {
+      return null;
+    }
+    const status = normalizeDriverStatus(data);
+    return {
+      status,
+      isApproved: isDriverApprovedStatus(status),
+    };
   } catch (err) {
-    // drivers/{uid} may exist but be unreadable until rules are deployed
-    if (__DEV__) {
-      console.warn("[getDriverStatus] drivers read failed, falling back to profile:", err);
-    }
+    console.error("[getDriverStatus] drivers read failed:", err);
+    return null;
   }
-
-  try {
-    const profileRef = doc(db, "profiles", uid);
-    const profileSnap = await getDoc(profileRef);
-    if (profileSnap.exists()) {
-      const d = profileSnap.data();
-      if (d?.role !== "driver") return null;
-      return { isActive: d?.isActive !== false };
-    }
-  } catch (err) {
-    console.error("[getDriverStatus] profile read failed:", err);
-  }
-
-  return null;
 }
 
 /**
- * Create drivers/{uid} in Firestore on driver signup.
- * Transactional email is handled by the separate backend service.
+ * Create drivers/{uid} on driver signup. Does not touch profiles.
  */
-export async function registerDriverAccount(userId: string, email: string): Promise<void> {
+export async function registerDriverAccount(input: RegisterDriverInput): Promise<void> {
+  const { userId, email, name, phone } = input;
   if (!userId) {
     throw new Error("You must be signed in to register as a driver.");
   }
@@ -70,9 +73,12 @@ export async function registerDriverAccount(userId: string, email: string): Prom
   await setDocAtPath(
     ["drivers", userId],
     {
-      userId,
+      uid: userId,
       email: trimmedEmail,
-      isActive: false,
+      name: name?.trim() || null,
+      phone: phone?.trim() || null,
+      role: "driver",
+      status: "pending",
     },
     { merge: true, addTimestamps: true }
   );

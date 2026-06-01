@@ -1,12 +1,13 @@
 // Push notification setup using Expo Notifications + Expo Push Service
-// Saves Expo push tokens to Firestore for backend notification delivery
+// Customers: profiles/{uid}. Drivers: drivers/{uid} only.
 
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from './firebase';
+import type { AppUserRole } from '@/contexts/auth-context';
 
 /**
  * Set up Android notification channel (safe to call on iOS)
@@ -54,12 +55,10 @@ export const getExpoPushToken = async (): Promise<string | null> => {
   }
 
   try {
-    // Get project ID from app.json extra.eas.projectId
     const projectId = Constants.expoConfig?.extra?.eas?.projectId;
 
     if (!projectId) {
       console.warn('EAS projectId not found in app.json. Push notifications may not work.');
-      // Fallback: try without projectId (may work in some cases)
       const response = await Notifications.getExpoPushTokenAsync();
       return response.data ?? null;
     }
@@ -72,17 +71,34 @@ export const getExpoPushToken = async (): Promise<string | null> => {
   }
 };
 
+async function resolvePushTokenCollection(
+  userId: string,
+  roleHint?: AppUserRole | null
+): Promise<'drivers' | 'profiles'> {
+  if (roleHint === 'driver') {
+    return 'drivers';
+  }
+  if (roleHint === 'customer' || roleHint === 'admin') {
+    return 'profiles';
+  }
+  const driverSnap = await getDoc(doc(db, 'drivers', userId));
+  if (driverSnap.exists() && driverSnap.data()?.role === 'driver') {
+    return 'drivers';
+  }
+  return 'profiles';
+}
+
 /**
- * Save Expo push token to Firestore under profiles/{uid}
- * Updates the expoPushToken field
+ * Save Expo push token to the correct collection (drivers or profiles).
  */
 export const savePushTokenToFirestore = async (
   userId: string,
-  token: string
+  token: string,
+  roleHint?: AppUserRole | null
 ): Promise<void> => {
   try {
-    const userRef = doc(db, 'profiles', userId);
-    // merge: true — profile may not exist yet (e.g. first Google sign-in)
+    const collection = await resolvePushTokenCollection(userId, roleHint);
+    const userRef = doc(db, collection, userId);
     await setDoc(
       userRef,
       {
@@ -91,7 +107,7 @@ export const savePushTokenToFirestore = async (
       },
       { merge: true }
     );
-    console.log('Push token saved to Firestore for user:', userId);
+    console.log(`Push token saved to ${collection}/${userId}`);
   } catch (error) {
     console.error('Error saving push token to Firestore:', error);
     throw error;
@@ -100,34 +116,27 @@ export const savePushTokenToFirestore = async (
 
 /**
  * Register for push notifications and save token to Firestore
- * This is the main function to call after user authentication
- * 
- * @param userId - Firebase Auth user ID
- * @returns The Expo push token if successful, null otherwise
  */
 export const registerForPushNotifications = async (
-  userId: string
+  userId: string,
+  roleHint?: AppUserRole | null
 ): Promise<string | null> => {
   try {
-    // Setup Android channel (safe on iOS)
     await setupNotificationChannel();
 
-    // Request permissions
     const hasPermission = await requestPushPermissions();
     if (!hasPermission) {
       console.log('Push notification permission denied');
       return null;
     }
 
-    // Get Expo push token
     const token = await getExpoPushToken();
     if (!token) {
       console.log('Failed to get Expo push token');
       return null;
     }
 
-    // Save to Firestore
-    await savePushTokenToFirestore(userId, token);
+    await savePushTokenToFirestore(userId, token, roleHint);
 
     return token;
   } catch (error) {
@@ -140,10 +149,12 @@ export const registerForPushNotifications = async (
  * Remove push token from Firestore (call on logout)
  */
 export const removePushTokenFromFirestore = async (
-  userId: string
+  userId: string,
+  roleHint?: AppUserRole | null
 ): Promise<void> => {
   try {
-    const userRef = doc(db, 'profiles', userId);
+    const collection = await resolvePushTokenCollection(userId, roleHint);
+    const userRef = doc(db, collection, userId);
     await setDoc(
       userRef,
       {
@@ -152,10 +163,8 @@ export const removePushTokenFromFirestore = async (
       },
       { merge: true }
     );
-    console.log('Push token removed from Firestore for user:', userId);
+    console.log(`Push token removed from ${collection}/${userId}`);
   } catch (error) {
     console.error('Error removing push token from Firestore:', error);
-    // Don't throw - this is cleanup, shouldn't block logout
   }
 };
-

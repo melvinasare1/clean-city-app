@@ -1,43 +1,46 @@
 /**
- * Firestore collection names and helpers for the separated identity/role model.
+ * Firestore collection names and helpers.
  *
- * Target structure:
- * - users/     → identity only (uid, email, role, createdAt, updatedAt)
- * - customers/ → customer-specific data (userId = uid)
- * - drivers/   → driver-specific data (userId = uid, isActive)
- *
- * Backward compatibility: driver/customer lookups try the new collection first,
- * then fall back to profiles (existing mixed collection) until migration is complete.
+ * - profiles/  → customers and admins only (never drivers)
+ * - drivers/   → all driver data (uid, status, push token, etc.)
  */
 
 import type admin from "firebase-admin";
+import {
+  type DriverAccountStatus,
+  isDriverApproved,
+  isDriverRole,
+  normalizeDriverStatus,
+} from "./driver-account";
 
 export const USERS_COLLECTION = "users";
 export const CUSTOMERS_COLLECTION = "customers";
 export const DRIVERS_COLLECTION = "drivers";
-/** Legacy mixed collection; used as fallback until migration is run. */
 export const PROFILES_COLLECTION = "profiles";
 
 export type AppRole = "customer" | "driver" | "admin";
 
 export interface DriverDoc {
-  userId: string;
+  uid: string;
   email?: string;
   name?: string;
+  phone?: string;
+  role: "driver";
+  status: DriverAccountStatus;
   displayName?: string;
   firstName?: string;
   lastName?: string;
-  isActive: boolean;
-  phone?: string;
-  phoneNumber?: string;
+  /** @deprecated Use status === "approved" */
+  isActive?: boolean;
   expoPushToken?: string;
+  pushTokenUpdatedAt?: string;
   createdAt?: admin.firestore.Timestamp;
   updatedAt?: admin.firestore.Timestamp;
   [key: string]: unknown;
 }
 
 /**
- * Derive a single display name from driver data (supports name, displayName, firstName+lastName, email, id).
+ * Derive a single display name from driver data.
  */
 export function getDriverDisplayName(
   d: Record<string, unknown> | undefined,
@@ -54,46 +57,70 @@ export function getDriverDisplayName(
 }
 
 /**
- * Resolve a driver by id: check drivers collection first, then profiles (backward compat).
- * Returns null if not found or not a driver / inactive.
+ * Resolve a driver by id from drivers/{uid} only.
  */
 export async function getDriverDoc(
   firestore: admin.firestore.Firestore,
   driverId: string
-): Promise<{ exists: true; isActive: boolean; data: DriverDoc } | { exists: false }> {
+): Promise<
+  | { exists: true; isApproved: boolean; status: DriverAccountStatus; data: DriverDoc }
+  | { exists: false }
+> {
   const driverSnap = await firestore.collection(DRIVERS_COLLECTION).doc(driverId).get();
-  if (driverSnap.exists) {
-    const data = driverSnap.data() as DriverDoc | undefined;
-    const isActive = data?.isActive !== false;
-    return { exists: true, isActive, data: { ...data, userId: driverId, isActive } };
+  if (!driverSnap.exists) {
+    return { exists: false };
   }
-  // Fallback: legacy profiles (role === "driver")
-  const profileSnap = await firestore.collection(PROFILES_COLLECTION).doc(driverId).get();
-  if (profileSnap.exists) {
-    const data = profileSnap.data();
-    if (data?.role !== "driver") return { exists: false };
-    const isActive = data.isActive !== false;
-    return {
-      exists: true,
-      isActive,
-      data: {
-        userId: driverId,
-        email: data.email,
-        name: data.name,
-        displayName: data.displayName,
-        isActive,
-        phone: data.phone,
-        expoPushToken: data.expoPushToken,
-        ...data,
-      },
-    };
+
+  const raw = driverSnap.data() as Record<string, unknown> | undefined;
+  if (!isDriverRole(raw) && raw?.role != null && raw.role !== "driver") {
+    return { exists: false };
   }
-  return { exists: false };
+
+  const status = normalizeDriverStatus(raw);
+  const approved = isDriverApproved(raw);
+
+  return {
+    exists: true,
+    isApproved: approved,
+    status,
+    data: {
+      ...(raw as DriverDoc),
+      uid: driverId,
+      role: "driver",
+      status,
+    },
+  };
 }
 
 /**
- * Get Expo push token for a user (customer). Tries customers collection first, then profiles.
+ * Expo push token for a driver (drivers collection only).
  */
+export async function getPushTokenForDriver(
+  firestore: admin.firestore.Firestore,
+  driverId: string
+): Promise<string | null> {
+  const snap = await firestore.collection(DRIVERS_COLLECTION).doc(driverId).get();
+  if (!snap.exists) return null;
+  const token = snap.data()?.expoPushToken;
+  return typeof token === "string" ? token : null;
+}
+
+/**
+ * Expo push token for a customer (profiles; customers collection when migrated).
+ */
+export function toAdminDriverSummary(
+  id: string,
+  d: Record<string, unknown>
+): { id: string; name: string; status: DriverAccountStatus; isActive: boolean } {
+  const status = normalizeDriverStatus(d);
+  return {
+    id,
+    name: getDriverDisplayName(d, id),
+    status,
+    isActive: status === "approved",
+  };
+}
+
 export async function getPushTokenForUser(
   firestore: admin.firestore.Firestore,
   userId: string

@@ -94,7 +94,7 @@ export const RootNavigator: React.FC = () => {
 
     if (user.role === 'driver') {
         const isApproved =
-            driverStatusResult !== null && driverStatusResult.isActive === true;
+            driverStatusResult !== null && driverStatusResult.isApproved === true;
         return (
             <DriverStatusProvider
                 value={{
