@@ -23,7 +23,7 @@
         "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "430221189966-fk5hbi7oosf4hhappmu7484sj5ia3ie4.apps.googleusercontent.com"
       },
       "distribution": "internal",
-      "node": "22.0.0",
+      "node": "22.13.0",
       "channel": "preview"
     },
     "production": {
@@ -33,7 +33,7 @@
         "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "430221189966-fk5hbi7oosf4hhappmu7484sj5ia3ie4.apps.googleusercontent.com"
       },
       "autoIncrement": true,
-      "node": "22.0.0",
+      "node": "22.13.0",
       "channel": "production"
     },
     "play-ownership-verify": {

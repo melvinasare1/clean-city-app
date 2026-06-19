@@ -63,8 +63,5 @@
     "@types/react": "~19.1.10",
     "typescript": "^5.1.3"
   },
-  "engines": {
-    "node": ">=22.13.0"
-  },
   "private": true
 }
