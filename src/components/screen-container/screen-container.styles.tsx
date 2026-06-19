@@ -7,8 +7,20 @@ export const styles = StyleSheet.create({
     keyboardAvoid: {
         flex: 1,
     },
+    outer: {
+        flex: 1,
+        width: '100%',
+        alignItems: 'center',
+    },
+    scrollOuter: {
+        flexGrow: 1,
+    },
     container: {
         flex: 1,
+        width: '100%',
+    },
+    scrollContent: {
+        flexGrow: 1,
     },
 });
 

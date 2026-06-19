@@ -344,7 +344,8 @@ export const styles = StyleSheet.create({
   },
   paymentMetaRight: {
     alignItems: "flex-end",
-    maxWidth: "46%",
+    maxWidth: "48%",
+    minWidth: 0,
   },
   paymentMetaSmall: {
     fontSize: 11,

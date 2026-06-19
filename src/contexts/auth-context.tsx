@@ -83,6 +83,33 @@ interface AuthContextProps {
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
 
+/** Guards driver signup: blocks customer profile bootstrap and auth listener races. */
+const authSyncState = {
+    pendingDriverRegistration: false,
+    ignoreAuthStateProfileSync: false,
+};
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function readDriverDocument(
+    uid: string
+): Promise<Record<string, unknown> | null> {
+    const maxAttempts = authSyncState.pendingDriverRegistration ? 10 : 1;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const driverSnap = await getDoc(doc(db, 'drivers', uid));
+        if (driverSnap.exists()) {
+            const driverData = driverSnap.data() as Record<string, unknown>;
+            if (driverData?.role === 'driver') {
+                return driverData;
+            }
+        }
+        if (attempt < maxAttempts - 1) {
+            await delay(150);
+        }
+    }
+    return null;
+}
+
 type ProfileData = {
     email?: string;
     role?: AppUserRole | null;
@@ -155,6 +182,10 @@ const mapDriver = (firebaseUser: FirebaseUser | null, data?: Record<string, unkn
  * Never creates a profile if drivers/{uid} exists.
  */
 const createProfileIfMissing = async (firebaseUser: FirebaseUser): Promise<void> => {
+    if (authSyncState.pendingDriverRegistration) {
+        return;
+    }
+
     const driverSnap = await getDoc(doc(db, 'drivers', firebaseUser.uid));
     if (driverSnap.exists()) {
         return;
@@ -190,12 +221,18 @@ const fetchUserProfile = async (firebaseUser: FirebaseUser | null): Promise<AppU
         };
     }
 
-    const driverSnap = await getDoc(doc(db, 'drivers', firebaseUser.uid));
-    if (driverSnap.exists()) {
-        const driverData = driverSnap.data() as Record<string, unknown>;
-        if (driverData?.role === 'driver') {
-            return mapDriver(firebaseUser, driverData);
-        }
+    const driverData = await readDriverDocument(firebaseUser.uid);
+    if (driverData) {
+        return mapDriver(firebaseUser, driverData);
+    }
+
+    if (authSyncState.pendingDriverRegistration) {
+        return {
+            id: firebaseUser.uid,
+            email: firebaseUser.email ?? '',
+            role: 'driver',
+            driverStatus: 'pending',
+        };
     }
 
     await createProfileIfMissing(firebaseUser);
@@ -231,6 +268,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [loading, setLoading] = useState(true);
     const [currentFirebaseUser, setCurrentFirebaseUser] = useState<FirebaseUser | null>(null);
 
+    const applyAuthenticatedUser = useCallback(async (firebaseUser: FirebaseUser) => {
+        const profile = await fetchUserProfile(firebaseUser);
+        setUser(profile);
+
+        registerForPushNotifications(firebaseUser.uid, profile.role).catch((err) => {
+            console.error('Failed to register push notifications:', err);
+        });
+
+        if (profile.role !== 'driver') {
+            loadReminderSettingsAndReschedule(firebaseUser.uid).catch((err) => {
+                console.error('Failed to load reminder settings:', err);
+            });
+
+            loadWeeklyReminderSettingsAndReschedule(firebaseUser.uid).catch((err) => {
+                console.error('Failed to load weekly reminder settings:', err);
+            });
+        }
+
+        return profile;
+    }, []);
+
+    const finalizeDriverRegistration = useCallback(
+        async (
+            firebaseUser: FirebaseUser,
+            input: Parameters<typeof registerDriverAccount>[0]
+        ) => {
+            authSyncState.pendingDriverRegistration = true;
+            authSyncState.ignoreAuthStateProfileSync = true;
+            try {
+                await registerDriverAccount(input);
+                return await applyAuthenticatedUser(firebaseUser);
+            } finally {
+                authSyncState.pendingDriverRegistration = false;
+                authSyncState.ignoreAuthStateProfileSync = false;
+                setLoading(false);
+            }
+        },
+        [applyAuthenticatedUser]
+    );
+
     useEffect(() => {
         if (Platform.OS !== 'web') {
             ensureGoogleSignInConfigured();
@@ -240,40 +317,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
             setCurrentFirebaseUser(firebaseUser);
-            if (firebaseUser) {
-                try {
-                    const profile = await fetchUserProfile(firebaseUser);
-                    setUser(profile);
-
-                    registerForPushNotifications(firebaseUser.uid, profile.role).catch((err) => {
-                        console.error('Failed to register push notifications:', err);
-                    });
-
-                    if (profile.role !== 'driver') {
-                        loadReminderSettingsAndReschedule(firebaseUser.uid).catch((err) => {
-                            console.error('Failed to load reminder settings:', err);
-                        });
-
-                        loadWeeklyReminderSettingsAndReschedule(firebaseUser.uid).catch((err) => {
-                            console.error('Failed to load weekly reminder settings:', err);
-                        });
-                    }
-                } catch (err) {
-                    console.error('Error fetching user profile:', err);
-                    setUser({
-                        id: firebaseUser.uid,
-                        email: firebaseUser.email ?? '',
-                        role: null,
-                    });
-                }
-            } else {
+            if (!firebaseUser) {
                 setUser(null);
+                setLoading(false);
+                return;
+            }
+
+            if (authSyncState.ignoreAuthStateProfileSync) {
+                return;
+            }
+
+            try {
+                await applyAuthenticatedUser(firebaseUser);
+            } catch (err) {
+                console.error('Error fetching user profile:', err);
+                setUser({
+                    id: firebaseUser.uid,
+                    email: firebaseUser.email ?? '',
+                    role: null,
+                });
             }
             setLoading(false);
         });
 
         return () => unsubscribe();
-    }, []);
+    }, [applyAuthenticatedUser]);
 
     const refreshUserProfile = useCallback(async () => {
         if (currentFirebaseUser) {
@@ -295,14 +363,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         role?: AppUserRole | null,
         driverDetails?: DriverSignupDetails
     ) => {
-        const result = await signInWithCredential(auth, credential);
+        if (role === 'driver') {
+            authSyncState.pendingDriverRegistration = true;
+            authSyncState.ignoreAuthStateProfileSync = true;
+        }
+
+        let result;
+        try {
+            result = await signInWithCredential(auth, credential);
+        } catch (err) {
+            authSyncState.pendingDriverRegistration = false;
+            authSyncState.ignoreAuthStateProfileSync = false;
+            throw err;
+        }
 
         if (role === 'driver') {
             const email = result.user.email;
             if (!email) {
+                authSyncState.pendingDriverRegistration = false;
+                authSyncState.ignoreAuthStateProfileSync = false;
                 throw new Error('Social sign-in did not return an email; cannot create driver account.');
             }
-            await registerDriverAccount({
+            await finalizeDriverRegistration(result.user, {
                 userId: result.user.uid,
                 email,
                 name: driverDetails?.name,
@@ -311,6 +393,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return;
         }
 
+        authSyncState.pendingDriverRegistration = false;
+        authSyncState.ignoreAuthStateProfileSync = false;
         await createProfileIfMissing(result.user);
     };
 
@@ -321,11 +405,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         referralCode: string | null = null,
         driverDetails?: DriverSignupDetails
     ) => {
-        const result = await createUserWithEmailAndPassword(auth, email, password);
+        if (role === 'driver') {
+            authSyncState.pendingDriverRegistration = true;
+            authSyncState.ignoreAuthStateProfileSync = true;
+        }
+
+        let result;
+        try {
+            result = await createUserWithEmailAndPassword(auth, email, password);
+        } catch (err) {
+            authSyncState.pendingDriverRegistration = false;
+            authSyncState.ignoreAuthStateProfileSync = false;
+            throw err;
+        }
+
         const firebaseUser = result.user;
 
         if (role === 'driver') {
-            await registerDriverAccount({
+            await finalizeDriverRegistration(firebaseUser, {
                 userId: firebaseUser.uid,
                 email,
                 name: driverDetails?.name,
@@ -333,6 +430,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             });
             return;
         }
+
+        authSyncState.pendingDriverRegistration = false;
+        authSyncState.ignoreAuthStateProfileSync = false;
 
         const generatedReferralCode = `CC-${firebaseUser.uid.slice(0, 6).toUpperCase()}`;
         await setDocAtPath(['profiles', firebaseUser.uid], {

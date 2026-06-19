@@ -38,6 +38,8 @@ export const styles = StyleSheet.create({
     },
     binInfo: {
         flex: 1,
+        minWidth: 0,
+        marginRight: VARS.xsmall,
     },
     binName: {
         fontSize: VARS.small,

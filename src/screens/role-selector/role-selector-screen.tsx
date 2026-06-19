@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
+import { ResponsiveContent } from '@/components';
 import { styles } from './role-selector-screen.styles';
 
 type RoleSelectorScreenProps = {
@@ -10,7 +11,7 @@ type RoleSelectorScreenProps = {
 export const RoleSelectorScreen: React.FC<RoleSelectorScreenProps> = ({ onSelectRole }) => {
     return (
         <View style={styles.container}>
-            <View style={styles.content}>
+            <ResponsiveContent style={styles.responsiveOuter} innerStyle={styles.content}>
                 <Text style={styles.title}>Select Your Role</Text>
                 <Text style={styles.subtitle}>
                     This is temporary. In production, your role will be automatically loaded from Firestore.
@@ -37,7 +38,7 @@ export const RoleSelectorScreen: React.FC<RoleSelectorScreenProps> = ({ onSelect
                         View and complete assigned waste collection jobs
                     </Text>
                 </TouchableOpacity>
-            </View>
+            </ResponsiveContent>
         </View>
     );
 };

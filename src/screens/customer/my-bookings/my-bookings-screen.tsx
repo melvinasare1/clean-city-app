@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { CompositeScreenProps } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppText } from '@/components';
+import { AppText, ResponsiveContent } from '@/components';
 import { useAuth } from '@/hooks/useAuth';
 import {
     CustomerStackParamList,
@@ -225,6 +225,7 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
                 />
             }
         >
+            <ResponsiveContent>
             {needsProfileCompletion && (
                 <TouchableOpacity
                     style={styles.profileBanner}
@@ -439,6 +440,7 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
                     })
                 )}
             </View>
+            </ResponsiveContent>
         </ScrollView>
     );
 };

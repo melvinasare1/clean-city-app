@@ -21,6 +21,7 @@ import {
   CustomerStackParamList,
   CustomerTabParamList,
 } from '@/navigation/types';
+import { ResponsiveContent } from '@/components';
 import { styles } from './new-booking-screen.styles';
 
 type NewBookingScreenProps = CompositeScreenProps<
@@ -114,7 +115,7 @@ export const NewBookingScreen: React.FC<NewBookingScreenProps> = ({
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.content}>
+          <ResponsiveContent innerStyle={styles.content}>
             <Text style={styles.sectionTitle}>Select Bins</Text>
 
             {pricingLoading ? (
@@ -156,10 +157,10 @@ export const NewBookingScreen: React.FC<NewBookingScreenProps> = ({
                 <Text style={styles.binInfoLink}>See bin size examples</Text>
               </TouchableOpacity>
             </View>
-          </View>
+          </ResponsiveContent>
         </ScrollView>
 
-        <View style={styles.footer}>
+        <ResponsiveContent innerStyle={styles.footer}>
           <View style={styles.totalCard}>
             <Text style={styles.totalLabel}>Total Price:</Text>
             <Text style={styles.totalValue}>
@@ -173,7 +174,7 @@ export const NewBookingScreen: React.FC<NewBookingScreenProps> = ({
           >
             <Text style={styles.submitButtonText}>Continue to schedule</Text>
           </TouchableOpacity>
-        </View>
+        </ResponsiveContent>
       </View>
 
       {showBinInfoSheet && (

@@ -2,33 +2,35 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Remote app config (bin prices) — readable without auth
-    match /config/pricing {
-      allow read: if true;
-      allow write: if false;
-    }
-
     function isSignedIn() {
       return request.auth != null;
     }
-
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
-
     function isAdmin() {
       return isSignedIn()
         && get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.role == 'admin';
     }
-
     function isDriver() {
       return isSignedIn()
         && get(/databases/$(database)/documents/drivers/$(request.auth.uid)).data.role == 'driver';
     }
 
-    // Customers and admins only — never store driver accounts here.
+    // Admin can do everything (web admin dashboard)
+    match /{document=**} {
+      allow read, write: if isAdmin();
+    }
+
+    // Public config
+    match /config/pricing {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Profiles — customers and admins only (never drivers)
     match /profiles/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
+      allow read: if isOwner(userId);
       allow create: if isOwner(userId)
         && request.resource.data.role != 'driver';
       allow update: if isOwner(userId)
@@ -36,54 +38,48 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // All driver data lives here (personal info, status, push token, etc.).
+    // Drivers — own doc only; approval via admin
     match /drivers/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
+      allow read: if isOwner(userId);
       allow create: if isOwner(userId)
         && request.resource.data.uid == userId
         && request.resource.data.role == 'driver'
         && request.resource.data.status == 'pending';
       allow update: if isAdmin()
-        || (isOwner(userId)
-          && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['expoPushToken', 'pushTokenUpdatedAt', 'updatedAt', 'name', 'phone']));
+        || (isOwner(userId) && isDriver()
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['expoPushToken', 'pushTokenUpdatedAt', 'updatedAt', 'name', 'phone']));
       allow delete: if false;
     }
 
+    // Bookings — users can read and manage their own
     match /bookings/{bookingId} {
-      allow read: if isSignedIn()
+      allow read, update, delete: if isSignedIn()
         && resource.data.userId == request.auth.uid;
       allow create: if isSignedIn()
         && request.resource.data.userId == request.auth.uid;
-      allow update: if isSignedIn()
-        && resource.data.userId == request.auth.uid;
-      allow delete: if isSignedIn()
-        && resource.data.userId == request.auth.uid;
     }
 
+    // Subscriptions — users can read and manage their own
     match /subscriptions/{subscriptionId} {
-      allow read: if isSignedIn()
+      allow read, update: if isSignedIn()
         && resource.data.userId == request.auth.uid;
       allow create: if isSignedIn()
         && request.resource.data.userId == request.auth.uid;
-      allow update: if isSignedIn()
-        && resource.data.userId == request.auth.uid;
       allow delete: if false;
     }
 
+    // Referrals — users can read and create their own
     match /referrals/{referralId} {
-      allow read: if isSignedIn()
+      allow read, update: if isSignedIn()
         && (resource.data.referrerUserId == request.auth.uid
           || resource.data.referredUserId == request.auth.uid);
       allow create: if isSignedIn()
         && request.resource.data.referredUserId == request.auth.uid;
-      allow update: if isSignedIn()
-        && (resource.data.referrerUserId == request.auth.uid
-          || resource.data.referredUserId == request.auth.uid);
       allow delete: if false;
     }
 
-    // Driver/admin job reads are handled by the API (Admin SDK).
+    // Jobs — API (Admin SDK) only, no client access
     match /jobs/{jobId} {
       allow read, write: if false;
     }

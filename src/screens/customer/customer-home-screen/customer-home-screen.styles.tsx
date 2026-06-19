@@ -8,9 +8,13 @@ export const styles = StyleSheet.create({
     },
     header: {
         backgroundColor: COLORS.primary,
-        padding: VARS.medium,
         paddingTop: VARS.xxlarge + 4,
         paddingBottom: VARS.large,
+        width: '100%',
+    },
+    headerInner: {
+        width: '100%',
+        paddingHorizontal: VARS.medium,
     },
     title: {
         fontSize: VARS.medium + 4,
@@ -23,8 +27,16 @@ export const styles = StyleSheet.create({
         color: COLORS.white,
         opacity: 0.8,
     },
+    scrollView: {
+        flex: 1,
+    },
+    scrollContent: {
+        flexGrow: 1,
+        paddingBottom: VARS.medium,
+    },
     content: {
         padding: VARS.small,
+        width: '100%',
     },
     profileBanner: {
         backgroundColor: '#E8F5E9',
@@ -39,6 +51,10 @@ export const styles = StyleSheet.create({
         alignItems: 'flex-start',
         gap: VARS.small,
         marginBottom: VARS.small,
+    },
+    profileBannerTextCol: {
+        flex: 1,
+        minWidth: 0,
     },
     profileBannerIcon: {
         width: 40,
@@ -58,7 +74,7 @@ export const styles = StyleSheet.create({
         fontSize: 13,
         color: COLORS.textSecondary,
         lineHeight: 18,
-        flex: 1,
+        flexShrink: 1,
     },
     profileProgressRow: {
         flexDirection: 'row',

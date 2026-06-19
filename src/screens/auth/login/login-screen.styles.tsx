@@ -25,6 +25,9 @@ export const styles = StyleSheet.create({
     contentContainer: {
         flex: 1,
     },
+    responsiveOuter: {
+        flex: 1,
+    },
     title: {
         fontSize: VARS.large,
         fontWeight: 'bold',

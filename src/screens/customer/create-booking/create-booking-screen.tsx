@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppText, AppButton, TimeWindowPicker } from '@/components';
+import { AppText, AppButton, TimeWindowPicker, ResponsiveContent } from '@/components';
 import { useAuth } from '@/hooks/useAuth';
 import { TIME_WINDOWS, TimeWindowId } from '@/lib/time-windows';
 import type { BookingType } from '@/types/booking';
@@ -496,8 +496,8 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
 
 
   return (
-    <ScrollView>
-      <View style={styles.form}>
+    <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+      <ResponsiveContent innerStyle={styles.form}>
         <AppText style={styles.title}>Schedule a pickup</AppText>
         <AppText style={styles.subtitle}>
           Choose a date and time window for your waste collection.
@@ -785,7 +785,7 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
             textStyle={styles.confirmButtonText}
           />
         )}
-      </View>
+      </ResponsiveContent>
     </ScrollView>
   );
 };

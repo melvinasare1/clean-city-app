@@ -11,6 +11,9 @@ export const styles = StyleSheet.create({
         justifyContent: 'center',
         paddingHorizontal: VARS.medium,
     },
+    responsiveOuter: {
+        flex: 1,
+    },
     title: {
         fontSize: VARS.large,
         fontWeight: 'bold',

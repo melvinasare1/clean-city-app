@@ -7,6 +7,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { styles } from './screen-container.styles';
 
 interface ScreenContainerProps {
@@ -20,9 +21,16 @@ export const ScreenContainer: React.FC<ScreenContainerProps> = ({
   style,
   scrollable = false,
 }) => {
+  const { contentStyle } = useResponsiveLayout();
+
   const content = (
-    <View style={[styles.container, style]} testID="screen-content-container">
-      {children}
+    <View style={[styles.outer, scrollable && styles.scrollOuter]}>
+      <View
+        style={[styles.container, contentStyle, style]}
+        testID="screen-content-container"
+      >
+        {children}
+      </View>
     </View>
   );
 
@@ -35,7 +43,7 @@ export const ScreenContainer: React.FC<ScreenContainerProps> = ({
         {scrollable ? (
           <ScrollView
             testID="screen-scroll-view"
-            contentContainerStyle={styles.container}
+            contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
           >
             {content}

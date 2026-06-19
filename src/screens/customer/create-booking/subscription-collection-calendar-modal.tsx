@@ -210,7 +210,7 @@ const modalStyles = StyleSheet.create({
   },
   sheet: {
     width: "100%",
-    maxWidth: 360,
+    maxWidth: 480,
     backgroundColor: COLORS.white,
     borderRadius: VARS.small,
     padding: VARS.medium,

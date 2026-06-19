@@ -10,7 +10,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { CommonActions } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { AppText } from "@/components";
+import { AppText, ResponsiveContent } from "@/components";
 import { BUSINESS_WHATSAPP_NUMBER, buildWhatsAppSupportUrl } from "@/config/support";
 import { useAuth } from "@/hooks/useAuth";
 import type { CustomerStackParamList } from "@/navigation/types";
@@ -531,6 +531,7 @@ export const BookingDetailScreen: React.FC<Props> = ({ navigation, route }) => {
       style={styles.scroll}
       contentContainerStyle={[styles.scrollContent, inactive && styles.scrollMuted]}
     >
+      <ResponsiveContent>
       {showPaymentAlert ? (
         <View style={styles.paymentAlert}>
           <View style={styles.paymentAlertIconOuter}>
@@ -830,6 +831,7 @@ export const BookingDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           <Ionicons name="chevron-forward" size={22} color={COLORS.textSecondary} />
         </View>
       </TouchableOpacity>
+      </ResponsiveContent>
     </ScrollView>
   );
 };

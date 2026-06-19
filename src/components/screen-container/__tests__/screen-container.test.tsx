@@ -8,6 +8,16 @@ jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: ({ children, style }: any) => <View style={style}>{children}</View>,
 }));
 
+jest.mock('@/hooks/useResponsiveLayout', () => ({
+  useResponsiveLayout: () => ({
+    width: 390,
+    height: 844,
+    isWideScreen: false,
+    contentMaxWidth: 390,
+    contentStyle: { width: '100%', alignSelf: 'stretch' },
+  }),
+}));
+
 describe('ScreenContainer', () => {
   const TestChild = () => <Text>Test Content</Text>;
 

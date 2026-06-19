@@ -1,5 +1,7 @@
 import React, { useMemo } from 'react';
-import { View, TouchableOpacity } from 'react-native';
+import { View, TouchableOpacity, ScrollView } from 'react-native';
+import { AppText, ResponsiveContent } from '@/components';
+import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { CompositeScreenProps } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -10,7 +12,6 @@ import {
   CustomerStackParamList,
   CustomerTabParamList,
 } from '@/navigation/types';
-import { AppText } from '@/components';
 import { trackEvent } from '@/services/analytics';
 import { COLORS, REFERRALS_UI_ENABLED } from '@/lib/constants';
 import {
@@ -30,6 +31,7 @@ export const CustomerHomeScreen: React.FC<CustomerHomeScreenProps> = ({
   navigation,
 }) => {
   const { user } = useAuth();
+  const { contentStyle } = useResponsiveLayout();
 
   const profileComplete = useMemo(
     () => user?.profileComplete ?? isProfileComplete(user ?? {}),
@@ -55,11 +57,18 @@ export const CustomerHomeScreen: React.FC<CustomerHomeScreenProps> = ({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <AppText style={styles.title}>Welcome back!</AppText>
-        <AppText style={styles.subtitle}>{user?.email}</AppText>
+        <View style={[styles.headerInner, contentStyle]}>
+          <AppText style={styles.title}>Welcome back!</AppText>
+          <AppText style={styles.subtitle}>{user?.email}</AppText>
+        </View>
       </View>
 
-      <View style={styles.content}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <ResponsiveContent innerStyle={styles.content}>
         {!profileComplete ? (
           <TouchableOpacity
             style={styles.profileBanner}
@@ -70,7 +79,7 @@ export const CustomerHomeScreen: React.FC<CustomerHomeScreenProps> = ({
               <View style={styles.profileBannerIcon}>
                 <Ionicons name="person" size={22} color={COLORS.white} />
               </View>
-              <View style={{ flex: 1 }}>
+              <View style={styles.profileBannerTextCol}>
                 <AppText style={styles.profileBannerTitle}>
                   Complete your profile
                 </AppText>
@@ -167,7 +176,8 @@ export const CustomerHomeScreen: React.FC<CustomerHomeScreenProps> = ({
             <Ionicons name="chevron-forward" size={24} color={COLORS.primary} />
           </View>
         </TouchableOpacity>
-      </View>
+        </ResponsiveContent>
+      </ScrollView>
     </View>
   );
 };

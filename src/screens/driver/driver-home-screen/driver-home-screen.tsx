@@ -4,6 +4,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../../hooks/useAuth';
 import { useDriverStatus } from '@/contexts/driver-status-context';
 import { useDriverApproved } from '@/hooks/useDriverApproved';
+import { ResponsiveContent } from '@/components';
 import { DriverApprovalBanner } from '@/components/driver/DriverApprovalBanner';
 import { styles } from './driver-home-screen.styles';
 import { trackEvent } from '@/services/analytics';
@@ -148,7 +149,7 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
 
       {!isApproved && <DriverApprovalBanner />}
 
-      <View style={styles.content}>
+      <ResponsiveContent innerStyle={styles.content}>
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
             <Text style={styles.statValue}>{loading ? '–' : jobs.length}</Text>
@@ -237,7 +238,7 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
                     style={[styles.actionButton, styles.actionButtonSecondary, { marginBottom: 6 }]}
                     onPress={() => navigation.navigate('DriverJobDetail', { jobId: job.id })}
                   >
-                    <Text style={styles.actionButtonTextSecondary} numberOfLines={1}>
+                    <Text style={styles.actionButtonTextSecondary}>
                       📍 {job.location || 'No address'} · {job.jobStatus}
                     </Text>
                   </TouchableOpacity>
@@ -254,7 +255,7 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
         <TouchableOpacity style={styles.logoutButton} onPress={handleDeleteAccount}>
           <Text style={styles.logoutButtonText}>Delete Account</Text>
         </TouchableOpacity>
-      </View>
+      </ResponsiveContent>
     </ScrollView>
   );
 };

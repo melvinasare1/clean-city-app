@@ -39,6 +39,9 @@ export const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
     },
+    responsiveOuter: {
+        flex: 1,
+    },
     input: {
         backgroundColor: COLORS.white,
         borderRadius: VARS.xxsmall,

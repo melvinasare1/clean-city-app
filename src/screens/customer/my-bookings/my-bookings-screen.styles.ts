@@ -30,7 +30,7 @@ export const styles = StyleSheet.create({
     lineHeight: 21,
     color: COLORS.textSecondary,
     fontWeight: "400",
-    maxWidth: 360,
+    flexShrink: 1,
   },
   sectionBlock: {
     marginTop: 26,

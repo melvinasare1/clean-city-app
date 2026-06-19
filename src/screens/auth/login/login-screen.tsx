@@ -13,7 +13,7 @@ import { OAuthProvider, type AuthCredential } from 'firebase/auth';
 import { useAuth } from '@/hooks/useAuth';
 import { COLORS } from '@/lib/constants';
 import { styles } from './login-screen.styles';
-import { AppText, AppTextInput } from '@/components';
+import { AppText, AppTextInput, ResponsiveContent } from '@/components';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LoginScreenProps } from '../types';
 import { trackEvent } from '@/services/analytics';
@@ -147,7 +147,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                 style={styles.container}
             >
                 <View style={styles.content}>
-                    <View style={styles.contentContainer}>
+                    <ResponsiveContent style={styles.responsiveOuter} innerStyle={styles.contentContainer}>
                         <View style={styles.form}>
                             <AppText style={styles.title}>Clean City</AppText>
                             <AppText style={styles.subtitle}>Waste Management Made Easy</AppText>
@@ -222,7 +222,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                                 }
                             />
                         </View>
-                    </View>
+                    </ResponsiveContent>
 
                     <TouchableOpacity
                         style={styles.actionLink}
