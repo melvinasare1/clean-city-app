@@ -18,6 +18,8 @@ module.exports = {
         NSLocalNetworkUsageDescription:
           "Clean City needs access to your local network to load the app from your development computer.",
         NSBonjourServices: ["_expo._tcp"],
+        NSLocationWhenInUseUsageDescription:
+          "Clean City uses your location to show you on the map and match nearby jobs while you are online.",
       },
     },
     updates: {

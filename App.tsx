@@ -16,6 +16,7 @@ import { BookingsProvider } from '@/contexts/bookings-context';
 import { SubscriptionsProvider } from '@/contexts/subscriptions-context';
 import { PricingProvider } from '@/contexts/pricing-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import '@/services/notifications/notificationHandler';
 import { useNotificationListeners } from '@/services/notifications';
@@ -66,12 +67,14 @@ export default function App() {
             <BookingsProvider>
                 <SubscriptionsProvider>
                 <GestureHandlerRootView style={{ flex: 1 }}>
+                    <SafeAreaProvider>
                     <BottomSheetModalProvider>
                         <NavigationContainer>
                             <StatusBar style="auto" />
                             <RootNavigator />
                         </NavigationContainer>
                     </BottomSheetModalProvider>
+                    </SafeAreaProvider>
                 </GestureHandlerRootView>
                 </SubscriptionsProvider>
             </BookingsProvider>

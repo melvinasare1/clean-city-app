@@ -1,20 +1,20 @@
-import React, { useCallback, useEffect, useState, useRef } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActionSheetIOS, Alert, Platform, StyleSheet, View } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useAuth } from '../../../hooks/useAuth';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Location from 'expo-location';
+import { useAuth } from '@/hooks/useAuth';
 import { useDriverStatus } from '@/contexts/driver-status-context';
 import { useDriverApproved } from '@/hooks/useDriverApproved';
-import { ResponsiveContent } from '@/components';
 import { DriverApprovalBanner } from '@/components/driver/DriverApprovalBanner';
-import { styles } from './driver-home-screen.styles';
+import { TopBar } from '@/components/driver/home/TopBar';
+import { MapControls } from '@/components/driver/home/MapControls';
+import { HomeSheet } from '@/components/driver/home/HomeSheet';
+import { DriverMap } from '@/components/driver/home/DriverMap';
+import type { DriverMapHandle } from '@/components/driver/home/driver-map.types';
+import { colors } from '@/theme/driver-home';
 import { trackEvent } from '@/services/analytics';
-import {
-  getDriverJobs,
-  startShift,
-  endShift,
-  type DriverJob,
-  type DriverShift,
-} from '@/services/driver-api';
+import { endShift, startShift, type DriverShift } from '@/services/driver-api';
 import { openDeleteAccountSupport } from '@/lib/delete-account';
 
 type DriverStackParamList = {
@@ -27,34 +27,38 @@ type DriverHomeScreenProps = {
   navigation: NativeStackNavigationProp<DriverStackParamList, 'DriverHome'>;
 };
 
-function todayYYYYMMDD(): string {
-  return new Date().toISOString().slice(0, 10);
+function greetingForNow(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 18) return 'Good afternoon';
+  return 'Good evening';
 }
 
-function groupByWindow(jobs: DriverJob[]): Record<string, DriverJob[]> {
-  const map: Record<string, DriverJob[]> = {};
-  for (const job of jobs) {
-    const key = job.windowLabel || 'Other';
-    if (!map[key]) map[key] = [];
-    map[key].push(job);
-  }
-  return map;
+function firstNameFromUser(name?: string, email?: string): string {
+  const fromName = name?.trim().split(/\s+/)[0];
+  if (fromName) return fromName;
+  const fromEmail = email?.split('@')[0];
+  return fromEmail || 'Driver';
+}
+
+function isShiftOnline(shift: DriverShift | null): boolean {
+  return Boolean(shift?.shiftStartedAt && !shift?.shiftEndedAt);
 }
 
 export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }) => {
   const { user, logout } = useAuth();
+  const insets = useSafeAreaInsets();
   const { refreshDriverStatus } = useDriverStatus();
   const { isApproved, showPendingAlert } = useDriverApproved();
-  const [jobs, setJobs] = useState<DriverJob[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [shiftLoading, setShiftLoading] = useState(false);
-  const [endShiftLoading, setEndShiftLoading] = useState(false);
   const [shift, setShift] = useState<DriverShift | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [shiftLoading, setShiftLoading] = useState(false);
+  const [todaysEarnings] = useState(0);
+  const mapRef = useRef<DriverMapHandle>(null);
   const gateChecked = useRef(false);
 
   const driverId = user?.id ?? '';
-  const date = todayYYYYMMDD();
+  const isOnline = isShiftOnline(shift);
+  const driverName = firstNameFromUser(user?.name, user?.email);
 
   useEffect(() => {
     if (gateChecked.current || !driverId) return;
@@ -62,200 +66,170 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
     refreshDriverStatus();
   }, [driverId, refreshDriverStatus]);
 
-  const loadJobs = useCallback(async () => {
+  const requestLocationIfNeeded = useCallback(async () => {
+    if (Platform.OS === 'web') return true;
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status === 'granted') return true;
+    Alert.alert(
+      'Location required',
+      'Turn on location access so we can show you on the map and match nearby jobs.'
+    );
+    return false;
+  }, []);
+
+  const handleToggleOnline = useCallback(async () => {
     if (!driverId) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const list = await getDriverJobs(driverId, date);
-      setJobs(list);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to load jobs';
-      setError(msg);
-      setJobs([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [driverId, date]);
-
-  useEffect(() => {
-    loadJobs();
-  }, [loadJobs]);
-
-  const guardAction = (action: () => void) => {
     if (!isApproved) {
       showPendingAlert();
       return;
     }
-    action();
-  };
+    if (shiftLoading) return;
 
-  const handleStartShift = async () => {
-    if (!driverId) return;
+    if (!isOnline) {
+      const allowed = await requestLocationIfNeeded();
+      if (!allowed) return;
+    }
+
     setShiftLoading(true);
     try {
-      const s = await startShift(driverId);
-      setShift(s);
-      await trackEvent('driver_start_shift', { screen: 'driver_home' });
+      if (isOnline) {
+        const next = await endShift(driverId);
+        setShift(next);
+        await trackEvent('driver_end_shift', { screen: 'driver_home' });
+      } else {
+        const next = await startShift(driverId);
+        setShift(next);
+        await trackEvent('driver_start_shift', { screen: 'driver_home' });
+      }
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to start shift';
+      const msg = e instanceof Error ? e.message : 'Could not update your online status';
       Alert.alert('Error', msg);
     } finally {
       setShiftLoading(false);
     }
-  };
+  }, [
+    driverId,
+    isApproved,
+    isOnline,
+    requestLocationIfNeeded,
+    shiftLoading,
+    showPendingAlert,
+  ]);
 
-  const handleEndShift = async () => {
-    if (!driverId) return;
-    setEndShiftLoading(true);
-    try {
-      const s = await endShift(driverId);
-      setShift(s);
-      await trackEvent('driver_end_shift', { screen: 'driver_home' });
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to end shift';
-      Alert.alert('Error', msg);
-    } finally {
-      setEndShiftLoading(false);
-    }
-  };
-
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     try {
       await logout();
       await trackEvent('logout', { screen: 'settings' });
     } catch (error) {
       console.error('Logout error:', error);
     }
-  };
+  }, [logout]);
 
-  const handleDeleteAccount = async () => {
+  const handleDeleteAccount = useCallback(async () => {
     try {
       await openDeleteAccountSupport(user?.id, logout);
       await trackEvent('logout', { screen: 'settings', reason: 'delete_account' });
     } catch (error) {
       console.error('Delete account error:', error);
     }
-  };
+  }, [logout, user?.id]);
 
-  const grouped = groupByWindow(jobs);
+  const runMenuAction = useCallback(
+    (index: number) => {
+      if (index === 0) navigation.navigate('DriverJobList');
+      if (index === 1) void handleLogout();
+      if (index === 2) void handleDeleteAccount();
+    },
+    [handleDeleteAccount, handleLogout, navigation]
+  );
+
+  const handleMenuPress = useCallback(() => {
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ['My Jobs', 'Logout', 'Delete Account', 'Cancel'],
+          destructiveButtonIndex: 2,
+          cancelButtonIndex: 3,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === undefined || buttonIndex === 3) return;
+          runMenuAction(buttonIndex);
+        }
+      );
+      return;
+    }
+
+    Alert.alert('Menu', undefined, [
+      { text: 'My Jobs', onPress: () => runMenuAction(0) },
+      { text: 'Logout', onPress: () => runMenuAction(1) },
+      { text: 'Delete Account', style: 'destructive', onPress: () => runMenuAction(2) },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  }, [runMenuAction]);
+
+  const greeting = useMemo(() => greetingForNow(), []);
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Driver Dashboard</Text>
-        <Text style={styles.subtitle}>{user?.email}</Text>
-      </View>
+    <View style={styles.container}>
+      <DriverMap ref={mapRef} />
 
-      {!isApproved && <DriverApprovalBanner />}
+      <TopBar
+        isOnline={isOnline}
+        onToggleOnline={() => {
+          void handleToggleOnline();
+        }}
+        onMenuPress={handleMenuPress}
+        onNotificationsPress={() => {
+          Alert.alert('Notifications', 'Driver notifications are coming soon.');
+        }}
+        topInset={insets.top}
+        toggleDisabled={shiftLoading}
+      />
 
-      <ResponsiveContent innerStyle={styles.content}>
-        <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{loading ? '–' : jobs.length}</Text>
-            <Text style={styles.statLabel}>Today's Jobs</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>–</Text>
-            <Text style={styles.statLabel}>Today's Earnings</Text>
-          </View>
+      {!isApproved && (
+        <View style={[styles.bannerWrap, { top: insets.top + 60 }]}>
+          <DriverApprovalBanner />
         </View>
+      )}
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Quick Actions</Text>
+      <MapControls
+        bottomOffset={isOnline ? 260 + insets.bottom : 250 + insets.bottom}
+        onCompassPress={() => mapRef.current?.resetHeading()}
+        onLayersPress={() => {
+          Alert.alert('Map style', 'Satellite, traffic, and streets switching is coming soon.');
+        }}
+        onRecenterPress={() => mapRef.current?.recenter()}
+      />
 
-          <TouchableOpacity
-            style={[styles.actionButton, !isApproved && styles.actionButtonDisabled]}
-            onPress={() => guardAction(handleStartShift)}
-            disabled={shiftLoading || !!shift?.shiftStartedAt}
-          >
-            {shiftLoading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.actionButtonText}>
-                {shift?.shiftStartedAt ? '✓ Shift Started' : '▶ Start Shift'}
-              </Text>
-            )}
-          </TouchableOpacity>
-
-          {shift?.shiftStartedAt && !shift?.shiftEndedAt && (
-            <TouchableOpacity
-              style={[
-                styles.actionButton,
-                styles.actionButtonSecondary,
-                !isApproved && styles.actionButtonDisabled,
-              ]}
-              onPress={() => guardAction(handleEndShift)}
-              disabled={endShiftLoading}
-            >
-              {endShiftLoading ? (
-                <ActivityIndicator color="#000" />
-              ) : (
-                <Text style={styles.actionButtonTextSecondary}>End Shift</Text>
-              )}
-            </TouchableOpacity>
-          )}
-
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => navigation.navigate('DriverJobList')}
-          >
-            <Text style={styles.actionButtonText}>📋 View All Jobs</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.actionButton,
-              styles.actionButtonSecondary,
-              !isApproved && styles.actionButtonDisabled,
-            ]}
-            onPress={() => guardAction(() => {})}
-          >
-            <Text style={styles.actionButtonTextSecondary}>🔍 Find Available Jobs</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Today's Schedule</Text>
-          {error && (
-            <Text style={styles.placeholderText}>{error}</Text>
-          )}
-          {loading ? (
-            <ActivityIndicator style={{ marginVertical: 12 }} />
-          ) : Object.keys(grouped).length === 0 ? (
-            <Text style={styles.placeholderText}>
-              Your assigned jobs for today will appear here
-            </Text>
-          ) : (
-            Object.entries(grouped).map(([windowLabel, windowJobs]) => (
-              <View key={windowLabel} style={{ marginBottom: 12 }}>
-                <Text style={[styles.cardTitle, { fontSize: 14, marginBottom: 6 }]}>
-                  {windowLabel}
-                </Text>
-                {windowJobs.map((job) => (
-                  <TouchableOpacity
-                    key={job.id}
-                    style={[styles.actionButton, styles.actionButtonSecondary, { marginBottom: 6 }]}
-                    onPress={() => navigation.navigate('DriverJobDetail', { jobId: job.id })}
-                  >
-                    <Text style={styles.actionButtonTextSecondary}>
-                      📍 {job.location || 'No address'} · {job.jobStatus}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            ))
-          )}
-        </View>
-
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutButtonText}>Logout</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.logoutButton} onPress={handleDeleteAccount}>
-          <Text style={styles.logoutButtonText}>Delete Account</Text>
-        </TouchableOpacity>
-      </ResponsiveContent>
-    </ScrollView>
+      <HomeSheet
+        greeting={greeting}
+        driverName={driverName}
+        isOnline={isOnline}
+        todaysEarnings={todaysEarnings}
+        onToggleOnline={() => {
+          void handleToggleOnline();
+        }}
+        onEarningsPress={() => {
+          Alert.alert("Today's earnings", 'A full earnings breakdown is coming soon.');
+        }}
+        toggleLoading={shiftLoading}
+        bottomInset={insets.bottom}
+      />
+    </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.mapBg,
+  },
+  bannerWrap: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    zIndex: 28,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+});
