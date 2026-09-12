@@ -1,9 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { ActionSheetIOS, Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/hooks/useAuth';
-import { useDriverStatus } from '@/contexts/driver-status-context';
 import { useDriverApproved } from '@/hooks/useDriverApproved';
 import { useDriverPresence } from '@/hooks/useDriverPresence';
 import { DriverApprovalBanner } from '@/components/driver/DriverApprovalBanner';
@@ -17,12 +16,7 @@ import { colors } from '@platform/shared-theme';
 import { trackEvent } from '@/services/analytics';
 import { openDeleteAccountSupport } from '@/lib/delete-account';
 import { useAssignedJobOffer } from '@/hooks/useAssignedJobOffer';
-
-type DriverStackParamList = {
-  DriverHome: undefined;
-  DriverJobList: undefined;
-  DriverJobDetail: { jobId: string };
-};
+import type { DriverStackParamList } from '@/navigation/types';
 
 type DriverHomeScreenProps = {
   navigation: NativeStackNavigationProp<DriverStackParamList, 'DriverHome'>;
@@ -45,12 +39,10 @@ function firstNameFromUser(name?: string, email?: string): string {
 export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }) => {
   const { user, logout } = useAuth();
   const insets = useSafeAreaInsets();
-  const { refreshDriverStatus } = useDriverStatus();
   const { isApproved, showPendingAlert } = useDriverApproved();
   const [toggleLoading, setToggleLoading] = useState(false);
   const [todaysEarnings] = useState(0);
   const mapRef = useRef<DriverMapHandle>(null);
-  const gateChecked = useRef(false);
   const { offer, accept, decline } = useAssignedJobOffer();
   const [accepting, setAccepting] = useState(false);
   const [declining, setDeclining] = useState(false);
@@ -58,12 +50,6 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
   const driverId = user?.id ?? '';
   const driverName = firstNameFromUser(user?.name, user?.email);
   const { isOnline, goOnline, goOffline } = useDriverPresence(driverId);
-
-  useEffect(() => {
-    if (gateChecked.current || !driverId) return;
-    gateChecked.current = true;
-    refreshDriverStatus();
-  }, [driverId, refreshDriverStatus]);
 
   const handleToggleOnline = useCallback(async () => {
     if (!driverId) return;
@@ -171,6 +157,10 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
 
   const greeting = useMemo(() => greetingForNow(), []);
 
+  const openEarnings = useCallback(() => {
+    navigation.navigate('DailyEarningsDetails');
+  }, [navigation]);
+
   return (
     <View style={styles.container}>
       <DriverMap ref={mapRef} />
@@ -235,9 +225,7 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
           onToggleOnline={() => {
             void handleToggleOnline();
           }}
-          onEarningsPress={() => {
-            Alert.alert("Today's earnings", 'A full earnings breakdown is coming soon.');
-          }}
+          onEarningsPress={openEarnings}
           toggleLoading={toggleLoading}
           bottomInset={insets.bottom}
         />

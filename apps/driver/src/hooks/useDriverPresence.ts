@@ -5,20 +5,69 @@ import {
   onDisconnect,
   onValue,
   ref,
-  serverTimestamp,
+  serverTimestamp as rtdbServerTimestamp,
   set,
 } from 'firebase/database';
-import { rtdb } from '@platform/shared-firebase';
+import {
+  addDoc,
+  collection,
+  db,
+  doc,
+  getDocs,
+  limit,
+  query,
+  rtdb,
+  serverTimestamp,
+  updateDoc,
+  where,
+} from '@platform/shared-firebase';
+
+const SHIFT_SESSIONS_COLLECTION = 'driverShiftSessions';
+const openSessionByDriver = new Map<string, string>();
 
 function presencePayload(online: boolean) {
   return {
     online,
-    lastSeen: serverTimestamp(),
+    lastSeen: rtdbServerTimestamp(),
   };
 }
 
 function presenceNode(driverId: string) {
   return ref(rtdb, '/presence/' + driverId);
+}
+
+async function startShiftSession(driverId: string) {
+  const sessionRef = await addDoc(collection(db, SHIFT_SESSIONS_COLLECTION), {
+    driverId,
+    startedAt: serverTimestamp(),
+    endedAt: null,
+  });
+  openSessionByDriver.set(driverId, sessionRef.id);
+}
+
+async function endShiftSession(driverId: string) {
+  const knownId = openSessionByDriver.get(driverId);
+  if (knownId) {
+    await updateDoc(doc(db, SHIFT_SESSIONS_COLLECTION, knownId), {
+      endedAt: serverTimestamp(),
+    });
+    openSessionByDriver.delete(driverId);
+    return;
+  }
+
+  const openSessions = await getDocs(
+    query(
+      collection(db, SHIFT_SESSIONS_COLLECTION),
+      where('driverId', '==', driverId),
+      where('endedAt', '==', null),
+      limit(5)
+    )
+  );
+  await Promise.all(
+    openSessions.docs.map((sessionDoc) =>
+      updateDoc(sessionDoc.ref, { endedAt: serverTimestamp() })
+    )
+  );
 }
 
 /**
@@ -86,6 +135,11 @@ export function useDriverPresence(driverId: string): {
     const node = presenceNode(driverId);
     await onDisconnect(node).set(presencePayload(false));
     await set(node, presencePayload(true));
+    try {
+      await startShiftSession(driverId);
+    } catch (error) {
+      console.error('[useDriverPresence] shift session start failed', error);
+    }
     return true;
   }, [driverId]);
 
@@ -99,6 +153,11 @@ export function useDriverPresence(driverId: string): {
       // Already disconnected — still write the offline state.
     }
     await set(node, presencePayload(false));
+    try {
+      await endShiftSession(driverId);
+    } catch (error) {
+      console.error('[useDriverPresence] shift session end failed', error);
+    }
   }, [driverId]);
 
   return { isOnline, goOnline, goOffline };

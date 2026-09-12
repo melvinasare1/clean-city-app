@@ -37,7 +37,7 @@ export async function getDriverStatus(uid: string): Promise<DriverStatus | null>
       return null;
     }
     const data = driverSnap.data() as Record<string, unknown>;
-    if (data?.role !== "driver") {
+    if (data?.role != null && data.role !== "driver") {
       return null;
     }
     const status = normalizeDriverStatus(data);
