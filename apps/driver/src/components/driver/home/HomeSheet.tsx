@@ -45,7 +45,7 @@ export function HomeSheet({
           accessibilityLabel="Today's earnings"
         >
           <View>
-            <Text style={typography.earningsValue}>£{todaysEarnings.toFixed(2)}</Text>
+            <Text style={typography.earningsValue}>¢{todaysEarnings.toFixed(2)}</Text>
             <Text style={typography.earningsLabel}>Today's earnings</Text>
           </View>
           <Feather name="chevron-right" size={16} color={colors.inkSecondary} />

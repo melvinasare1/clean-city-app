@@ -84,7 +84,7 @@ const formatDate = (date: Date) =>
     year: 'numeric',
   });
 
-const formatPrice = (value: number) => `GHS ${value.toFixed(2)}`;
+const formatPrice = (value: number) => `¢${value.toFixed(2)}`;
 
 /** Pickups included in each billed period (weekly/biweekly: 28-day cycle; monthly: one calendar pickup). */
 function pickupsPerBillingPeriod(intervalWeeks: number): number {

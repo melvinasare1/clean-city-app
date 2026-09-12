@@ -163,7 +163,7 @@ export const DriverJobDetailScreen: React.FC<DriverJobDetailScreenProps> = ({ na
           {(job.items?.length ?? 0) > 0
             ? job.items!.map((item, i) => (
                 <Text key={i} style={styles.binItem}>
-                  • {item.type}: {item.quantity} × GHS {item.unitPrice}
+                  • {item.type}: {item.quantity} × ¢{item.unitPrice}
                 </Text>
               ))
             : (

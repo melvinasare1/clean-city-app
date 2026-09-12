@@ -1,6 +1,4 @@
 import React, { createContext, useContext, useMemo, useState } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { useDriverRealtime } from '@/hooks/useDriverRealtime';
 import type { DriverShift } from '@/services/driver-api';
 
 function isShiftOnline(shift: DriverShift | null): boolean {
@@ -16,11 +14,8 @@ type DriverShiftContextValue = {
 const DriverShiftContext = createContext<DriverShiftContextValue | undefined>(undefined);
 
 export function DriverShiftProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
   const [shift, setShift] = useState<DriverShift | null>(null);
   const isOnline = isShiftOnline(shift);
-
-  useDriverRealtime(user?.id ?? '', isOnline);
 
   const value = useMemo(
     () => ({ shift, setShift, isOnline }),

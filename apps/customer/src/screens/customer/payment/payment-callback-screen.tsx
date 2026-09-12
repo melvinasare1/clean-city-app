@@ -151,7 +151,7 @@ export const PaymentCallbackScreen: React.FC<Props> = ({
         Reference: {result.reference}
       </AppText>
       <AppText style={{ marginBottom: 4 }}>
-        Amount: {result.amount.toFixed(2)} {result.currency}
+        Amount: ¢{result.amount.toFixed(2)}
       </AppText>
       <AppText style={{ marginBottom: 24 }}>Status: {result.status}</AppText>
 

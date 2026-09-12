@@ -17,7 +17,7 @@ export function formatDate(dateStr: string): string {
 }
 
 export function formatPrice(value: number): string {
-  return `GHS ${value.toFixed(2)}`;
+  return `¢${value.toFixed(2)}`;
 }
 
 export function getStatusColor(status: Booking["status"]): string {

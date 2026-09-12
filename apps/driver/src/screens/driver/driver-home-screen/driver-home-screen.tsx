@@ -2,11 +2,10 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ActionSheetIOS, Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as Location from 'expo-location';
 import { useAuth } from '@/hooks/useAuth';
 import { useDriverStatus } from '@/contexts/driver-status-context';
-import { useDriverShift } from '@/contexts/driver-shift-context';
 import { useDriverApproved } from '@/hooks/useDriverApproved';
+import { useDriverPresence } from '@/hooks/useDriverPresence';
 import { DriverApprovalBanner } from '@/components/driver/DriverApprovalBanner';
 import { TopBar } from '@/components/driver/home/TopBar';
 import { MapControls } from '@/components/driver/home/MapControls';
@@ -16,7 +15,6 @@ import { DriverMap } from '@/components/driver/home/DriverMap';
 import type { DriverMapHandle } from '@/components/driver/home/driver-map.types';
 import { colors } from '@platform/shared-theme';
 import { trackEvent } from '@/services/analytics';
-import { endShift, startShift } from '@/services/driver-api';
 import { openDeleteAccountSupport } from '@/lib/delete-account';
 import { useAssignedJobOffer } from '@/hooks/useAssignedJobOffer';
 
@@ -49,8 +47,7 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
   const insets = useSafeAreaInsets();
   const { refreshDriverStatus } = useDriverStatus();
   const { isApproved, showPendingAlert } = useDriverApproved();
-  const { shift, setShift, isOnline } = useDriverShift();
-  const [shiftLoading, setShiftLoading] = useState(false);
+  const [toggleLoading, setToggleLoading] = useState(false);
   const [todaysEarnings] = useState(0);
   const mapRef = useRef<DriverMapHandle>(null);
   const gateChecked = useRef(false);
@@ -60,6 +57,7 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
 
   const driverId = user?.id ?? '';
   const driverName = firstNameFromUser(user?.name, user?.email);
+  const { isOnline, goOnline, goOffline } = useDriverPresence(driverId);
 
   useEffect(() => {
     if (gateChecked.current || !driverId) return;
@@ -67,55 +65,32 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
     refreshDriverStatus();
   }, [driverId, refreshDriverStatus]);
 
-  const requestLocationIfNeeded = useCallback(async () => {
-    if (Platform.OS === 'web') return true;
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status === 'granted') return true;
-    Alert.alert(
-      'Location required',
-      'Turn on location access so we can show you on the map and match nearby jobs.'
-    );
-    return false;
-  }, []);
-
   const handleToggleOnline = useCallback(async () => {
     if (!driverId) return;
     if (!isApproved) {
       showPendingAlert();
       return;
     }
-    if (shiftLoading) return;
+    if (toggleLoading) return;
 
-    if (!isOnline) {
-      const allowed = await requestLocationIfNeeded();
-      if (!allowed) return;
-    }
-
-    setShiftLoading(true);
+    setToggleLoading(true);
     try {
       if (isOnline) {
-        const next = await endShift(driverId);
-        setShift(next);
+        await goOffline();
         await trackEvent('driver_end_shift', { screen: 'driver_home' });
       } else {
-        const next = await startShift(driverId);
-        setShift(next);
-        await trackEvent('driver_start_shift', { screen: 'driver_home' });
+        const started = await goOnline();
+        if (started) {
+          await trackEvent('driver_start_shift', { screen: 'driver_home' });
+        }
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Could not update your online status';
       Alert.alert('Error', msg);
     } finally {
-      setShiftLoading(false);
+      setToggleLoading(false);
     }
-  }, [
-    driverId,
-    isApproved,
-    isOnline,
-    requestLocationIfNeeded,
-    shiftLoading,
-    showPendingAlert,
-  ]);
+  }, [driverId, goOffline, goOnline, isApproved, isOnline, showPendingAlert, toggleLoading]);
 
   const handleLogout = useCallback(async () => {
     try {
@@ -210,7 +185,7 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
           Alert.alert('Notifications', 'Driver notifications are coming soon.');
         }}
         topInset={insets.top}
-        toggleDisabled={shiftLoading}
+        toggleDisabled={toggleLoading}
       />
 
       {!isApproved && (
@@ -263,7 +238,7 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
           onEarningsPress={() => {
             Alert.alert("Today's earnings", 'A full earnings breakdown is coming soon.');
           }}
-          toggleLoading={shiftLoading}
+          toggleLoading={toggleLoading}
           bottomInset={insets.bottom}
         />
       )}

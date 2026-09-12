@@ -38,7 +38,7 @@ export function JobOfferSheet({ offer, onAccept, accepting, bottomInset = 0 }: P
         </View>
         {fare != null && (
           <View style={styles.farePill}>
-            <Text style={typography.earningsValue}>£{Number(fare).toFixed(2)}</Text>
+            <Text style={typography.earningsValue}>¢{Number(fare).toFixed(2)}</Text>
           </View>
         )}
       </View>

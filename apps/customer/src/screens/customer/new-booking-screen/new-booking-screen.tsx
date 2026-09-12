@@ -29,8 +29,7 @@ type NewBookingScreenProps = CompositeScreenProps<
   NativeStackScreenProps<CustomerStackParamList>
 >;
 
-const formatPrice = (value: number, currency: string) =>
-  `${currency} ${value.toFixed(2)}`;
+const formatPrice = (value: number) => `¢${value.toFixed(2)}`;
 
 const initialQuantities = (): Record<BinPriceKey, number> => ({
   smallBag: 0,
@@ -130,7 +129,7 @@ export const NewBookingScreen: React.FC<NewBookingScreenProps> = ({
                   <View style={styles.binInfo}>
                     <Text style={styles.binName}>{bin.label}</Text>
                     <Text style={styles.binPrice}>
-                      {formatPrice(getUnitPrice(pricing, bin.key), pricing.currency)} each
+                      {formatPrice(getUnitPrice(pricing, bin.key))} each
                     </Text>
                   </View>
                   <View style={styles.counter}>
@@ -164,7 +163,7 @@ export const NewBookingScreen: React.FC<NewBookingScreenProps> = ({
           <View style={styles.totalCard}>
             <Text style={styles.totalLabel}>Total Price:</Text>
             <Text style={styles.totalValue}>
-              {formatPrice(totalPrice, pricing.currency)}
+              {formatPrice(totalPrice)}
             </Text>
           </View>
           <TouchableOpacity
