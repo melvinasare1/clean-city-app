@@ -1,14 +1,10 @@
 /**
- * Backfill jobs.pickup = { lat, lng } when missing.
- * Geocodes each distinct address once via Mapbox Geocoding v6 (permanent)
- * and reuses that result for every job that shares the same address string.
+ * Re-geocode jobs.pickup using Mapbox-then-Nominatim, including jobs that
+ * already have coordinates (to catch Accra city-centroid false positives).
  *
  *   node scripts/backfill-job-pickup-coordinates.js
  *
- * Credentials: FIREBASE_SERVICE_ACCOUNT_JSON, GOOGLE_APPLICATION_CREDENTIALS,
- * or service-account.json at the repo root.
- * Mapbox: MAPBOX_ACCESS_TOKEN or EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN
- * (also loaded from repo-root .env / apps/driver/.env if present).
+ * Overwrites pickup when the fresh result is >= SIGNIFICANT_METERS away.
  */
 
 const fs = require("fs");
@@ -20,7 +16,10 @@ const {
 } = require("./lib/geocode-address");
 
 const BATCH_LIMIT = 400;
-const GEOCODE_GAP_MS = 80;
+const GEOCODE_GAP_MS = 1100;
+const SIGNIFICANT_METERS = 300;
+const CITY_CENTROID_METERS = 150;
+const ACCRA_CITY_CENTROID = { lat: 5.661083, lng: -0.202815 };
 
 function loadEnvFiles() {
   const files = [
@@ -102,6 +101,26 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function haversineMeters(a, b) {
+  const toRad = (deg) => (deg * Math.PI) / 180;
+  const r = 6371000;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return 2 * r * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+function looksForeign(query, pickup) {
+  if (/london|united kingdom|\buk\b|baker street/i.test(query)) return true;
+  if (!pickup) return false;
+  const inGhana = pickup.lat >= 4.5 && pickup.lat <= 11.2 && pickup.lng >= -3.3 && pickup.lng <= 1.3;
+  return !inGhana;
+}
+
 async function main() {
   loadEnvFiles();
   const token =
@@ -118,9 +137,12 @@ async function main() {
 
   const snap = await db.collection("jobs").get();
   const cache = new Map();
-  let updated = 0;
-  let alreadyValid = 0;
+  let filledMissing = 0;
+  let corrected = 0;
+  let cityCentroidWrong = 0;
+  let leftAlone = 0;
   let skippedNoAddress = 0;
+  let skippedForeign = 0;
   let geocodeFailed = 0;
   let batch = db.batch();
   let ops = 0;
@@ -135,45 +157,100 @@ async function main() {
 
   for (const doc of snap.docs) {
     const data = doc.data() || {};
-    if (parsePickupCoordinates(data.pickup)) {
-      alreadyValid += 1;
-      continue;
-    }
+    const existing = parsePickupCoordinates(data.pickup);
+    const query =
+      (typeof data.addressSnapshot?.addressLine1 === "string" &&
+      data.addressSnapshot.addressLine1.trim()
+        ? data.addressSnapshot.addressLine1.trim()
+        : "") ||
+      (typeof data.location === "string" ? data.location.trim() : "") ||
+      addressQueryFromJob({
+        location: data.location,
+        addressSnapshot: data.addressSnapshot,
+      });
 
-    const query = addressQueryFromJob({
-      location: data.location,
-      addressSnapshot: data.addressSnapshot,
-    });
     if (!query) {
       skippedNoAddress += 1;
+      console.log(`left-alone ${doc.id} reason=no-address`);
       continue;
     }
 
-    let pickup = cache.get(query);
-    if (pickup === undefined) {
-      pickup = await geocodeAddressToPickup(query);
-      cache.set(query, pickup);
+    if (looksForeign(query, existing)) {
+      skippedForeign += 1;
+      leftAlone += 1;
+      console.log(`left-alone ${doc.id} reason=foreign-address query=${JSON.stringify(query)}`);
+      continue;
+    }
+
+    let fresh = cache.get(query);
+    if (fresh === undefined) {
+      fresh = await geocodeAddressToPickup(query);
+      cache.set(query, fresh);
       await sleep(GEOCODE_GAP_MS);
     }
 
-    if (!pickup) {
+    if (!fresh) {
       geocodeFailed += 1;
+      leftAlone += 1;
+      console.log(`left-alone ${doc.id} reason=geocode-failed query=${JSON.stringify(query)}`);
+      continue;
+    }
+
+    const nearAccraCentroid =
+      existing &&
+      haversineMeters(existing, ACCRA_CITY_CENTROID) <= CITY_CENTROID_METERS;
+    const delta = existing ? haversineMeters(existing, fresh) : Infinity;
+    const needsWrite = !existing || delta >= SIGNIFICANT_METERS;
+
+    if (!needsWrite) {
+      leftAlone += 1;
+      console.log(
+        `left-alone ${doc.id} deltaMeters=${Math.round(delta)} query=${JSON.stringify(query)}`
+      );
       continue;
     }
 
     batch.update(doc.ref, {
-      pickup,
+      pickup: fresh,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
-    updated += 1;
     ops += 1;
+
+    if (nearAccraCentroid) {
+      cityCentroidWrong += 1;
+    }
+    if (existing) {
+      corrected += 1;
+      console.log(
+        `corrected ${doc.id} deltaMeters=${Math.round(delta)} cityCentroid=${Boolean(
+          nearAccraCentroid
+        )} from=${existing.lat},${existing.lng} to=${fresh.lat},${fresh.lng} query=${JSON.stringify(
+          query
+        )}`
+      );
+    } else {
+      filledMissing += 1;
+      console.log(
+        `filled-missing ${doc.id} to=${fresh.lat},${fresh.lng} query=${JSON.stringify(query)}`
+      );
+    }
+
     await commitIfNeeded();
   }
 
   await commitIfNeeded(true);
 
   console.log(
-    `jobs scanned=${snap.size} updated=${updated} alreadyValid=${alreadyValid} skippedNoAddress=${skippedNoAddress} geocodeFailed=${geocodeFailed}`
+    [
+      `jobs scanned=${snap.size}`,
+      `corrected=${corrected}`,
+      `cityCentroidWrong=${cityCentroidWrong}`,
+      `filledMissing=${filledMissing}`,
+      `leftAlone=${leftAlone}`,
+      `skippedNoAddress=${skippedNoAddress}`,
+      `skippedForeign=${skippedForeign}`,
+      `geocodeFailed=${geocodeFailed}`,
+    ].join(" ")
   );
 }
 

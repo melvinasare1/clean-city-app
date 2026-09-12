@@ -87,14 +87,15 @@ async function main() {
 
   const now = Timestamp.now();
   const jobRef = db.collection("jobs").doc();
-  const location = "221B Baker Street, London";
-  const pickup = await geocodeAddressToPickup(location, { country: "gb" });
+  const location = "Kwame Nkrumah Memorial Park, Accra";
+  const pickup = await geocodeAddressToPickup(location);
 
   await jobRef.set({
     id: jobRef.id,
     type: "one_time",
     bookingId: `test-${jobRef.id}`,
-    userId: "test-customer",
+    userId: "test-customer-gh",
+    customerName: "Ama Mensah",
     scheduledDate: now,
     paymentStatus: "paid",
     jobStatus: "scheduled",
@@ -111,8 +112,8 @@ async function main() {
     location,
     addressSnapshot: {
       addressLine1: location,
-      area: "Marylebone",
-      phoneNumber: "+440000000000",
+      area: "Accra Central",
+      phoneNumber: "+233244000000",
     },
     ...(pickup ? { pickup } : {}),
     windowId: "morning",
@@ -129,11 +130,31 @@ async function main() {
     updatedAt: FieldValue.serverTimestamp(),
   });
 
+  const accraCentroid = { lat: 5.661083, lng: -0.202815 };
+  const metersFromCentroid = pickup
+    ? Math.round(
+        (() => {
+          const toRad = (deg) => (deg * Math.PI) / 180;
+          const r = 6371000;
+          const dLat = toRad(pickup.lat - accraCentroid.lat);
+          const dLng = toRad(pickup.lng - accraCentroid.lng);
+          const h =
+            Math.sin(dLat / 2) ** 2 +
+            Math.cos(toRad(accraCentroid.lat)) *
+              Math.cos(toRad(pickup.lat)) *
+              Math.sin(dLng / 2) ** 2;
+          return 2 * r * Math.asin(Math.min(1, Math.sqrt(h)));
+        })()
+      )
+    : null;
+
   console.log(`created jobId=${jobRef.id}`);
   console.log(`driverUid=${driverUid}`);
+  console.log(`location=${location}`);
+  console.log(`customerName=Ama Mensah`);
   console.log(
     pickup
-      ? `pickup=${pickup.lat},${pickup.lng}`
+      ? `pickup=${pickup.lat},${pickup.lng} metersFromAccraCentroid=${metersFromCentroid}`
       : "pickup=missing (geocode failed or Mapbox token unset)"
   );
   console.log("assignmentStatus=assigned (via update, so onJobAssigned can fire)");

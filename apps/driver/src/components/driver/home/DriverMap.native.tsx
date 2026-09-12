@@ -67,6 +67,42 @@ export const DriverMap = forwardRef<DriverMapHandle, DriverMapProps>(function Dr
   const [mapVisible, setMapVisible] = useState(false);
   const [isFollowingUser, setIsFollowingUser] = useState(true);
   const [driverCoordinate, setDriverCoordinate] = useState<[number, number] | null>(null);
+  const framedPickupKeyRef = useRef<string | null>(null);
+  const pickupCoordinateRef = useRef(pickupCoordinate);
+  const driverCoordinateRef = useRef(driverCoordinate);
+  pickupCoordinateRef.current = pickupCoordinate;
+  driverCoordinateRef.current = driverCoordinate;
+
+  useEffect(() => {
+    console.log('[DriverMap] pickupCoordinate', pickupCoordinate);
+  }, [pickupCoordinate]);
+
+  const pickupKey = (coordinate: [number, number] | null) =>
+    coordinate ? `${coordinate[0]},${coordinate[1]}` : null;
+
+  const fitDriverAndPickup = (driver: [number, number], pickup: [number, number]) => {
+    let west = Math.min(driver[0], pickup[0]);
+    let east = Math.max(driver[0], pickup[0]);
+    let south = Math.min(driver[1], pickup[1]);
+    let north = Math.max(driver[1], pickup[1]);
+    if (east - west < 0.002) {
+      west -= 0.001;
+      east += 0.001;
+    }
+    if (north - south < 0.002) {
+      south -= 0.001;
+      north += 0.001;
+    }
+    cameraRef.current?.fitBounds(
+      [east, north],
+      [west, south],
+      [80, 40, 280, 40],
+      500
+    );
+    if (mapLoadedRef.current) {
+      setMapVisible(true);
+    }
+  };
 
   const adoptCenter = (center: [number, number]) => {
     if (initialCenterRef.current) return;
@@ -106,31 +142,50 @@ export const DriverMap = forwardRef<DriverMapHandle, DriverMapProps>(function Dr
 
   useEffect(() => {
     if (!initialCenter) return;
+    if (pickupCoordinate && driverCoordinate) return;
     snapTo(initialCenter);
-  }, [initialCenter]);
+  }, [driverCoordinate, initialCenter, pickupCoordinate]);
 
-  useImperativeHandle(ref, () => ({
-    recenter: () => {
-      setIsFollowingUser(true);
-      void Location.getLastKnownPositionAsync().then((position) => {
-        if (!position) {
-          cameraRef.current?.setCamera({
-            zoomLevel: INITIAL_ZOOM,
-            animationMode: 'none',
-            animationDuration: 0,
-          });
-          return;
-        }
-        const center = toCenter(position.coords.longitude, position.coords.latitude);
-        if (!center) return;
-        setDriverCoordinate(center);
-        snapTo(center);
-      });
-    },
-    resetHeading: () => {
-      cameraRef.current?.setCamera({ heading: 0, animationDuration: 300 });
-    },
-  }));
+  useEffect(() => {
+    if (!pickupCoordinate) {
+      framedPickupKeyRef.current = null;
+      return;
+    }
+    if (!driverCoordinate || !mapLoadedRef.current) return;
+    const key = pickupKey(pickupCoordinate);
+    if (framedPickupKeyRef.current === key) return;
+    framedPickupKeyRef.current = key;
+    setIsFollowingUser(false);
+    fitDriverAndPickup(driverCoordinate, pickupCoordinate);
+  }, [driverCoordinate, mapVisible, pickupCoordinate]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      recenter: () => {
+        framedPickupKeyRef.current = pickupKey(pickupCoordinate) ?? 'user-follow';
+        setIsFollowingUser(true);
+        void Location.getLastKnownPositionAsync().then((position) => {
+          if (!position) {
+            cameraRef.current?.setCamera({
+              zoomLevel: INITIAL_ZOOM,
+              animationMode: 'none',
+              animationDuration: 0,
+            });
+            return;
+          }
+          const center = toCenter(position.coords.longitude, position.coords.latitude);
+          if (!center) return;
+          setDriverCoordinate(center);
+          snapTo(center);
+        });
+      },
+      resetHeading: () => {
+        cameraRef.current?.setCamera({ heading: 0, animationDuration: 300 });
+      },
+    }),
+    [pickupCoordinate]
+  );
 
   if (!accessToken) {
     return (
@@ -181,6 +236,17 @@ export const DriverMap = forwardRef<DriverMapHandle, DriverMapProps>(function Dr
         }}
         onDidFinishLoadingMap={() => {
           mapLoadedRef.current = true;
+          const pickup = pickupCoordinateRef.current;
+          const driver = driverCoordinateRef.current;
+          if (pickup && driver) {
+            const key = pickupKey(pickup);
+            if (framedPickupKeyRef.current !== key) {
+              framedPickupKeyRef.current = key;
+              setIsFollowingUser(false);
+              fitDriverAndPickup(driver, pickup);
+              return;
+            }
+          }
           const center = initialCenterRef.current;
           if (center) {
             snapTo(center);

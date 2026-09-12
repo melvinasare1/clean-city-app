@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { CompositeNavigationProp } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -168,6 +168,12 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
     if (!pickup) return null;
     return [pickup.lng, pickup.lat];
   }, [activeTrip, offer]);
+
+  useEffect(() => {
+    console.log('[DriverHome] offer.pickup', offer?.pickup ?? null);
+    console.log('[DriverHome] activeTrip.pickup', activeTrip?.pickup ?? null);
+    console.log('[DriverHome] pickupCoordinate passed to map', pickupCoordinate);
+  }, [activeTrip, offer, pickupCoordinate]);
 
   const greeting = useMemo(() => greetingForNow(), []);
 
