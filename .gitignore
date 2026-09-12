@@ -23,7 +23,6 @@ web-build/
 service-account.json
 **/service-account.json
 backend/.env
-package-lock.json
 .vercel
 ios/
 android/

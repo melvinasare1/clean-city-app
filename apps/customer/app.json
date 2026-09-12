@@ -1,0 +1,77 @@
+{
+  "expo": {
+    "name": "Clean City",
+    "slug": "clean-city-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F5F5F5"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.cleancity.app",
+      "googleServicesFile": "./firebase/GoogleService-Info.plist",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIDeviceFamily": [1, 2]
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.cleancity.app",
+      "googleServicesFile": "./firebase/google-services.json"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "16248649-26d4-431e-a380-a40be65350a0"
+      },
+      "aptabaseKey": "${EXPO_PUBLIC_APTABASE_KEY}"
+    },
+    "plugins": [
+      "expo-dev-client",
+      "expo-adi-registration",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#F5F5F5"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "15.1",
+            "extraPods": [
+              { "name": "GoogleUtilities", "modular_headers": true },
+              { "name": "RecaptchaInterop", "modular_headers": true },
+              { "name": "AppCheckCore", "modular_headers": true }
+            ]
+          }
+        }
+      ],
+      "expo-apple-authentication",
+      "expo-web-browser",
+      "@react-native-google-signin/google-signin"
+    ],
+    "scheme": "com.cleancity.app",
+    "runtimeVersion": "1.0.0",
+    "updates": {
+      "url": "https://u.expo.dev/16248649-26d4-431e-a380-a40be65350a0"
+    }
+  }
+}

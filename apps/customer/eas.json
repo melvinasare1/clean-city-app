@@ -1,0 +1,60 @@
+{
+  "cli": {
+    "version": ">= 16.28.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://clean-city-backend-plum.vercel.app/",
+        "EXPO_PUBLIC_APTABASE_KEY": "A-EU-6592512622",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "430221189966-fk5hbi7oosf4hhappmu7484sj5ia3ie4.apps.googleusercontent.com",
+        "EAS_BUILD_PROFILE": "development"
+      },
+      "developmentClient": true,
+      "distribution": "internal",
+      "node": "22.0.0",
+      "channel": "development"
+    },
+    "preview": {
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://clean-city-backend-plum.vercel.app",
+        "EXPO_PUBLIC_APTABASE_KEY": "A-EU-6592512622",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "430221189966-fk5hbi7oosf4hhappmu7484sj5ia3ie4.apps.googleusercontent.com"
+      },
+      "distribution": "internal",
+      "node": "22.13.0",
+      "channel": "preview"
+    },
+    "production": {
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://clean-city-backend-plum.vercel.app",
+        "EXPO_PUBLIC_APTABASE_KEY": "A-EU-6592512622",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "430221189966-fk5hbi7oosf4hhappmu7484sj5ia3ie4.apps.googleusercontent.com"
+      },
+      "autoIncrement": true,
+      "node": "22.13.0",
+      "channel": "production"
+    },
+    "play-ownership-verify": {
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://clean-city-backend-plum.vercel.app",
+        "EXPO_PUBLIC_APTABASE_KEY": "A-EU-6592512622",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "430221189966-fk5hbi7oosf4hhappmu7484sj5ia3ie4.apps.googleusercontent.com"
+      },
+      "android": {
+        "buildType": "apk"
+      },
+      "node": "22.0.0",
+      "channel": "production"
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "ascAppId": "6757098396",
+        "appleTeamId": "TU25L7DJ8L"
+      }
+    }
+  }
+}
