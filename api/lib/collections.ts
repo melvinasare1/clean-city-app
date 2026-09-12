@@ -30,6 +30,8 @@ export interface DriverDoc {
   displayName?: string;
   firstName?: string;
   lastName?: string;
+  /** 0–100. Higher is better. Defaults to 100. */
+  priority?: number;
   /** @deprecated Use status === "approved" */
   isActive?: boolean;
   expoPushToken?: string;

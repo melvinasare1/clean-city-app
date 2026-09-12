@@ -1,15 +1,13 @@
 import { useEffect, useState, useCallback } from 'react';
+import { httpsCallable } from 'firebase/functions';
 import {
   collection,
   query,
   where,
   onSnapshot,
-  doc,
-  updateDoc,
-  arrayUnion,
-  serverTimestamp,
   db,
   auth,
+  functions,
 } from '@platform/shared-firebase';
 import type { Timestamp } from '@platform/shared-firebase';
 import { useDriverApproved } from '@/hooks/useDriverApproved';
@@ -22,15 +20,39 @@ export type JobOffer = {
   amountPaid?: number;
   totalPrice?: number;
   subscriptionId?: string | null;
+  offerExpiresAt?: Timestamp | Date | string | number | null;
 };
 
+export type ActiveTrip = JobOffer;
+
+const acceptJobOfferFn = httpsCallable<{ bookingId: string }, { ok: boolean }>(
+  functions,
+  'acceptJobOffer'
+);
+const declineJobOfferFn = httpsCallable<{ bookingId: string }, { ok: boolean }>(
+  functions,
+  'declineJobOffer'
+);
+const completeBookingFn = httpsCallable<{ bookingId: string }, { ok: boolean }>(
+  functions,
+  'completeBooking'
+);
+const cancelAcceptedJobFn = httpsCallable<{ bookingId: string }, { ok: boolean }>(
+  functions,
+  'cancelAcceptedJob'
+);
+
+function mapBookingDoc(id: string, data: Omit<JobOffer, 'id'>): JobOffer {
+  return { id, ...data };
+}
+
 /**
- * Listens for the current driver's next booking sitting in `assigned`
- * (i.e. picked by admin, awaiting the driver's accept/decline).
- * Only runs after the driver is approved; Firestore rules allow that query.
+ * Listens for the current driver's assigned offer and in-progress trip.
+ * Status transitions are server-enforced via callables.
  */
 export function useAssignedJobOffer() {
   const [offer, setOffer] = useState<JobOffer | null>(null);
+  const [activeTrip, setActiveTrip] = useState<ActiveTrip | null>(null);
   const [loading, setLoading] = useState(true);
   const { isApproved } = useDriverApproved();
 
@@ -38,55 +60,84 @@ export function useAssignedJobOffer() {
     const uid = auth.currentUser?.uid;
     if (!uid || !isApproved) {
       setOffer(null);
+      setActiveTrip(null);
       setLoading(false);
       return;
     }
 
-    const q = query(
-      collection(db, 'bookings'),
-      where('driverId', '==', uid),
-      where('status', '==', 'assigned'),
-    );
+    let offerReady = false;
+    let tripReady = false;
+    const markReady = () => {
+      if (offerReady && tripReady) setLoading(false);
+    };
 
-    const unsubscribe = onSnapshot(
-      q,
+    const unsubOffer = onSnapshot(
+      query(
+        collection(db, 'bookings'),
+        where('driverId', '==', uid),
+        where('status', '==', 'assigned'),
+      ),
       (snapshot) => {
         if (snapshot.empty) {
           setOffer(null);
         } else {
-          // Take the first pending offer. If a driver could somehow have more
-          // than one, surface them one at a time rather than stacking sheets.
           const docSnap = snapshot.docs[0];
-          setOffer({ id: docSnap.id, ...(docSnap.data() as Omit<JobOffer, 'id'>) });
+          setOffer(mapBookingDoc(docSnap.id, docSnap.data() as Omit<JobOffer, 'id'>));
         }
-        setLoading(false);
+        offerReady = true;
+        markReady();
       },
       (err) => {
         console.error('useAssignedJobOffer listener error', err);
-        setLoading(false);
+        offerReady = true;
+        markReady();
       },
     );
 
-    return unsubscribe;
+    const unsubTrip = onSnapshot(
+      query(
+        collection(db, 'bookings'),
+        where('driverId', '==', uid),
+        where('status', '==', 'in_progress'),
+      ),
+      (snapshot) => {
+        if (snapshot.empty) {
+          setActiveTrip(null);
+        } else {
+          const docSnap = snapshot.docs[0];
+          setActiveTrip(mapBookingDoc(docSnap.id, docSnap.data() as Omit<JobOffer, 'id'>));
+        }
+        tripReady = true;
+        markReady();
+      },
+      (err) => {
+        console.error('useAssignedJobOffer in-progress listener error', err);
+        tripReady = true;
+        markReady();
+      },
+    );
+
+    return () => {
+      unsubOffer();
+      unsubTrip();
+    };
   }, [isApproved]);
 
   const accept = useCallback(async (bookingId: string) => {
-    await updateDoc(doc(db, 'bookings', bookingId), {
-      status: 'in_progress',
-      updatedAt: serverTimestamp(),
-    });
+    await acceptJobOfferFn({ bookingId });
   }, []);
 
   const decline = useCallback(async (bookingId: string) => {
-    const uid = auth.currentUser?.uid;
-    await updateDoc(doc(db, 'bookings', bookingId), {
-      driverId: null,
-      driverName: null,
-      status: 'pending',
-      updatedAt: serverTimestamp(),
-      ...(uid ? { declinedBy: arrayUnion(uid) } : {}),
-    });
+    await declineJobOfferFn({ bookingId });
   }, []);
 
-  return { offer, loading, accept, decline };
+  const complete = useCallback(async (bookingId: string) => {
+    await completeBookingFn({ bookingId });
+  }, []);
+
+  const cancel = useCallback(async (bookingId: string) => {
+    await cancelAcceptedJobFn({ bookingId });
+  }, []);
+
+  return { offer, activeTrip, loading, accept, decline, complete, cancel };
 }

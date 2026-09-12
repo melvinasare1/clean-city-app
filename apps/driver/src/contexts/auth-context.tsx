@@ -30,6 +30,8 @@ import { createReferralIfValid } from '@/services/referralService';
 import { registerDriverAccount } from '@/services/driver-api';
 import { isProfileComplete, toMillis } from '@/lib/referral-utils';
 import { type DriverAccountStatus, normalizeDriverStatus } from '@/lib/driver-account';
+import { endOpenDriverShiftSessions } from '@/lib/driver-shift-session';
+import { stopDriverPresence } from '@/lib/driver-realtime';
 
 export type AppUserRole = 'customer' | 'driver' | 'admin';
 
@@ -483,6 +485,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const currentUser = auth.currentUser;
         const roleHint = user?.role;
         if (currentUser) {
+            try {
+                await endOpenDriverShiftSessions(currentUser.uid);
+            } catch (err) {
+                console.error('Failed to close shift session on logout:', err);
+            }
+            try {
+                await stopDriverPresence(currentUser.uid);
+            } catch (err) {
+                console.error('Failed to clear presence on logout:', err);
+            }
             try {
                 await removePushTokenFromFirestore(currentUser.uid, roleHint);
             } catch (err) {

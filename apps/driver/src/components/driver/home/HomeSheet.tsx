@@ -1,11 +1,12 @@
 import React from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Pressable as GesturePressable } from 'react-native-gesture-handler';
-import { useNavigation } from '@react-navigation/native';
+import { CompositeNavigationProp, useNavigation } from '@react-navigation/native';
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Feather } from '@expo/vector-icons';
 import { colors, radius, spacing, typography } from '@platform/shared-theme';
-import type { DriverStackParamList } from '@/navigation/types';
+import type { DriverStackParamList, DriverTabParamList } from '@/navigation/types';
 
 type Props = {
   greeting: string;
@@ -28,11 +29,19 @@ export function HomeSheet({
   toggleLoading,
   bottomInset = 0,
 }: Props) {
-  const navigation = useNavigation<NativeStackNavigationProp<DriverStackParamList>>();
+  const navigation = useNavigation<
+    CompositeNavigationProp<
+      BottomTabNavigationProp<DriverTabParamList>,
+      NativeStackNavigationProp<DriverStackParamList>
+    >
+  >();
 
   const openEarnings = () => {
+    if (onEarningsPress) {
+      onEarningsPress();
+      return;
+    }
     navigation.navigate('DailyEarningsDetails');
-    onEarningsPress?.();
   };
 
   return (

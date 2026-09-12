@@ -8,6 +8,11 @@ import {
   query,
   where,
 } from '@platform/shared-firebase';
+import {
+  DRIVER_SHIFT_SESSIONS_COLLECTION,
+  totalOnlineMsForDay,
+  type DriverShiftSessionRecord,
+} from '@/lib/driver-shift-session';
 
 export type EarningsJob = {
   id: string;
@@ -26,8 +31,6 @@ export type DriverEarnings = {
   loading: boolean;
   isDemo: boolean;
 };
-
-const SHIFT_SESSIONS_COLLECTION = 'driverShiftSessions';
 
 const DEMO_JOBS: EarningsJob[] = [
   {
@@ -74,10 +77,9 @@ const DEMO_JOBS: EarningsJob[] = [
   },
 ];
 
-const DEMO_EARNINGS: Omit<DriverEarnings, 'loading'> = {
+const DEMO_EARNINGS: Omit<DriverEarnings, 'loading' | 'onlineTimeMs'> = {
   totalEarnings: 128.4,
   jobsCompleted: 6,
-  onlineTimeMs: (5 * 60 + 42) * 60 * 1000,
   averageEarnings: 22.53,
   jobs: DEMO_JOBS,
   isDemo: true,
@@ -156,18 +158,6 @@ function fareFromBooking(data: BookingDoc): number {
   return Number.isFinite(fare) ? fare : 0;
 }
 
-function overlappingMs(
-  startedAt: Date,
-  endedAt: Date | null,
-  dayStart: Date,
-  dayEnd: Date
-): number {
-  const sessionEnd = endedAt ?? new Date();
-  const clipStart = Math.max(startedAt.getTime(), dayStart.getTime());
-  const clipEnd = Math.min(sessionEnd.getTime(), dayEnd.getTime());
-  return Math.max(0, clipEnd - clipStart);
-}
-
 function mapBookingDocs(
   docs: Array<{ id: string; data: () => BookingDoc }>
 ): EarningsJob[] {
@@ -189,24 +179,32 @@ function mapBookingDocs(
 }
 
 /**
- * Completed-job earnings and overlapping shift-session time for one calendar day.
+ * Completed-job earnings and summed shift-session time for one calendar day.
+ * Multiple online periods (e.g. 3 × 3 hours) add together.
  */
 export function useDriverEarnings(driverId: string, date: Date): DriverEarnings {
   const [jobs, setJobs] = useState<EarningsJob[]>([]);
-  const [onlineTimeMs, setOnlineTimeMs] = useState(0);
+  const [sessions, setSessions] = useState<DriverShiftSessionRecord[]>([]);
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const [bookingsReady, setBookingsReady] = useState(false);
   const [sessionsReady, setSessionsReady] = useState(false);
 
   const dayStart = useMemo(() => startOfDay(date), [date]);
   const dayEnd = useMemo(() => endOfDay(date), [date]);
-  const dayStartMs = dayStart.getTime();
-  const dayEndMs = dayEnd.getTime();
+
+  const hasOpenSession = sessions.some((session) => session.endedAt === null);
+
+  useEffect(() => {
+    if (!hasOpenSession) return;
+    const timer = setInterval(() => setNowMs(Date.now()), 15_000);
+    return () => clearInterval(timer);
+  }, [hasOpenSession]);
 
   useEffect(() => {
     const uid = driverId || auth.currentUser?.uid || '';
     if (!uid) {
       setJobs([]);
-      setOnlineTimeMs(0);
+      setSessions([]);
       setBookingsReady(true);
       setSessionsReady(true);
       return;
@@ -241,24 +239,27 @@ export function useDriverEarnings(driverId: string, date: Date): DriverEarnings 
     // (`resource.data.driverId == request.auth.uid`). Day overlap is applied client-side.
     const sessionsUnsub = onSnapshot(
       query(
-        collection(db, SHIFT_SESSIONS_COLLECTION),
+        collection(db, DRIVER_SHIFT_SESSIONS_COLLECTION),
         where('driverId', '==', uid)
       ),
       (snapshot) => {
-        const totalMs = snapshot.docs.reduce((sum, sessionDoc) => {
+        const nextSessions: DriverShiftSessionRecord[] = [];
+        for (const sessionDoc of snapshot.docs) {
           const data = sessionDoc.data() as SessionDoc;
           const startedAt = toDate(data.startedAt);
-          if (!startedAt) return sum;
-          const endedAt = toDate(data.endedAt);
-          if (endedAt && endedAt.getTime() < dayStartMs) return sum;
-          return sum + overlappingMs(startedAt, endedAt, dayStart, dayEnd);
-        }, 0);
-        setOnlineTimeMs(totalMs);
+          if (!startedAt) continue;
+          nextSessions.push({
+            startedAt,
+            endedAt: toDate(data.endedAt),
+          });
+        }
+        setSessions(nextSessions);
+        setNowMs(Date.now());
         setSessionsReady(true);
       },
       (error) => {
         console.error('[useDriverEarnings] shift sessions query failed', error);
-        setOnlineTimeMs(0);
+        setSessions([]);
         setSessionsReady(true);
       }
     );
@@ -267,12 +268,17 @@ export function useDriverEarnings(driverId: string, date: Date): DriverEarnings 
       bookingsUnsub();
       sessionsUnsub();
     };
-  }, [dayEnd, dayEndMs, dayStart, dayStartMs, driverId]);
+  }, [dayEnd, dayStart, driverId]);
+
+  const onlineTimeMs = useMemo(
+    () => totalOnlineMsForDay(sessions, dayStart, dayEnd, new Date(nowMs)),
+    [dayEnd, dayStart, nowMs, sessions]
+  );
 
   return useMemo(() => {
     const loading = !bookingsReady || !sessionsReady;
     if (__DEV__ && bookingsReady && jobs.length === 0) {
-      return { ...DEMO_EARNINGS, loading: false };
+      return { ...DEMO_EARNINGS, onlineTimeMs, loading: false };
     }
 
     const totalEarnings = jobs.reduce((sum, job) => sum + job.fare, 0);
