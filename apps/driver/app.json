@@ -22,7 +22,8 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "UIDeviceFamily": [1, 2],
-        "NSLocationWhenInUseUsageDescription": "Clean City uses your location to show you on the map and match nearby jobs while you are online."
+        "NSLocationWhenInUseUsageDescription": "Clean City uses your location to show you on the map and match nearby jobs while you are online.",
+        "NSPhotoLibraryUsageDescription": "Clean City uses your photos so you can update your driver profile picture."
       }
     },
     "android": {
@@ -84,6 +85,12 @@
         "expo-location",
         {
           "locationWhenInUsePermission": "Clean City uses your location to show you on the map and match nearby jobs while you are online."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Clean City uses your photos so you can update your driver profile picture."
         }
       ]
     ],

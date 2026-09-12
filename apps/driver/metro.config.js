@@ -16,9 +16,27 @@ config.resolver.nodeModulesPaths = [
 config.resolver.extraNodeModules = {
   react: path.resolve(workspaceRoot, 'node_modules/react'),
   'react-native': path.resolve(workspaceRoot, 'node_modules/react-native'),
+  'expo-image-picker': path.resolve(workspaceRoot, 'node_modules/expo-image-picker'),
 };
 config.resolver.disableHierarchicalLookup = false;
 config.resolver.unstable_enablePackageExports = false;
+
+const defaultResolveRequest = config.resolver.resolveRequest;
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (moduleName === 'expo-image-picker') {
+    return {
+      type: 'sourceFile',
+      filePath: path.resolve(
+        workspaceRoot,
+        'node_modules/expo-image-picker/build/ImagePicker.js'
+      ),
+    };
+  }
+  if (defaultResolveRequest) {
+    return defaultResolveRequest(context, moduleName, platform);
+  }
+  return context.resolveRequest(context, moduleName, platform);
+};
 
 if (!config.resolver.sourceExts.includes('cjs')) {
   config.resolver.sourceExts.push('cjs');

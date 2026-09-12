@@ -1,11 +1,12 @@
 import { CloudTasksClient } from "@google-cloud/tasks";
 import { FieldValue, Timestamp, type Transaction } from "firebase-admin/firestore";
 import { HttpsError, onCall, onRequest } from "firebase-functions/v2/https";
-import { onDocumentUpdated, onDocumentWritten } from "firebase-functions/v2/firestore";
+import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import { logger } from "firebase-functions";
 import * as admin from "firebase-admin";
 import { OAuth2Client } from "google-auth-library";
 import {
+  DEFAULT_DRIVER_PRIORITY,
   PRIORITY_ACCEPT_DELTA,
   PRIORITY_CANCEL_DELTA,
   PRIORITY_DECLINE_DELTA,
@@ -115,9 +116,14 @@ async function bumpPriorityInTransaction(
   const driverRef = db.doc(`drivers/${driverId}`);
   const snap = await tx.get(driverRef);
   if (!snap.exists) return;
-  const next = clampPriority(clampPriority(snap.data()?.priority) + delta);
+  const raw = snap.data()?.priority;
+  // Missing / non-numeric priority must not become NaN when applying deltas.
+  const current =
+    typeof raw === "number" && Number.isFinite(raw)
+      ? clampPriority(raw)
+      : DEFAULT_DRIVER_PRIORITY;
   tx.update(driverRef, {
-    priority: next,
+    priority: clampPriority(current + delta),
     updatedAt: FieldValue.serverTimestamp(),
   });
 }
@@ -136,6 +142,7 @@ export const clampDriverPriority = onDocumentWritten(
     const after = event.data?.after;
     if (!after?.exists) return;
     const current = after.data()?.priority;
+    // Missing / non-numeric values are treated as 100 (see clampPriority).
     const clamped = clampPriority(current);
     if (current === clamped) return;
     await after.ref.update({ priority: clamped });
@@ -143,22 +150,24 @@ export const clampDriverPriority = onDocumentWritten(
 );
 
 /**
- * When a booking is newly assigned to a driver, start a 10s offer window
- * and enqueue expireJobOffer for that instant.
+ * When a booking is newly assigned to a driver (create or update), start a
+ * 10s offer window and enqueue expireJobOffer for that instant.
  */
-export const onBookingAssigned = onDocumentUpdated(
+export const onBookingAssigned = onDocumentWritten(
   { document: "bookings/{bookingId}", region: REGION },
   async (event) => {
     const change = event.data;
-    const before = change?.before.data();
-    const after = change?.after.data();
+    const afterSnap = change?.after;
+    if (!change || !afterSnap?.exists) return;
+    const after = afterSnap.data();
+    const before = change.before.exists ? change.before.data() : undefined;
     const bookingId = event.params.bookingId;
-    if (!change || !before || !after) return;
+    if (!after) return;
 
     const afterDriverId =
       typeof after.driverId === "string" && after.driverId ? after.driverId : "";
     const beforeDriverId =
-      typeof before.driverId === "string" && before.driverId ? before.driverId : "";
+      typeof before?.driverId === "string" && before.driverId ? before.driverId : "";
     const driverNewlySet = Boolean(afterDriverId) && afterDriverId !== beforeDriverId;
     if (!driverNewlySet || after.status !== "assigned") return;
 
@@ -318,9 +327,14 @@ export const completeBooking = onCall({ region: REGION }, async (request) => {
       throw new HttpsError("failed-precondition", "Job is not in progress.");
     }
 
+    const driverRef = db.doc(`drivers/${uid}`);
     tx.update(bookingRef, {
       status: "completed",
       completedAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    tx.update(driverRef, {
+      jobsCompletedCount: FieldValue.increment(1),
       updatedAt: FieldValue.serverTimestamp(),
     });
   });

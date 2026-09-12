@@ -1,10 +1,18 @@
-import React, { forwardRef, useImperativeHandle, useRef } from 'react';
+import React, {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Constants from 'expo-constants';
 import * as Location from 'expo-location';
 import Mapbox, { Camera, MapView, UserLocation } from '@rnmapbox/maps';
 import { colors } from '@platform/shared-theme';
 import type { DriverMapHandle } from './driver-map.types';
+
+const INITIAL_ZOOM = 15;
 
 function resolveMapboxToken(): string {
   const extra = Constants.expoConfig?.extra?.mapboxAccessToken;
@@ -23,19 +31,73 @@ if (accessToken) {
   Mapbox.setAccessToken(accessToken);
 }
 
+function toCenter(longitude: unknown, latitude: unknown): [number, number] | null {
+  const lng = typeof longitude === 'number' ? longitude : Number(longitude);
+  const lat = typeof latitude === 'number' ? latitude : Number(latitude);
+  if (!Number.isFinite(lng) || !Number.isFinite(lat)) return null;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+  return [lng, lat];
+}
+
 export const DriverMap = forwardRef<DriverMapHandle>(function DriverMap(_props, ref) {
   const cameraRef = useRef<Camera>(null);
+  const mapLoadedRef = useRef(false);
+  const initialCenterRef = useRef<[number, number] | null>(null);
+  const [initialCenter, setInitialCenter] = useState<[number, number] | null>(null);
+  const [mapVisible, setMapVisible] = useState(false);
+
+  const adoptCenter = (center: [number, number]) => {
+    if (initialCenterRef.current) return;
+    initialCenterRef.current = center;
+    setInitialCenter(center);
+  };
+
+  const snapTo = (center: [number, number]) => {
+    cameraRef.current?.setCamera({
+      centerCoordinate: center,
+      zoomLevel: INITIAL_ZOOM,
+      animationMode: 'none',
+      animationDuration: 0,
+    });
+    if (mapLoadedRef.current) {
+      setMapVisible(true);
+    }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void Location.getLastKnownPositionAsync()
+      .then((position) => {
+        if (cancelled || !position) return;
+        const center = toCenter(position.coords.longitude, position.coords.latitude);
+        if (!center) return;
+        adoptCenter(center);
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!initialCenter) return;
+    snapTo(initialCenter);
+  }, [initialCenter]);
 
   useImperativeHandle(ref, () => ({
     recenter: () => {
       void Location.getLastKnownPositionAsync().then((position) => {
         if (!position) {
-          cameraRef.current?.setCamera({ zoomLevel: 15, animationDuration: 500 });
+          cameraRef.current?.setCamera({ zoomLevel: INITIAL_ZOOM, animationDuration: 500 });
           return;
         }
+        const center = toCenter(position.coords.longitude, position.coords.latitude);
+        if (!center) return;
         cameraRef.current?.setCamera({
-          centerCoordinate: [position.coords.longitude, position.coords.latitude],
-          zoomLevel: 15,
+          centerCoordinate: center,
+          zoomLevel: INITIAL_ZOOM,
           animationDuration: 500,
         });
       });
@@ -56,20 +118,77 @@ export const DriverMap = forwardRef<DriverMapHandle>(function DriverMap(_props, 
     );
   }
 
+  const cameraProps = !mapVisible && initialCenter
+    ? {
+        centerCoordinate: initialCenter,
+        zoomLevel: INITIAL_ZOOM,
+        animationDuration: 0 as const,
+        animationMode: 'none' as const,
+      }
+    : {
+        animationDuration: 0 as const,
+        animationMode: 'none' as const,
+      };
+
   return (
-    <MapView
-      style={StyleSheet.absoluteFillObject}
-      styleURL={Mapbox.StyleURL.Light}
-      logoEnabled={false}
-      attributionPosition={{ bottom: 8, left: 12 }}
-    >
-      <Camera ref={cameraRef} followUserLocation followZoomLevel={15} />
-      <UserLocation visible showsUserHeadingIndicator androidRenderMode="normal" />
-    </MapView>
+    <View style={StyleSheet.absoluteFillObject}>
+      <View style={[StyleSheet.absoluteFillObject, styles.placeholder]} pointerEvents="none" />
+      <MapView
+        style={[StyleSheet.absoluteFillObject, !mapVisible && styles.hiddenMap]}
+        styleURL={Mapbox.StyleURL.Light}
+        logoEnabled={false}
+        attributionPosition={{ bottom: 8, left: 12 }}
+        onDidFinishLoadingMap={() => {
+          mapLoadedRef.current = true;
+          const center = initialCenterRef.current;
+          if (center) {
+            snapTo(center);
+          }
+        }}
+      >
+        {initialCenter ? (
+          <Camera
+            ref={cameraRef}
+            defaultSettings={{
+              centerCoordinate: initialCenter,
+              zoomLevel: INITIAL_ZOOM,
+              animationDuration: 0,
+              animationMode: 'none',
+            }}
+            {...cameraProps}
+          />
+        ) : null}
+        <UserLocation
+          visible={mapVisible}
+          showsUserHeadingIndicator
+          androidRenderMode="normal"
+          onUpdate={(location) => {
+            const next = toCenter(location?.coords?.longitude, location?.coords?.latitude);
+            if (!next) return;
+            if (!initialCenterRef.current) {
+              adoptCenter(next);
+              return;
+            }
+            if (!mapVisible) return;
+            cameraRef.current?.setCamera({
+              centerCoordinate: next,
+              animationMode: 'none',
+              animationDuration: 0,
+            });
+          }}
+        />
+      </MapView>
+    </View>
   );
 });
 
 const styles = StyleSheet.create({
+  placeholder: {
+    backgroundColor: colors.mapBg,
+  },
+  hiddenMap: {
+    opacity: 0,
+  },
   fallback: {
     backgroundColor: colors.mapBg,
     alignItems: 'center',

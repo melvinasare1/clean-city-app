@@ -19,11 +19,6 @@ service cloud.firestore {
     function isDriver() {
       return isSignedIn() && exists(driverPath());
     }
-    function isApprovedDriver() {
-      return isDriver()
-        && (get(driverPath()).data.status == 'approved'
-          || get(driverPath()).data.isActive == true);
-    }
 
     // Admin can do everything (web admin dashboard)
     match /{document=**} {
@@ -68,17 +63,17 @@ service cloud.firestore {
           isAdmin()
           || (isOwner(userId) && isDriver()
               && request.resource.data.diff(resource.data).affectedKeys()
-                .hasOnly(['expoPushToken', 'pushTokenUpdatedAt', 'updatedAt', 'name', 'phone']))
+                .hasOnly(['expoPushToken', 'pushTokenUpdatedAt', 'updatedAt', 'name', 'phone', 'photoURL', 'notificationsEnabled']))
         );
       allow delete: if false;
     }
 
     // Bookings — customers own their docs; assigned drivers may read only.
-    // Driver status transitions go through Cloud Functions (Admin SDK).
+    // Split allow statements so list queries can prove one complete condition
+    // (OR + get() inside a single allow is rejected for collection queries).
     match /bookings/{bookingId} {
-      allow read: if isSignedIn()
-        && (resource.data.userId == request.auth.uid
-          || (isApprovedDriver() && resource.data.driverId == request.auth.uid));
+      allow get, list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get, list: if isSignedIn() && resource.data.driverId == request.auth.uid;
       allow update: if isSignedIn()
         && resource.data.userId == request.auth.uid;
       allow delete: if isSignedIn()
@@ -114,7 +109,7 @@ service cloud.firestore {
     // Driver shift sessions — queryable online-time history (not RTDB presence).
     // List queries must include driverId == request.auth.uid so they satisfy this rule.
     match /driverShiftSessions/{sessionId} {
-      allow read: if isSignedIn() && resource.data.driverId == request.auth.uid;
+      allow get, list: if isSignedIn() && resource.data.driverId == request.auth.uid;
       allow create: if isSignedIn()
         && request.resource.data.driverId == request.auth.uid;
       allow update: if isSignedIn()

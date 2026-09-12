@@ -80,6 +80,14 @@ export async function registerDriverAccount(input: RegisterDriverInput): Promise
       role: "driver",
       status: "pending",
       priority: 100,
+      photoURL: null,
+      vehicleType: null,
+      vehiclePlate: null,
+      serviceProviderName: null,
+      paymentMethods: { cash: true, card: true, cashAndCard: true },
+      rating: null,
+      jobsCompletedCount: 0,
+      notificationsEnabled: true,
     },
     { merge: true, addTimestamps: true }
   );

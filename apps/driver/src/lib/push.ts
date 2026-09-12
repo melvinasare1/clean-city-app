@@ -5,7 +5,7 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@platform/shared-firebase';
 import type { AppUserRole } from '@/contexts/auth-context';
 
@@ -88,6 +88,11 @@ async function resolvePushTokenCollection(
   return 'profiles';
 }
 
+async function driverPushOptedOut(userId: string): Promise<boolean> {
+  const snap = await getDoc(doc(db, 'drivers', userId));
+  return snap.data()?.notificationsEnabled === false;
+}
+
 /**
  * Save Expo push token to the correct collection (drivers or profiles).
  */
@@ -122,6 +127,12 @@ export const registerForPushNotifications = async (
   roleHint?: AppUserRole | null
 ): Promise<string | null> => {
   try {
+    const collection = await resolvePushTokenCollection(userId, roleHint);
+    if (collection === 'drivers' && (await driverPushOptedOut(userId))) {
+      console.log('Driver opted out of push notifications');
+      return null;
+    }
+
     await setupNotificationChannel();
 
     const hasPermission = await requestPushPermissions();
@@ -168,3 +179,38 @@ export const removePushTokenFromFirestore = async (
     console.error('Error removing push token from Firestore:', error);
   }
 };
+
+/**
+ * Opt a driver in/out of job-offer push notifications.
+ * Off: stop registering and clear expoPushToken. On: re-register.
+ */
+export async function setDriverNotificationsEnabled(
+  userId: string,
+  enabled: boolean
+): Promise<void> {
+  const userRef = doc(db, 'drivers', userId);
+
+  if (!enabled) {
+    await setDoc(
+      userRef,
+      {
+        notificationsEnabled: false,
+        expoPushToken: null,
+        pushTokenUpdatedAt: null,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+    return;
+  }
+
+  await setDoc(
+    userRef,
+    {
+      notificationsEnabled: true,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
+  await registerForPushNotifications(userId, 'driver');
+}

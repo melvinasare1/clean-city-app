@@ -85,10 +85,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     zIndex: 30,
   },
-  iconButtonPlaceholder: {
-    width: sizes.topBarButton,
-    height: sizes.topBarButton,
-  },
+  iconButton: {
     width: sizes.topBarButton,
     height: sizes.topBarButton,
     borderRadius: sizes.topBarButton / 2,

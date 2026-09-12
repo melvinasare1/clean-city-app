@@ -17,6 +17,20 @@ export interface AppUser {
 export type DriverStatus = "pending" | "approved" | "suspended";
 export type DriverAccountStatus = DriverStatus;
 
+export type DriverPaymentMethods = {
+  cash: boolean;
+  card: boolean;
+  cashAndCard: boolean;
+};
+
+export const DEFAULT_DRIVER_PRIORITY = 100;
+
+export const DEFAULT_DRIVER_PAYMENT_METHODS: DriverPaymentMethods = {
+  cash: true,
+  card: true,
+  cashAndCard: true,
+};
+
 export interface Driver {
   uid: string;
   status: DriverStatus;
@@ -24,6 +38,18 @@ export interface Driver {
   expoPushToken?: string;
   name?: string;
   phone?: string;
+  photoURL?: string | null;
+  vehicleType?: string | null;
+  vehiclePlate?: string | null;
+  serviceProviderName?: string | null;
+  paymentMethods?: DriverPaymentMethods;
+  /** 0–100. Higher is better. Defaults to 100. */
+  priority?: number;
+  /** Defaults to true. When false, the client clears expoPushToken. */
+  notificationsEnabled?: boolean;
+  /** Out of 5. Admin-editable for now; not computed from reviews. */
+  rating?: number | null;
+  jobsCompletedCount?: number;
 }
 
 export type BookingStatus = "pending" | "completed" | "cancelled";

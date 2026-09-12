@@ -32,6 +32,20 @@ export interface DriverDoc {
   lastName?: string;
   /** 0–100. Higher is better. Defaults to 100. */
   priority?: number;
+  photoURL?: string | null;
+  vehicleType?: string | null;
+  vehiclePlate?: string | null;
+  serviceProviderName?: string | null;
+  paymentMethods?: {
+    cash: boolean;
+    card: boolean;
+    cashAndCard: boolean;
+  };
+  /** Out of 5. Admin-editable for now; not computed from reviews. */
+  rating?: number | null;
+  jobsCompletedCount?: number;
+  /** Defaults to true. When false, the client clears expoPushToken. */
+  notificationsEnabled?: boolean;
   /** @deprecated Use status === "approved" */
   isActive?: boolean;
   expoPushToken?: string;

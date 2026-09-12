@@ -6,18 +6,12 @@ export const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.surfaceWhite,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.md,
-  },
-  headerButton: {
+  backButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
+    marginLeft: spacing.lg,
+    marginTop: spacing.sm,
     backgroundColor: colors.surfaceWhite,
     alignItems: 'center',
     justifyContent: 'center',
@@ -27,23 +21,18 @@ export const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 4,
   },
-  headerButtonSpacer: {
-    width: 44,
-    height: 44,
-  },
   headerCopy: {
-    flex: 1,
-    alignItems: 'center',
-    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
   },
-  headerTitle: {
+  title: {
     ...typography.headline,
-    fontSize: 17,
+    fontSize: 28,
+    fontWeight: '800',
   },
-  headerSubtitle: {
+  subtitle: {
     ...typography.body,
-    fontSize: 13,
-    marginTop: 2,
+    marginTop: 4,
   },
   scroll: {
     flex: 1,
@@ -51,6 +40,59 @@ export const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xl,
+  },
+  periodBar: {
+    flexDirection: 'row',
+    backgroundColor: colors.surfaceMutedIcon,
+    borderRadius: radius.pill,
+    padding: 4,
+  },
+  periodTab: {
+    flex: 1,
+    minHeight: 36,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xs,
+  },
+  periodTabSelected: {
+    backgroundColor: colors.brandGreen,
+  },
+  periodTabLabel: {
+    color: colors.inkSecondary,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  periodTabLabelSelected: {
+    color: colors.surfaceWhite,
+  },
+  dateNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  dateNavButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.surfaceMutedIcon,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dateNavButtonDisabled: {
+    opacity: 0.45,
+  },
+  dateNavLabelWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  dateNavLabel: {
+    color: colors.inkPrimary,
+    fontSize: 15,
+    fontWeight: '600',
   },
   summaryCard: {
     backgroundColor: colors.brandGreenSoft,
@@ -68,14 +110,8 @@ export const styles = StyleSheet.create({
     fontSize: 36,
     fontWeight: '800',
     marginTop: 4,
+    marginBottom: spacing.lg,
     letterSpacing: -0.5,
-  },
-  summaryDivider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.brandGreen,
-    opacity: 0.18,
-    marginTop: spacing.md,
-    marginBottom: spacing.md,
   },
   statsRow: {
     flexDirection: 'row',
@@ -85,16 +121,10 @@ export const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
   },
-  statDivider: {
-    width: StyleSheet.hairlineWidth,
-    alignSelf: 'stretch',
-    backgroundColor: colors.brandGreen,
-    opacity: 0.18,
-  },
   statIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: colors.surfaceWhite,
     alignItems: 'center',
     justifyContent: 'center',
@@ -112,11 +142,26 @@ export const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 2,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.xl,
+    marginBottom: spacing.md,
+  },
   sectionTitle: {
     ...typography.headline,
     fontSize: 17,
-    marginTop: spacing.xl,
-    marginBottom: spacing.md,
+  },
+  seeAll: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  seeAllLabel: {
+    color: colors.brandGreen,
+    fontSize: 14,
+    fontWeight: '600',
   },
   jobCard: {
     flexDirection: 'row',
@@ -132,17 +177,25 @@ export const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
-  jobTime: {
-    width: 48,
-    ...typography.body,
+  jobWhen: {
+    width: 52,
+  },
+  jobDate: {
+    color: colors.inkPrimary,
     fontSize: 13,
     fontWeight: '600',
+  },
+  jobTime: {
+    ...typography.body,
+    fontSize: 12,
+    marginTop: 2,
   },
   jobRail: {
     width: StyleSheet.hairlineWidth,
     alignSelf: 'stretch',
     backgroundColor: colors.surfaceMutedIcon,
     marginRight: spacing.md,
+    marginLeft: spacing.sm,
   },
   jobCopy: {
     flex: 1,
@@ -163,40 +216,85 @@ export const styles = StyleSheet.create({
     fontWeight: '700',
     marginRight: 4,
   },
-  infoBanner: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.md,
+  emptyJobs: {
     backgroundColor: colors.surfaceWhite,
     borderRadius: radius.card,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.lg,
     paddingHorizontal: spacing.md,
-    marginTop: spacing.md,
+    marginBottom: spacing.sm,
     shadowColor: colors.shadow,
     shadowOpacity: 1,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
-  infoIcon: {
+  emptyJobsTitle: {
+    color: colors.inkPrimary,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  emptyJobsBody: {
+    ...typography.statusSubtext,
+    marginTop: 4,
+  },
+  viewAllRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceWhite,
+    borderRadius: radius.card,
+    paddingVertical: 14,
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.sm,
+    shadowColor: colors.shadow,
+    shadowOpacity: 1,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  viewAllIcon: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: 10,
     backgroundColor: colors.surfaceMutedIcon,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: spacing.md,
   },
-  infoCopy: {
+  viewAllLabel: {
+    flex: 1,
+    color: colors.inkPrimary,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  payoutCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceWhite,
+    borderRadius: radius.card,
+    paddingVertical: 14,
+    paddingHorizontal: spacing.md,
+    shadowColor: colors.shadow,
+    shadowOpacity: 1,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  payoutCopy: {
     flex: 1,
   },
-  infoTitle: {
+  payoutTitle: {
     color: colors.inkPrimary,
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
   },
-  infoBody: {
+  payoutSubtitle: {
     ...typography.statusSubtext,
     marginTop: 2,
+  },
+  payoutAmount: {
+    color: colors.inkPrimary,
+    fontSize: 15,
+    fontWeight: '700',
   },
   loadingWrap: {
     flex: 1,

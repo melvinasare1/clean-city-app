@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Platform } from 'react-native';
 import * as Location from 'expo-location';
 import {
+  get,
   onDisconnect,
   onValue,
   ref,
@@ -23,6 +24,10 @@ function presencePayload(online: boolean) {
 
 function presenceNode(driverId: string) {
   return ref(rtdb, '/presence/' + driverId);
+}
+
+function lastSeenFromPresence(val: { lastSeen?: unknown } | null): Date {
+  return typeof val?.lastSeen === 'number' ? new Date(val.lastSeen) : new Date();
 }
 
 /**
@@ -48,16 +53,8 @@ export function useDriverPresence(driverId: string): {
     const connectedRef = ref(rtdb, '.info/connected');
 
     const unsubPresence = onValue(node, (snap) => {
-      const val = snap.val() as { online?: boolean; lastSeen?: number } | null;
-      const online = val?.online === true;
-      setIsOnline(online);
-      if (!online && !wantOnlineRef.current) {
-        const lastSeen =
-          typeof val?.lastSeen === 'number' ? new Date(val.lastSeen) : new Date();
-        endOpenDriverShiftSessions(driverId, lastSeen).catch((error) => {
-          console.error('[useDriverPresence] leftover session close failed', error);
-        });
-      }
+      const val = snap.val() as { online?: boolean } | null;
+      setIsOnline(val?.online === true);
     });
 
     const unsubConnected = onValue(connectedRef, (snap) => {
@@ -95,8 +92,16 @@ export function useDriverPresence(driverId: string): {
       }
     }
 
-    wantOnlineRef.current = true;
     const node = presenceNode(driverId);
+    try {
+      const snap = await get(node);
+      const val = snap.val() as { lastSeen?: unknown } | null;
+      await endOpenDriverShiftSessions(driverId, lastSeenFromPresence(val));
+    } catch (error) {
+      console.warn('[useDriverPresence] leftover session close failed', error);
+    }
+
+    wantOnlineRef.current = true;
     await onDisconnect(node).set(presencePayload(false));
     await set(node, presencePayload(true));
     try {
