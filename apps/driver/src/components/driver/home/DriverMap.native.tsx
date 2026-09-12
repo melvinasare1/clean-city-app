@@ -39,12 +39,23 @@ function toCenter(longitude: unknown, latitude: unknown): [number, number] | nul
   return [lng, lat];
 }
 
+function isUserCameraGesture(state: {
+  gestures?: { isGestureActive?: boolean };
+  properties?: { isUserInteraction?: boolean };
+}): boolean {
+  return (
+    state.gestures?.isGestureActive === true ||
+    state.properties?.isUserInteraction === true
+  );
+}
+
 export const DriverMap = forwardRef<DriverMapHandle>(function DriverMap(_props, ref) {
   const cameraRef = useRef<Camera>(null);
   const mapLoadedRef = useRef(false);
   const initialCenterRef = useRef<[number, number] | null>(null);
   const [initialCenter, setInitialCenter] = useState<[number, number] | null>(null);
   const [mapVisible, setMapVisible] = useState(false);
+  const [isFollowingUser, setIsFollowingUser] = useState(true);
 
   const adoptCenter = (center: [number, number]) => {
     if (initialCenterRef.current) return;
@@ -88,18 +99,19 @@ export const DriverMap = forwardRef<DriverMapHandle>(function DriverMap(_props, 
 
   useImperativeHandle(ref, () => ({
     recenter: () => {
+      setIsFollowingUser(true);
       void Location.getLastKnownPositionAsync().then((position) => {
         if (!position) {
-          cameraRef.current?.setCamera({ zoomLevel: INITIAL_ZOOM, animationDuration: 500 });
+          cameraRef.current?.setCamera({
+            zoomLevel: INITIAL_ZOOM,
+            animationMode: 'none',
+            animationDuration: 0,
+          });
           return;
         }
         const center = toCenter(position.coords.longitude, position.coords.latitude);
         if (!center) return;
-        cameraRef.current?.setCamera({
-          centerCoordinate: center,
-          zoomLevel: INITIAL_ZOOM,
-          animationDuration: 500,
-        });
+        snapTo(center);
       });
     },
     resetHeading: () => {
@@ -138,6 +150,10 @@ export const DriverMap = forwardRef<DriverMapHandle>(function DriverMap(_props, 
         styleURL={Mapbox.StyleURL.Light}
         logoEnabled={false}
         attributionPosition={{ bottom: 8, left: 12 }}
+        onCameraChanged={(state) => {
+          if (!isUserCameraGesture(state)) return;
+          setIsFollowingUser(false);
+        }}
         onDidFinishLoadingMap={() => {
           mapLoadedRef.current = true;
           const center = initialCenterRef.current;
@@ -155,6 +171,7 @@ export const DriverMap = forwardRef<DriverMapHandle>(function DriverMap(_props, 
               animationDuration: 0,
               animationMode: 'none',
             }}
+            followUserLocation={mapVisible && isFollowingUser}
             {...cameraProps}
           />
         ) : null}
@@ -167,14 +184,7 @@ export const DriverMap = forwardRef<DriverMapHandle>(function DriverMap(_props, 
             if (!next) return;
             if (!initialCenterRef.current) {
               adoptCenter(next);
-              return;
             }
-            if (!mapVisible) return;
-            cameraRef.current?.setCamera({
-              centerCoordinate: next,
-              animationMode: 'none',
-              animationDuration: 0,
-            });
           }}
         />
       </MapView>
