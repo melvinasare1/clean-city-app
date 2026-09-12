@@ -46,32 +46,41 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    function validPriority(value) {
+      return value is int && value >= 0 && value <= 100;
+    }
+
+    function resultingPriorityOk() {
+      return !('priority' in request.resource.data)
+        || validPriority(request.resource.data.priority);
+    }
+
     // Drivers — own doc only; approval via admin
     match /drivers/{userId} {
       allow read: if isOwner(userId);
       allow create: if isOwner(userId)
         && request.resource.data.uid == userId
         && request.resource.data.role == 'driver'
-        && request.resource.data.status == 'pending';
-      allow update: if isAdmin()
-        || (isOwner(userId) && isDriver()
-            && request.resource.data.diff(resource.data).affectedKeys()
-              .hasOnly(['expoPushToken', 'pushTokenUpdatedAt', 'updatedAt', 'name', 'phone']));
+        && request.resource.data.status == 'pending'
+        && request.resource.data.priority == 100;
+      allow update: if resultingPriorityOk()
+        && (
+          isAdmin()
+          || (isOwner(userId) && isDriver()
+              && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['expoPushToken', 'pushTokenUpdatedAt', 'updatedAt', 'name', 'phone']))
+        );
       allow delete: if false;
     }
 
-    // Bookings — customers own their docs; assigned approved drivers can read/update offers
+    // Bookings — customers own their docs; assigned drivers may read only.
+    // Driver status transitions go through Cloud Functions (Admin SDK).
     match /bookings/{bookingId} {
       allow read: if isSignedIn()
         && (resource.data.userId == request.auth.uid
           || (isApprovedDriver() && resource.data.driverId == request.auth.uid));
       allow update: if isSignedIn()
-        && (
-          resource.data.userId == request.auth.uid
-          || (isApprovedDriver()
-            && resource.data.driverId == request.auth.uid
-            && request.resource.data.userId == resource.data.userId)
-        );
+        && resource.data.userId == request.auth.uid;
       allow delete: if isSignedIn()
         && resource.data.userId == request.auth.uid;
       allow create: if isSignedIn()
@@ -111,7 +120,7 @@ service cloud.firestore {
       allow update: if isSignedIn()
         && resource.data.driverId == request.auth.uid
         && request.resource.data.driverId == request.auth.uid
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['endedAt']);
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['endedAt', 'durationMs']);
       allow delete: if false;
     }
   }

@@ -6,18 +6,13 @@ import {
   Text,
   View,
 } from 'react-native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { colors } from '@platform/shared-theme';
 import { useAuth } from '@/hooks/useAuth';
 import { useDriverEarnings } from '@/hooks/useDriverEarnings';
-import type { DriverStackParamList } from '@/navigation/types';
 import { styles } from './daily-earnings-details-screen.styles';
-
-type Props = {
-  navigation: NativeStackNavigationProp<DriverStackParamList, 'DailyEarningsDetails'>;
-};
 
 function formatMoney(value: number): string {
   return `¢${value.toFixed(2)}`;
@@ -38,7 +33,10 @@ function formatDateSubtitle(date: Date): string {
   });
 }
 
-export const DailyEarningsDetailsScreen: React.FC<Props> = ({ navigation }) => {
+export const DailyEarningsDetailsScreen: React.FC = () => {
+  const navigation = useNavigation();
+  const route = useRoute();
+  const showBack = route.name === 'DailyEarningsDetails';
   const { user } = useAuth();
   const selectedDate = useMemo(() => new Date(), []);
   const driverId = user?.id ?? '';
@@ -54,14 +52,18 @@ export const DailyEarningsDetailsScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.header}>
-        <Pressable
-          style={styles.headerButton}
-          onPress={() => navigation.goBack()}
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-        >
-          <Feather name="chevron-left" size={22} color={colors.inkPrimary} />
-        </Pressable>
+        {showBack ? (
+          <Pressable
+            style={styles.headerButton}
+            onPress={() => navigation.goBack()}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
+            <Feather name="chevron-left" size={22} color={colors.inkPrimary} />
+          </Pressable>
+        ) : (
+          <View style={styles.headerButtonSpacer} />
+        )}
 
         <View style={styles.headerCopy}>
           <Text style={styles.headerTitle}>Today's earnings</Text>

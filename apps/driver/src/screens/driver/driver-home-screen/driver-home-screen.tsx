@@ -1,5 +1,7 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { ActionSheetIOS, Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { CompositeNavigationProp } from '@react-navigation/native';
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/hooks/useAuth';
@@ -10,16 +12,20 @@ import { TopBar } from '@/components/driver/home/TopBar';
 import { MapControls } from '@/components/driver/home/MapControls';
 import { HomeSheet } from '@/components/driver/home/HomeSheet';
 import { JobOfferSheet } from '@/components/driver/home/JobOfferSheet';
+import { ActiveTripSheet } from '@/components/driver/home/ActiveTripSheet';
 import { DriverMap } from '@/components/driver/home/DriverMap';
 import type { DriverMapHandle } from '@/components/driver/home/driver-map.types';
 import { colors } from '@platform/shared-theme';
 import { trackEvent } from '@/services/analytics';
-import { openDeleteAccountSupport } from '@/lib/delete-account';
 import { useAssignedJobOffer } from '@/hooks/useAssignedJobOffer';
-import type { DriverStackParamList } from '@/navigation/types';
+import { useDriverPriority } from '@/hooks/useDriverPriority';
+import type { DriverStackParamList, DriverTabParamList } from '@/navigation/types';
 
 type DriverHomeScreenProps = {
-  navigation: NativeStackNavigationProp<DriverStackParamList, 'DriverHome'>;
+  navigation: CompositeNavigationProp<
+    BottomTabNavigationProp<DriverTabParamList, 'Orders'>,
+    NativeStackNavigationProp<DriverStackParamList>
+  >;
 };
 
 function greetingForNow(): string {
@@ -37,19 +43,22 @@ function firstNameFromUser(name?: string, email?: string): string {
 }
 
 export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }) => {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const { isApproved, showPendingAlert } = useDriverApproved();
   const [toggleLoading, setToggleLoading] = useState(false);
   const [todaysEarnings] = useState(0);
   const mapRef = useRef<DriverMapHandle>(null);
-  const { offer, accept, decline } = useAssignedJobOffer();
+  const { offer, activeTrip, accept, decline, complete, cancel } = useAssignedJobOffer();
   const [accepting, setAccepting] = useState(false);
   const [declining, setDeclining] = useState(false);
+  const [completing, setCompleting] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
 
   const driverId = user?.id ?? '';
   const driverName = firstNameFromUser(user?.name, user?.email);
   const { isOnline, goOnline, goOffline } = useDriverPresence(driverId);
+  const priority = useDriverPriority(driverId);
 
   const handleToggleOnline = useCallback(async () => {
     if (!driverId) return;
@@ -78,57 +87,6 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
     }
   }, [driverId, goOffline, goOnline, isApproved, isOnline, showPendingAlert, toggleLoading]);
 
-  const handleLogout = useCallback(async () => {
-    try {
-      await logout();
-      await trackEvent('logout', { screen: 'settings' });
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
-  }, [logout]);
-
-  const handleDeleteAccount = useCallback(async () => {
-    try {
-      await openDeleteAccountSupport(user?.id, logout);
-      await trackEvent('logout', { screen: 'settings', reason: 'delete_account' });
-    } catch (error) {
-      console.error('Delete account error:', error);
-    }
-  }, [logout, user?.id]);
-
-  const runMenuAction = useCallback(
-    (index: number) => {
-      if (index === 0) navigation.navigate('DriverJobList');
-      if (index === 1) void handleLogout();
-      if (index === 2) void handleDeleteAccount();
-    },
-    [handleDeleteAccount, handleLogout, navigation]
-  );
-
-  const handleMenuPress = useCallback(() => {
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          options: ['My Jobs', 'Logout', 'Delete Account', 'Cancel'],
-          destructiveButtonIndex: 2,
-          cancelButtonIndex: 3,
-        },
-        (buttonIndex) => {
-          if (buttonIndex === undefined || buttonIndex === 3) return;
-          runMenuAction(buttonIndex);
-        }
-      );
-      return;
-    }
-
-    Alert.alert('Menu', undefined, [
-      { text: 'My Jobs', onPress: () => runMenuAction(0) },
-      { text: 'Logout', onPress: () => runMenuAction(1) },
-      { text: 'Delete Account', style: 'destructive', onPress: () => runMenuAction(2) },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
-  }, [runMenuAction]);
-
   const handleAccept = useCallback(async () => {
     if (!offer) return;
     setAccepting(true);
@@ -155,10 +113,51 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
     }
   }, [decline, offer]);
 
+  const handleComplete = useCallback(async () => {
+    if (!activeTrip) return;
+    setCompleting(true);
+    try {
+      await complete(activeTrip.id);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Could not complete this job';
+      Alert.alert('Error', msg);
+    } finally {
+      setCompleting(false);
+    }
+  }, [activeTrip, complete]);
+
+  const handleCancelTrip = useCallback(() => {
+    if (!activeTrip) return;
+    Alert.alert(
+      'Cancel this trip?',
+      'Your priority score will drop and the customer will need to be reassigned.',
+      [
+        { text: 'Keep trip', style: 'cancel' },
+        {
+          text: 'Cancel trip',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              setCancelling(true);
+              try {
+                await cancel(activeTrip.id);
+              } catch (e) {
+                const msg = e instanceof Error ? e.message : 'Could not cancel this trip';
+                Alert.alert('Error', msg);
+              } finally {
+                setCancelling(false);
+              }
+            })();
+          },
+        },
+      ]
+    );
+  }, [activeTrip, cancel]);
+
   const greeting = useMemo(() => greetingForNow(), []);
 
   const openEarnings = useCallback(() => {
-    navigation.navigate('DailyEarningsDetails');
+    navigation.navigate('Earnings');
   }, [navigation]);
 
   return (
@@ -170,10 +169,7 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
         onToggleOnline={() => {
           void handleToggleOnline();
         }}
-        onMenuPress={handleMenuPress}
-        onNotificationsPress={() => {
-          Alert.alert('Notifications', 'Driver notifications are coming soon.');
-        }}
+        priority={priority}
         topInset={insets.top}
         toggleDisabled={toggleLoading}
       />
@@ -199,7 +195,7 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
       ) : null}
 
       <MapControls
-        bottomOffset={isOnline || offer ? 260 + insets.bottom : 250 + insets.bottom}
+        bottomOffset={isOnline || offer || activeTrip ? 260 : 250}
         onCompassPress={() => mapRef.current?.resetHeading()}
         onLayersPress={() => {
           Alert.alert('Map style', 'Satellite, traffic, and streets switching is coming soon.');
@@ -214,7 +210,18 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
             void handleAccept();
           }}
           accepting={accepting}
-          bottomInset={insets.bottom}
+          bottomInset={0}
+        />
+      ) : activeTrip ? (
+        <ActiveTripSheet
+          trip={activeTrip}
+          onComplete={() => {
+            void handleComplete();
+          }}
+          onCancel={handleCancelTrip}
+          completing={completing}
+          cancelling={cancelling}
+          bottomInset={0}
         />
       ) : (
         <HomeSheet
@@ -227,7 +234,7 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
           }}
           onEarningsPress={openEarnings}
           toggleLoading={toggleLoading}
-          bottomInset={insets.bottom}
+          bottomInset={0}
         />
       )}
     </View>

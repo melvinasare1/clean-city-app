@@ -29,6 +29,7 @@ import {
 } from "firebase/firestore";
 import { getStorage, type FirebaseStorage } from "firebase/storage";
 import { getDatabase, type Database } from "firebase/database";
+import { getFunctions, type Functions } from "firebase/functions";
 
 function env(name: string, fallback: string): string {
   const value = process.env[name];
@@ -95,8 +96,9 @@ try {
 
 const storage: FirebaseStorage = getStorage(firebaseApp);
 const rtdb: Database = getDatabase(firebaseApp);
+const functions: Functions = getFunctions(firebaseApp, "europe-west2");
 
-export { firebaseApp, auth, db, storage, rtdb };
+export { firebaseApp, auth, db, storage, rtdb, functions };
 
 export type FirebaseUser = FirebaseUserType | null;
 export type FirebaseUnsubscribe = () => void;

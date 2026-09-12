@@ -1,3 +1,4 @@
+import type { NavigatorScreenParams } from '@react-navigation/native';
 import type { BookingBinItem } from '@platform/shared-types';
 
 export type AuthStackParamList = {
@@ -6,8 +7,15 @@ export type AuthStackParamList = {
   ForgotPassword: undefined;
 };
 
+export type DriverTabParamList = {
+  Orders: undefined;
+  Earnings: undefined;
+  Messages: undefined;
+  Profile: undefined;
+};
+
 export type DriverStackParamList = {
-  DriverHome: undefined;
+  DriverTabs: NavigatorScreenParams<DriverTabParamList> | undefined;
   DriverJobList: undefined;
   DriverJobDetail: { jobId: string };
   DailyEarningsDetails: undefined;

@@ -27,6 +27,10 @@ export const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 4,
   },
+  headerButtonSpacer: {
+    width: 44,
+    height: 44,
+  },
   headerCopy: {
     flex: 1,
     alignItems: 'center',

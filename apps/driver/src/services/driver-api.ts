@@ -79,6 +79,7 @@ export async function registerDriverAccount(input: RegisterDriverInput): Promise
       phone: phone?.trim() || null,
       role: "driver",
       status: "pending",
+      priority: 100,
     },
     { merge: true, addTimestamps: true }
   );

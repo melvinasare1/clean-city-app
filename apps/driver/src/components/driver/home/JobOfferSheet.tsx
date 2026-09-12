@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Timestamp } from 'firebase/firestore';
@@ -12,6 +12,21 @@ type Props = {
   bottomInset?: number;
 };
 
+function toDate(value: JobOffer['offerExpiresAt'] | JobOffer['scheduledDate']): Date | null {
+  if (!value && value !== 0) return null;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+  if (value instanceof Timestamp) return value.toDate();
+  if (typeof value === 'object' && value !== null && 'toDate' in value) {
+    const maybe = (value as { toDate?: () => Date }).toDate?.();
+    if (maybe instanceof Date && !Number.isNaN(maybe.getTime())) return maybe;
+  }
+  if (typeof value === 'string' || typeof value === 'number') {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+  return null;
+}
+
 function formatDate(value?: Timestamp | string) {
   if (!value) return 'Date TBC';
   const d = value instanceof Timestamp ? value.toDate() : new Date(value);
@@ -22,8 +37,28 @@ function formatDate(value?: Timestamp | string) {
   });
 }
 
+function remainingSeconds(expiresAt: Date | null): number | null {
+  if (!expiresAt) return null;
+  return Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / 1000));
+}
+
 export function JobOfferSheet({ offer, onAccept, accepting, bottomInset = 0 }: Props) {
   const fare = offer.totalPrice ?? offer.amountPaid;
+  const expiresAt = toDate(offer.offerExpiresAt);
+  const [secondsLeft, setSecondsLeft] = useState(() => remainingSeconds(expiresAt));
+
+  useEffect(() => {
+    const nextExpires = toDate(offer.offerExpiresAt);
+    setSecondsLeft(remainingSeconds(nextExpires));
+    if (!nextExpires) return;
+    const timer = setInterval(() => {
+      setSecondsLeft(remainingSeconds(nextExpires));
+    }, 200);
+    return () => clearInterval(timer);
+  }, [offer.offerExpiresAt]);
+
+  const expired = secondsLeft !== null && secondsLeft <= 0;
+  const acceptDisabled = Boolean(accepting || expired);
 
   return (
     <View style={[styles.sheet, { paddingBottom: spacing.xl + bottomInset }]}>
@@ -36,12 +71,22 @@ export function JobOfferSheet({ offer, onAccept, accepting, bottomInset = 0 }: P
             {formatDate(offer.scheduledDate)}
           </Text>
         </View>
-        {fare != null && (
+        {secondsLeft != null ? (
+          <View style={[styles.timerPill, expired && styles.timerPillExpired]}>
+            <Text style={[styles.timerValue, expired && styles.timerValueExpired]}>
+              {expired ? '0s' : `${secondsLeft}s`}
+            </Text>
+          </View>
+        ) : fare != null ? (
           <View style={styles.farePill}>
             <Text style={typography.earningsValue}>¢{Number(fare).toFixed(2)}</Text>
           </View>
-        )}
+        ) : null}
       </View>
+
+      {fare != null && secondsLeft != null ? (
+        <Text style={styles.fareUnderTimer}>¢{Number(fare).toFixed(2)}</Text>
+      ) : null}
 
       <View style={styles.detailCard}>
         <View style={styles.detailRow}>
@@ -63,13 +108,15 @@ export function JobOfferSheet({ offer, onAccept, accepting, bottomInset = 0 }: P
       </View>
 
       <Pressable
-        style={[styles.btnAccept, accepting && styles.btnDisabled]}
+        style={[styles.btnAccept, acceptDisabled && styles.btnDisabled]}
         onPress={onAccept}
-        disabled={accepting}
+        disabled={acceptDisabled}
         accessibilityRole="button"
         accessibilityLabel="Accept job"
       >
-        <Text style={styles.btnAcceptLabel}>{accepting ? 'Accepting…' : 'Accept job'}</Text>
+        <Text style={styles.btnAcceptLabel}>
+          {expired ? 'Offer expired' : accepting ? 'Accepting…' : 'Accept job'}
+        </Text>
       </Pressable>
     </View>
   );
@@ -120,6 +167,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
+  fareUnderTimer: {
+    ...typography.earningsValue,
+    marginTop: -8,
+    marginBottom: spacing.md,
+  },
+  timerPill: {
+    minWidth: 52,
+    alignItems: 'center',
+    backgroundColor: colors.brandGreenSoft,
+    borderRadius: radius.card,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  timerPillExpired: {
+    backgroundColor: colors.surfaceMutedIcon,
+  },
+  timerValue: {
+    ...typography.earningsValue,
+    color: colors.brandGreen,
+  },
+  timerValueExpired: {
+    color: colors.inkSecondary,
+  },
   detailCard: {
     backgroundColor: '#F7F6F2',
     borderRadius: radius.card,
@@ -146,7 +216,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   btnDisabled: {
-    opacity: 0.75,
+    opacity: 0.55,
   },
   btnAcceptLabel: {
     ...typography.button,
