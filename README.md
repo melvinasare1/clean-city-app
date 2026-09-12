@@ -1,55 +1,34 @@
-# Clean City App - Waste Management MVP
+# Clean City — customer + driver monorepo
 
-A React Native + Expo mobile application for waste management with two user roles: **Customer** and **Driver**.
+Two Expo apps that share one Firebase backend:
+
+- `apps/customer` — existing App Store/Play listing (`com.cleancity.app`)
+- `apps/driver` — driver client (`com.cleancity.driver`; run `eas init` in that folder before the first EAS build)
+- `packages/shared-theme`, `packages/shared-firebase`, `packages/shared-types` — code both apps import as `@platform/*`
+- `api/`, `functions/`, `firestore.rules` — unchanged backend
+
+See `docs/MONOREPO_MIGRATION.md` for the split plan.
 
 ## 🚀 Tech Stack
 
-- **Expo SDK 51** (managed workflow)
-- **React Native 0.74**
+- **Expo SDK 54** / **React Native 0.81.5** / **React 19.1.0**
 - **TypeScript**
 - **React Navigation** (Native Stack + Bottom Tabs)
 - **Firebase** (Authentication + Firestore)
+- **Mapbox** (`@rnmapbox/maps` ^10.3.5) in the driver app only
 
 ## 📁 Project Structure
 
 ```
 clean-city-app-1/
-├── App.tsx                          # Main entry point
-├── app.json                         # Expo configuration
-├── babel.config.js                  # Babel configuration
-├── package.json                     # Dependencies
-├── tsconfig.json                    # TypeScript configuration
-└── src/
-    ├── components/                  # Reusable UI components
-    ├── hooks/
-    │   └── useAuth.ts              # Authentication hook
-    ├── lib/
-    │   └── constants.ts            # App constants (prices, colors, etc.)
-    ├── navigation/
-    │   ├── AuthNavigator.tsx       # Auth flow navigation
-    │   ├── CustomerNavigator.tsx   # Customer bottom tabs
-    │   ├── DriverNavigator.tsx     # Driver stack navigation
-    │   └── RootNavigator.tsx       # Main navigation orchestrator
-    ├── screens/
-    │   ├── auth/
-    │   │   ├── LoginScreen.tsx
-    │   │   └── SignupScreen.tsx
-    │   ├── customer/
-    │   │   ├── CustomerHomeScreen.tsx
-    │   │   ├── NewBookingScreen.tsx
-    │   │   └── BookingListScreen.tsx
-    │   ├── driver/
-    │   │   ├── DriverHomeScreen.tsx
-    │   │   ├── DriverJobListScreen.tsx
-    │   │   └── DriverJobDetailScreen.tsx
-    │   └── common/
-    │       └── RoleSelectorScreen.tsx
-    ├── services/
-    │   └── firebase/
-    │       └── firebaseConfig.ts   # Firebase initialization
-    └── types/
-        ├── user.ts                 # User type definitions
-        └── booking.ts              # Booking type definitions
+├── apps/customer/                   # Customer Expo app
+├── apps/driver/                     # Driver Expo app
+├── packages/shared-theme/
+├── packages/shared-firebase/
+├── packages/shared-types/
+├── api/                             # Vercel serverless API
+├── functions/                       # Firebase Cloud Functions
+└── docs/
 ```
 
 ## 📚 Documentation
@@ -68,6 +47,8 @@ All documentation is organized in the [`docs/`](./docs/) folder. See [docs/READM
 
 ```bash
 npm install
+npm run customer   # Expo from apps/customer
+npm run driver     # Expo from apps/driver
 ```
 
 ### 2. Configure Firebase

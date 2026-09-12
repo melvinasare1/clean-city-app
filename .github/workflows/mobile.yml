@@ -1,0 +1,55 @@
+name: Mobile apps
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      customer: ${{ steps.filter.outputs.customer }}
+      driver: ${{ steps.filter.outputs.driver }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            customer:
+              - 'apps/customer/**'
+              - 'packages/**'
+              - 'package.json'
+            driver:
+              - 'apps/driver/**'
+              - 'packages/**'
+              - 'package.json'
+
+  customer:
+    needs: changes
+    if: needs.changes.outputs.customer == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install
+      - run: npx expo config --type public --json
+        working-directory: apps/customer
+
+  driver:
+    needs: changes
+    if: needs.changes.outputs.driver == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install
+      - run: npx expo config --type public --json
+        working-directory: apps/driver

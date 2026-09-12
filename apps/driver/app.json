@@ -1,0 +1,96 @@
+{
+  "expo": {
+    "name": "Clean City Driver",
+    "slug": "clean-city-driver",
+    "owner": "itsczar24",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F5F5F5"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.cleancity.driver",
+      "googleServicesFile": "./firebase/GoogleService-Info.plist",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIDeviceFamily": [1, 2],
+        "NSLocationWhenInUseUsageDescription": "Clean City uses your location to show you on the map and match nearby jobs while you are online."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.cleancity.driver",
+      "googleServicesFile": "./firebase/google-services.json",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "29f36e93-df6d-45f3-b901-06dc7577d8de"
+      },
+      "aptabaseKey": "${EXPO_PUBLIC_APTABASE_KEY}",
+      "mapboxAccessToken": "${EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN}"
+    },
+    "plugins": [
+      "expo-dev-client",
+      "expo-adi-registration",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#F5F5F5"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "15.1",
+            "extraPods": [
+              { "name": "GoogleUtilities", "modular_headers": true },
+              { "name": "RecaptchaInterop", "modular_headers": true },
+              { "name": "AppCheckCore", "modular_headers": true }
+            ]
+          }
+        }
+      ],
+      "expo-apple-authentication",
+      "expo-web-browser",
+      "@react-native-google-signin/google-signin",
+      [
+        "@rnmapbox/maps",
+        {
+          "RNMapboxMapsVersion": "11.23.1"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Clean City uses your location to show you on the map and match nearby jobs while you are online."
+        }
+      ]
+    ],
+    "scheme": "com.cleancity.driver",
+    "runtimeVersion": "1.0.0",
+    "updates": {
+      "url": "https://u.expo.dev/29f36e93-df6d-45f3-b901-06dc7577d8de"
+    }
+  }
+}

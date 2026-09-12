@@ -10,6 +10,9 @@ if (!admin.apps.length) {
       const serviceAccount = JSON.parse(serviceAccountJson);
       admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
+        databaseURL:
+          process.env.FIREBASE_DATABASE_URL ||
+          "https://clean-city-app-f9d73-default-rtdb.europe-west1.firebasedatabase.app",
       });
     } catch (error) {
       console.error("Failed to parse Firebase service account JSON:", error);
@@ -26,6 +29,13 @@ export function getFirestore(): admin.firestore.Firestore {
     throw new Error("Firebase Admin not initialized");
   }
   return admin.firestore();
+}
+
+export function getRealtimeDatabase(): admin.database.Database {
+  if (!admin.apps.length) {
+    throw new Error("Firebase Admin not initialized");
+  }
+  return admin.database();
 }
 
 export const FieldValue = admin.firestore.FieldValue;

@@ -1,0 +1,20 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "noEmit": true,
+    "moduleSuffixes": [".native", ".web", ""],
+    "jsx": "react-jsx",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "moduleResolution": "bundler",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@platform/shared-theme": ["../../packages/shared-theme/src/index.ts"],
+      "@platform/shared-firebase": ["../../packages/shared-firebase/src/index.ts"],
+      "@platform/shared-types": ["../../packages/shared-types/src/index.ts"],
+      "@firebase/auth": ["../../node_modules/@firebase/auth/dist/index.rn.d.ts"]
+    }
+  }
+}

@@ -16,6 +16,11 @@ service cloud.firestore {
       return isSignedIn()
         && get(/databases/$(database)/documents/drivers/$(request.auth.uid)).data.role == 'driver';
     }
+    function isApprovedDriver() {
+      return isDriver()
+        && (get(/databases/$(database)/documents/drivers/$(request.auth.uid)).data.status == 'approved'
+          || get(/databases/$(database)/documents/drivers/$(request.auth.uid)).data.isActive == true);
+    }
 
     // Admin can do everything (web admin dashboard)
     match /{document=**} {
@@ -52,9 +57,19 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Bookings — users can read and manage their own
+    // Bookings — customers own their docs; assigned approved drivers can read/update offers
     match /bookings/{bookingId} {
-      allow read, update, delete: if isSignedIn()
+      allow read: if isSignedIn()
+        && (resource.data.userId == request.auth.uid
+          || (isApprovedDriver() && resource.data.driverId == request.auth.uid));
+      allow update: if isSignedIn()
+        && (
+          resource.data.userId == request.auth.uid
+          || (isApprovedDriver()
+            && resource.data.driverId == request.auth.uid
+            && request.resource.data.userId == resource.data.userId)
+        );
+      allow delete: if isSignedIn()
         && resource.data.userId == request.auth.uid;
       allow create: if isSignedIn()
         && request.resource.data.userId == request.auth.uid;

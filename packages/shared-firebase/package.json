@@ -1,0 +1,11 @@
+{
+  "name": "@platform/shared-firebase",
+  "version": "1.0.0",
+  "main": "src/index.ts",
+  "private": true,
+  "peerDependencies": {
+    "@react-native-async-storage/async-storage": "*",
+    "firebase": "*",
+    "react-native": "*"
+  }
+}
