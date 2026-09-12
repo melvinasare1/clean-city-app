@@ -111,5 +111,23 @@ export const styles = StyleSheet.create({
         marginTop: VARS.xxsmall,
         marginBottom: VARS.medium,
     },
+    declinePill: {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: 230,
+        alignItems: 'center',
+        zIndex: 29,
+    },
+    declineLabel: {
+        overflow: 'hidden',
+        backgroundColor: 'rgba(255,255,255,0.92)',
+        borderRadius: 999,
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        fontSize: 13,
+        color: COLORS.textSecondary,
+        fontWeight: '600',
+    },
 });
 

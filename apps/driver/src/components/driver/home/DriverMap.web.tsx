@@ -1,9 +1,12 @@
 import React, { forwardRef, useImperativeHandle } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { colors } from '@platform/shared-theme';
-import type { DriverMapHandle } from './driver-map.types';
+import type { DriverMapHandle, DriverMapProps } from './driver-map.types';
 
-export const DriverMap = forwardRef<DriverMapHandle>(function DriverMap(_props, ref) {
+export const DriverMap = forwardRef<DriverMapHandle, DriverMapProps>(function DriverMap(
+  _props,
+  ref
+) {
   useImperativeHandle(ref, () => ({
     recenter: () => {},
     resetHeading: () => {},

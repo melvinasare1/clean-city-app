@@ -2,7 +2,8 @@
  * POST /api/jobs/start
  * Body: { jobId: string, driverId: string }
  * Update job: jobStatus = "in_progress", startedAt = now, startedBy = driverId.
- * Validates driver exists in drivers collection and is approved; only allowed if assignedTo === driverId.
+ * Validates driver exists in drivers collection and is approved; only allowed if
+ * assignedTo === driverId and assignmentStatus === "accepted".
  */
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getFirestore } from "../lib/firebase-admin";
@@ -51,6 +52,11 @@ export default async function handler(
     if (assignedTo !== driverId) {
       return res.status(403).json({
         error: "Not allowed to start this job. It is assigned to another driver.",
+      });
+    }
+    if (data?.assignmentStatus !== "accepted") {
+      return res.status(400).json({
+        error: "Job must be accepted before it can be started.",
       });
     }
 

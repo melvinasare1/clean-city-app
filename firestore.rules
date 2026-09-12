@@ -101,9 +101,11 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Jobs — API (Admin SDK) only, no client access
+    // Jobs — assigned drivers may read only. Status transitions go through
+    // Cloud Functions / Admin SDK API routes, not client writes.
     match /jobs/{jobId} {
-      allow read, write: if false;
+      allow get, list: if isSignedIn() && resource.data.assignedTo == request.auth.uid;
+      allow create, update, delete: if false;
     }
 
     // Driver shift sessions — queryable online-time history (not RTDB presence).

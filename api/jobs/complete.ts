@@ -63,11 +63,15 @@ export default async function handler(
         error: "Not allowed to complete this job. It is assigned to another driver.",
       });
     }
+    if (data?.jobStatus === "completed") {
+      return res.status(400).json({ error: "Job is already completed." });
+    }
 
     const now = firestore.Timestamp.now();
     const date = todayUtcYYYYMMDD();
     const shiftId = `${driverId}_${date}`;
     const shiftRef = firestore.collection(DRIVER_SHIFTS_COLLECTION).doc(shiftId);
+    const driverRef = firestore.collection("drivers").doc(driverId);
 
     await firestore.runTransaction(async (tx) => {
       tx.update(jobRef, {
@@ -80,6 +84,14 @@ export default async function handler(
         shiftRef,
         {
           totalJobsCompleted: firestore.FieldValue.increment(1),
+          updatedAt: now,
+        },
+        { merge: true }
+      );
+      tx.set(
+        driverRef,
+        {
+          jobsCompletedCount: firestore.FieldValue.increment(1),
           updatedAt: now,
         },
         { merge: true }

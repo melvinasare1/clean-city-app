@@ -47,18 +47,28 @@ export function TopBar({
           <Feather name="menu" size={20} color={colors.inkPrimary} />
         </Pressable>
       ) : showRight ? (
-        <View style={styles.iconButtonPlaceholder} pointerEvents="none" />
+        <View
+          style={showPriority ? styles.priorityPlaceholder : styles.iconButtonPlaceholder}
+          pointerEvents="none"
+        />
       ) : null}
 
       <StatusPill isOnline={isOnline} onPress={onToggleOnline} disabled={toggleDisabled} />
 
       {showPriority ? (
         <View
-          style={styles.iconButton}
+          style={styles.priorityBadge}
           accessibilityRole="text"
           accessibilityLabel={`Priority ${priority}`}
         >
-          <Text style={styles.priorityLabel}>{priority}</Text>
+          <Text
+            style={styles.priorityLabel}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.7}
+          >
+            {priority}
+          </Text>
         </View>
       ) : onNotificationsPress ? (
         <Pressable
@@ -102,10 +112,30 @@ const styles = StyleSheet.create({
     width: sizes.topBarButton,
     height: sizes.topBarButton,
   },
+  priorityBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.surfaceWhite,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.shadow,
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  priorityPlaceholder: {
+    width: 36,
+    height: 36,
+  },
   priorityLabel: {
     color: colors.inkPrimary,
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 15,
+    lineHeight: 18,
+    fontWeight: '800',
+    textAlign: 'center',
+    includeFontPadding: false,
   },
   badge: {
     position: 'absolute',

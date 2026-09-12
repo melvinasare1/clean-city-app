@@ -9,6 +9,10 @@ import type {
   JobCollectionFrequency,
   JobItemSnapshot,
 } from "./payment-and-job-types";
+import {
+  addressQueryFromJob,
+  geocodeAddressToPickup,
+} from "../lib/geocode-address";
 
 const PAYSTACK_BASE_URL = "https://api.paystack.co";
 const SUBSCRIPTIONS_COLLECTION = "subscriptions";
@@ -240,6 +244,14 @@ export async function createJobForOneTimeBooking(
   const docRef = jobsRef.doc();
   const now = new Date();
   const nowTs = Timestamp.fromDate(now);
+  const normalizedAddress = {
+    addressLine1: addressSnapshot.addressLine1 ?? "",
+    area: addressSnapshot.area ?? "",
+    phoneNumber: addressSnapshot.phoneNumber ?? "",
+  };
+  const pickup = await geocodeAddressToPickup(
+    addressQueryFromJob({ location, addressSnapshot: normalizedAddress })
+  );
   await docRef.set({
     id: docRef.id,
     type: "one_time",
@@ -251,11 +263,8 @@ export async function createJobForOneTimeBooking(
     assignmentStatus: "unassigned",
     items: items ?? [],
     location: location ?? "",
-    addressSnapshot: {
-      addressLine1: addressSnapshot.addressLine1 ?? "",
-      area: addressSnapshot.area ?? "",
-      phoneNumber: addressSnapshot.phoneNumber ?? "",
-    },
+    addressSnapshot: normalizedAddress,
+    ...(pickup ? { pickup } : {}),
     windowId: windowId ?? "",
     windowLabel: windowLabel ?? "",
     createdAt: nowTs,
@@ -308,6 +317,9 @@ export async function createJobsForSubscription(
     area: addressSnapshot?.area ?? "",
     phoneNumber: addressSnapshot?.phoneNumber ?? "",
   };
+  const pickup = await geocodeAddressToPickup(
+    addressQueryFromJob({ location, addressSnapshot: normalizedAddress })
+  );
   for (const scheduledDate of scheduledDates) {
     const docRef = jobsRef.doc();
     await docRef.set({
@@ -322,6 +334,7 @@ export async function createJobsForSubscription(
       items: items ?? [],
       location: location ?? "",
       addressSnapshot: normalizedAddress,
+      ...(pickup ? { pickup } : {}),
       windowId: windowId ?? "",
       windowLabel: windowLabel ?? "",
       ...(collectionFrequency ? { collectionFrequency } : {}),

@@ -17,8 +17,10 @@ import { DriverMap } from '@/components/driver/home/DriverMap';
 import type { DriverMapHandle } from '@/components/driver/home/driver-map.types';
 import { colors } from '@platform/shared-theme';
 import { trackEvent } from '@/services/analytics';
+import { BriefToast, useBriefToast } from '@/components/driver/BriefToast';
 import { useAssignedJobOffer } from '@/hooks/useAssignedJobOffer';
 import { useDriverPriority } from '@/hooks/useDriverPriority';
+import { startJob } from '@/services/driver-api';
 import type { DriverStackParamList, DriverTabParamList } from '@/navigation/types';
 
 type DriverHomeScreenProps = {
@@ -53,7 +55,9 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
   const [accepting, setAccepting] = useState(false);
   const [declining, setDeclining] = useState(false);
   const [completing, setCompleting] = useState(false);
+  const [starting, setStarting] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const { toast, showToast } = useBriefToast();
 
   const driverId = user?.id ?? '';
   const driverName = firstNameFromUser(user?.name, user?.email);
@@ -67,6 +71,10 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
       return;
     }
     if (toggleLoading) return;
+    if (isOnline && activeTrip) {
+      Alert.alert("Can't go offline", "You can't go offline while you're on a job.");
+      return;
+    }
 
     setToggleLoading(true);
     try {
@@ -85,20 +93,21 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
     } finally {
       setToggleLoading(false);
     }
-  }, [driverId, goOffline, goOnline, isApproved, isOnline, showPendingAlert, toggleLoading]);
+  }, [activeTrip, driverId, goOffline, goOnline, isApproved, isOnline, showPendingAlert, toggleLoading]);
 
   const handleAccept = useCallback(async () => {
     if (!offer) return;
     setAccepting(true);
     try {
       await accept(offer.id);
+      showToast('Priority +4');
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Could not accept this job';
       Alert.alert('Error', msg);
     } finally {
       setAccepting(false);
     }
-  }, [accept, offer]);
+  }, [accept, offer, showToast]);
 
   const handleDecline = useCallback(async () => {
     if (!offer) return;
@@ -112,6 +121,19 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
       setDeclining(false);
     }
   }, [decline, offer]);
+
+  const handleStart = useCallback(async () => {
+    if (!activeTrip || !driverId) return;
+    setStarting(true);
+    try {
+      await startJob(activeTrip.id, driverId);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Could not start this job';
+      Alert.alert('Error', msg);
+    } finally {
+      setStarting(false);
+    }
+  }, [activeTrip, driverId]);
 
   const handleComplete = useCallback(async () => {
     if (!activeTrip) return;
@@ -128,31 +150,24 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
 
   const handleCancelTrip = useCallback(() => {
     if (!activeTrip) return;
-    Alert.alert(
-      'Cancel this trip?',
-      'Your priority score will drop and the customer will need to be reassigned.',
-      [
-        { text: 'Keep trip', style: 'cancel' },
-        {
-          text: 'Cancel trip',
-          style: 'destructive',
-          onPress: () => {
-            void (async () => {
-              setCancelling(true);
-              try {
-                await cancel(activeTrip.id);
-              } catch (e) {
-                const msg = e instanceof Error ? e.message : 'Could not cancel this trip';
-                Alert.alert('Error', msg);
-              } finally {
-                setCancelling(false);
-              }
-            })();
-          },
-        },
-      ]
-    );
+    void (async () => {
+      setCancelling(true);
+      try {
+        await cancel(activeTrip.id);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Could not cancel this trip';
+        Alert.alert('Error', msg);
+      } finally {
+        setCancelling(false);
+      }
+    })();
   }, [activeTrip, cancel]);
+
+  const pickupCoordinate = useMemo((): [number, number] | null => {
+    const pickup = offer?.pickup ?? activeTrip?.pickup;
+    if (!pickup) return null;
+    return [pickup.lng, pickup.lat];
+  }, [activeTrip, offer]);
 
   const greeting = useMemo(() => greetingForNow(), []);
 
@@ -162,7 +177,7 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
 
   return (
     <View style={styles.container}>
-      <DriverMap ref={mapRef} />
+      <DriverMap ref={mapRef} pickupCoordinate={pickupCoordinate} />
 
       <TopBar
         isOnline={isOnline}
@@ -215,10 +230,14 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
       ) : activeTrip ? (
         <ActiveTripSheet
           trip={activeTrip}
+          onStart={() => {
+            void handleStart();
+          }}
           onComplete={() => {
             void handleComplete();
           }}
           onCancel={handleCancelTrip}
+          starting={starting}
           completing={completing}
           cancelling={cancelling}
           bottomInset={0}
@@ -237,6 +256,8 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
           bottomInset={0}
         />
       )}
+
+      <BriefToast message={toast} topOffset={insets.top + 56} />
     </View>
   );
 };

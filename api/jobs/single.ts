@@ -4,6 +4,7 @@
  */
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getFirestore } from "../lib/firebase-admin";
+import { parsePickupCoordinates } from "../lib/geocode-address";
 
 const JOBS_COLLECTION = "jobs";
 
@@ -51,7 +52,11 @@ export default async function handler(
       items: d.items ?? [],
       paymentStatus: d.paymentStatus ?? "pending",
       jobStatus: d.jobStatus ?? "scheduled",
+      assignmentStatus: d.assignmentStatus ?? "unassigned",
+      offerExpiresAt: d.offerExpiresAt?.toDate?.()?.toISOString?.() ?? null,
+      subscriptionId: d.subscriptionId ?? null,
       addressSnapshot: d.addressSnapshot ?? { addressLine1: "", area: "", phoneNumber: "" },
+      pickup: parsePickupCoordinates(d.pickup),
     });
   } catch (error: unknown) {
     console.error("[GET /api/jobs/single] Error:", error);

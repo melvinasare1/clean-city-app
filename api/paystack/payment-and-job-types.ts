@@ -76,6 +76,12 @@ export interface JobAddressSnapshot {
   phoneNumber: string;
 }
 
+/** Stored once at job creation from Mapbox geocoding; reused for map pin, line, and nav. */
+export interface JobPickupCoordinates {
+  lat: number;
+  lng: number;
+}
+
 export interface JobDocument {
   id: string;
 
@@ -94,6 +100,7 @@ export interface JobDocument {
 
   location: string;
   addressSnapshot: JobAddressSnapshot;
+  pickup?: JobPickupCoordinates;
 
   windowId: string;
   windowLabel: string;
@@ -101,10 +108,13 @@ export interface JobDocument {
   collectionFrequency?: JobCollectionFrequency;
   collectionDay?: string;
 
-  assignedTo?: string;
+  assignedTo?: string | null;
   assignmentStatus: AssignmentStatus;
   assignedAt?: FirebaseTimestamp;
   assignedBy?: string;
+  declinedBy?: string[];
+  offerExpiresAt?: FirebaseTimestamp;
+  offerTaskName?: string;
 
   /** Set when driver starts the job */
   startedAt?: FirebaseTimestamp;

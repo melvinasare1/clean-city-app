@@ -101,6 +101,10 @@ export interface DriverJob {
   items: Array<{ id: string; type: string; quantity: number; unitPrice: number; totalPrice: number }>;
   paymentStatus: string;
   jobStatus: string;
+  assignmentStatus?: string;
+  offerExpiresAt?: string | null;
+  subscriptionId?: string | null;
+  pickup?: { lat: number; lng: number } | null;
 }
 
 export interface DriverShift {

@@ -13,6 +13,7 @@ import { onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { setGlobalOptions } from "firebase-functions/v2";
 import * as admin from "firebase-admin";
 import { logger } from "firebase-functions";
+import { startJobOfferWindow } from "./job-offers";
 
 // Initialize Firebase Admin (only once)
 if (!admin.apps.length) {
@@ -230,6 +231,16 @@ export const onJobAssigned = onDocumentUpdated(
         driverChanged,
       });
 
+      try {
+        await startJobOfferWindow(jobId, afterDriverId as string);
+      } catch (error) {
+        logger.error("Failed to start job offer window", {
+          jobId,
+          driverId: afterDriverId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+
       const token = await getDriverPushToken(afterDriverId as string);
 
       if (!token) {
@@ -354,8 +365,7 @@ export {
   acceptJobOffer,
   cancelAcceptedJob,
   clampDriverPriority,
-  completeBooking,
+  completeJob,
   declineJobOffer,
   expireJobOffer,
-  onBookingAssigned,
 } from "./job-offers";

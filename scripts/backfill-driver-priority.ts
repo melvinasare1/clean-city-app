@@ -1,11 +1,11 @@
 /**
  * Backfill drivers.priority → 100 when missing or not a valid number.
  *
- * Run order (backfill first — a test booking against a driver with no
+ * Run order (backfill first — a test job against a driver with no
  * priority field would otherwise be the first thing to expose the NaN bug):
  *
  *   npx ts-node scripts/backfill-driver-priority.ts
- *   npx ts-node scripts/create-test-booking.ts iuocJ5AAEwb4bmKKDCB3mmYbphg1
+ *   node scripts/create-test-job.js iuocJ5AAEwb4bmKKDCB3mmYbphg1
  *
  * Credentials: FIREBASE_SERVICE_ACCOUNT_JSON or GOOGLE_APPLICATION_CREDENTIALS
  * (same as scripts/seed-pricing-config.js). firebase-admin is resolved from

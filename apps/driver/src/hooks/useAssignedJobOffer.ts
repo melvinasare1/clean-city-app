@@ -21,33 +21,75 @@ export type JobOffer = {
   totalPrice?: number;
   subscriptionId?: string | null;
   offerExpiresAt?: Timestamp | Date | string | number | null;
+  assignmentStatus?: string;
+  jobStatus?: string;
+  pickup?: { lat: number; lng: number } | null;
 };
 
 export type ActiveTrip = JobOffer;
 
-const acceptJobOfferFn = httpsCallable<{ bookingId: string }, { ok: boolean }>(
+const acceptJobOfferFn = httpsCallable<{ jobId: string }, { ok: boolean }>(
   functions,
   'acceptJobOffer'
 );
-const declineJobOfferFn = httpsCallable<{ bookingId: string }, { ok: boolean }>(
+const declineJobOfferFn = httpsCallable<{ jobId: string }, { ok: boolean }>(
   functions,
   'declineJobOffer'
 );
-const completeBookingFn = httpsCallable<{ bookingId: string }, { ok: boolean }>(
+const completeJobFn = httpsCallable<{ jobId: string }, { ok: boolean }>(
   functions,
-  'completeBooking'
+  'completeJob'
 );
-const cancelAcceptedJobFn = httpsCallable<{ bookingId: string }, { ok: boolean }>(
+const cancelAcceptedJobFn = httpsCallable<{ jobId: string }, { ok: boolean }>(
   functions,
   'cancelAcceptedJob'
 );
 
-function mapBookingDoc(id: string, data: Omit<JobOffer, 'id'>): JobOffer {
-  return { id, ...data };
+type JobDoc = {
+  customerName?: string;
+  location?: string;
+  addressSnapshot?: { addressLine1?: string };
+  scheduledDate?: Timestamp | string;
+  items?: Array<{ totalPrice?: number }>;
+  subscriptionId?: string | null;
+  offerExpiresAt?: Timestamp | Date | string | number | null;
+  assignmentStatus?: string;
+  jobStatus?: string;
+  pickup?: { lat?: number; lng?: number };
+};
+
+function fareFromItems(items: JobDoc['items']): number | undefined {
+  if (!Array.isArray(items) || items.length === 0) return undefined;
+  const sum = items.reduce((acc, item) => acc + Number(item?.totalPrice ?? 0), 0);
+  return Number.isFinite(sum) ? sum : undefined;
+}
+
+function parsePickup(value: JobDoc['pickup']): JobOffer['pickup'] {
+  const lat = typeof value?.lat === 'number' ? value.lat : Number(value?.lat);
+  const lng = typeof value?.lng === 'number' ? value.lng : Number(value?.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+  return { lat, lng };
+}
+
+function mapJobDoc(id: string, data: JobDoc): JobOffer {
+  const address = data.addressSnapshot?.addressLine1 || data.location;
+  return {
+    id,
+    customerName: data.customerName,
+    address,
+    scheduledDate: data.scheduledDate,
+    totalPrice: fareFromItems(data.items),
+    subscriptionId: data.subscriptionId,
+    offerExpiresAt: data.offerExpiresAt,
+    assignmentStatus: data.assignmentStatus,
+    jobStatus: data.jobStatus,
+    pickup: parsePickup(data.pickup),
+  };
 }
 
 /**
- * Listens for the current driver's assigned offer and in-progress trip.
+ * Listens for the current driver's job offer and accepted/in-progress trip.
  * Status transitions are server-enforced via callables.
  */
 export function useAssignedJobOffer() {
@@ -73,16 +115,16 @@ export function useAssignedJobOffer() {
 
     const unsubOffer = onSnapshot(
       query(
-        collection(db, 'bookings'),
-        where('driverId', '==', uid),
-        where('status', '==', 'assigned'),
+        collection(db, 'jobs'),
+        where('assignedTo', '==', uid),
+        where('assignmentStatus', 'in', ['assigned', 'reassigned']),
       ),
       (snapshot) => {
         if (snapshot.empty) {
           setOffer(null);
         } else {
           const docSnap = snapshot.docs[0];
-          setOffer(mapBookingDoc(docSnap.id, docSnap.data() as Omit<JobOffer, 'id'>));
+          setOffer(mapJobDoc(docSnap.id, docSnap.data() as JobDoc));
         }
         offerReady = true;
         markReady();
@@ -96,16 +138,19 @@ export function useAssignedJobOffer() {
 
     const unsubTrip = onSnapshot(
       query(
-        collection(db, 'bookings'),
-        where('driverId', '==', uid),
-        where('status', '==', 'in_progress'),
+        collection(db, 'jobs'),
+        where('assignedTo', '==', uid),
+        where('assignmentStatus', '==', 'accepted'),
       ),
       (snapshot) => {
-        if (snapshot.empty) {
+        const live = snapshot.docs.find((docSnap) => {
+          const status = (docSnap.data() as JobDoc).jobStatus;
+          return status !== 'completed' && status !== 'cancelled';
+        });
+        if (!live) {
           setActiveTrip(null);
         } else {
-          const docSnap = snapshot.docs[0];
-          setActiveTrip(mapBookingDoc(docSnap.id, docSnap.data() as Omit<JobOffer, 'id'>));
+          setActiveTrip(mapJobDoc(live.id, live.data() as JobDoc));
         }
         tripReady = true;
         markReady();
@@ -123,20 +168,20 @@ export function useAssignedJobOffer() {
     };
   }, [isApproved]);
 
-  const accept = useCallback(async (bookingId: string) => {
-    await acceptJobOfferFn({ bookingId });
+  const accept = useCallback(async (jobId: string) => {
+    await acceptJobOfferFn({ jobId });
   }, []);
 
-  const decline = useCallback(async (bookingId: string) => {
-    await declineJobOfferFn({ bookingId });
+  const decline = useCallback(async (jobId: string) => {
+    await declineJobOfferFn({ jobId });
   }, []);
 
-  const complete = useCallback(async (bookingId: string) => {
-    await completeBookingFn({ bookingId });
+  const complete = useCallback(async (jobId: string) => {
+    await completeJobFn({ jobId });
   }, []);
 
-  const cancel = useCallback(async (bookingId: string) => {
-    await cancelAcceptedJobFn({ bookingId });
+  const cancel = useCallback(async (jobId: string) => {
+    await cancelAcceptedJobFn({ jobId });
   }, []);
 
   return { offer, activeTrip, loading, accept, decline, complete, cancel };

@@ -5,6 +5,7 @@
  */
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getFirestore } from "../lib/firebase-admin";
+import { parsePickupCoordinates } from "../lib/geocode-address";
 
 const JOBS_COLLECTION = "jobs";
 
@@ -56,6 +57,8 @@ export default async function handler(
         items: d.items ?? [],
         paymentStatus: d.paymentStatus ?? "pending",
         jobStatus: d.jobStatus ?? "scheduled",
+        assignmentStatus: d.assignmentStatus ?? "unassigned",
+        pickup: parsePickupCoordinates(d.pickup),
       };
     });
 

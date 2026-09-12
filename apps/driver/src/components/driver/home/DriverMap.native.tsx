@@ -8,9 +8,16 @@ import React, {
 import { StyleSheet, Text, View } from 'react-native';
 import Constants from 'expo-constants';
 import * as Location from 'expo-location';
-import Mapbox, { Camera, MapView, UserLocation } from '@rnmapbox/maps';
+import Mapbox, {
+  Camera,
+  LineLayer,
+  MapView,
+  PointAnnotation,
+  ShapeSource,
+  UserLocation,
+} from '@rnmapbox/maps';
 import { colors } from '@platform/shared-theme';
-import type { DriverMapHandle } from './driver-map.types';
+import type { DriverMapHandle, DriverMapProps } from './driver-map.types';
 
 const INITIAL_ZOOM = 15;
 
@@ -49,13 +56,17 @@ function isUserCameraGesture(state: {
   );
 }
 
-export const DriverMap = forwardRef<DriverMapHandle>(function DriverMap(_props, ref) {
+export const DriverMap = forwardRef<DriverMapHandle, DriverMapProps>(function DriverMap(
+  { pickupCoordinate = null },
+  ref
+) {
   const cameraRef = useRef<Camera>(null);
   const mapLoadedRef = useRef(false);
   const initialCenterRef = useRef<[number, number] | null>(null);
   const [initialCenter, setInitialCenter] = useState<[number, number] | null>(null);
   const [mapVisible, setMapVisible] = useState(false);
   const [isFollowingUser, setIsFollowingUser] = useState(true);
+  const [driverCoordinate, setDriverCoordinate] = useState<[number, number] | null>(null);
 
   const adoptCenter = (center: [number, number]) => {
     if (initialCenterRef.current) return;
@@ -83,6 +94,7 @@ export const DriverMap = forwardRef<DriverMapHandle>(function DriverMap(_props, 
         if (cancelled || !position) return;
         const center = toCenter(position.coords.longitude, position.coords.latitude);
         if (!center) return;
+        setDriverCoordinate(center);
         adoptCenter(center);
       })
       .catch(() => {});
@@ -111,6 +123,7 @@ export const DriverMap = forwardRef<DriverMapHandle>(function DriverMap(_props, 
         }
         const center = toCenter(position.coords.longitude, position.coords.latitude);
         if (!center) return;
+        setDriverCoordinate(center);
         snapTo(center);
       });
     },
@@ -141,6 +154,18 @@ export const DriverMap = forwardRef<DriverMapHandle>(function DriverMap(_props, 
         animationDuration: 0 as const,
         animationMode: 'none' as const,
       };
+
+  const routeLine =
+    driverCoordinate && pickupCoordinate
+      ? {
+          type: 'Feature' as const,
+          properties: {},
+          geometry: {
+            type: 'LineString' as const,
+            coordinates: [driverCoordinate, pickupCoordinate],
+          },
+        }
+      : null;
 
   return (
     <View style={StyleSheet.absoluteFillObject}>
@@ -182,11 +207,38 @@ export const DriverMap = forwardRef<DriverMapHandle>(function DriverMap(_props, 
           onUpdate={(location) => {
             const next = toCenter(location?.coords?.longitude, location?.coords?.latitude);
             if (!next) return;
+            setDriverCoordinate(next);
             if (!initialCenterRef.current) {
               adoptCenter(next);
             }
           }}
         />
+        {routeLine ? (
+          <ShapeSource id="driver-to-pickup" shape={routeLine}>
+            <LineLayer
+              id="driver-to-pickup-line"
+              style={{
+                lineColor: colors.signalRed,
+                lineWidth: 3,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            />
+          </ShapeSource>
+        ) : null}
+        {pickupCoordinate ? (
+          <PointAnnotation
+            id="pickup-pin"
+            coordinate={pickupCoordinate}
+            anchor={{ x: 0.5, y: 1 }}
+            title="Pickup"
+          >
+            <View style={styles.pickupPin} collapsable={false}>
+              <View style={styles.pickupPinHead} />
+              <View style={styles.pickupPinStem} />
+            </View>
+          </PointAnnotation>
+        ) : null}
       </MapView>
     </View>
   );
@@ -217,5 +269,25 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: colors.inkSecondary,
     textAlign: 'center',
+  },
+  pickupPin: {
+    alignItems: 'center',
+    width: 22,
+  },
+  pickupPinHead: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: colors.signalRed,
+    borderWidth: 2.5,
+    borderColor: colors.surfaceWhite,
+  },
+  pickupPinStem: {
+    width: 3,
+    height: 8,
+    marginTop: -1,
+    backgroundColor: colors.signalRed,
+    borderBottomLeftRadius: 2,
+    borderBottomRightRadius: 2,
   },
 });

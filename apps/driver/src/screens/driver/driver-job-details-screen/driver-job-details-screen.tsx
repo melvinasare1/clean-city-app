@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,8 @@ import { RouteProp, useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '@/hooks/useAuth';
 import { useDriverApproved } from '@/hooks/useDriverApproved';
 import { DriverApprovalBanner } from '@/components/driver/DriverApprovalBanner';
+import { JobOfferSheet } from '@/components/driver/home/JobOfferSheet';
+import { BriefToast, useBriefToast } from '@/components/driver/BriefToast';
 import { styles } from './driver-job-details-screen.styles';
 import {
   getJobSingle,
@@ -20,6 +22,7 @@ import {
   completeJob,
   type DriverJob,
 } from '@/services/driver-api';
+import { useAssignedJobOffer, type JobOffer } from '@/hooks/useAssignedJobOffer';
 
 type DriverStackParamList = {
   DriverHome: undefined;
@@ -32,16 +35,62 @@ type DriverJobDetailScreenProps = {
   route: RouteProp<DriverStackParamList, 'DriverJobDetail'>;
 };
 
+type JobDetail = DriverJob & {
+  addressSnapshot?: { addressLine1: string; area: string; phoneNumber: string };
+};
+
+function isPendingOffer(job: JobDetail): boolean {
+  return job.assignmentStatus === 'assigned' || job.assignmentStatus === 'reassigned';
+}
+
+function toJobOffer(job: JobDetail): JobOffer {
+  const fare = (job.items ?? []).reduce((sum, item) => sum + Number(item.totalPrice ?? 0), 0);
+  return {
+    id: job.id,
+    address: job.addressSnapshot?.addressLine1 || job.location,
+    scheduledDate: job.scheduledDate,
+    totalPrice: Number.isFinite(fare) ? fare : undefined,
+    subscriptionId: job.subscriptionId,
+    offerExpiresAt: job.offerExpiresAt,
+    assignmentStatus: job.assignmentStatus,
+    jobStatus: job.jobStatus,
+    pickup: job.pickup ?? null,
+  };
+}
+
+function badgeForJob(job: JobDetail): { label: string; color: string } {
+  if (isPendingOffer(job)) {
+    return { label: 'Awaiting your response', color: '#2196F3' };
+  }
+  if (job.jobStatus === 'in_progress') {
+    return { label: 'IN PROGRESS', color: '#FF9800' };
+  }
+  if (job.jobStatus === 'completed') {
+    return { label: 'COMPLETED', color: '#4CAF50' };
+  }
+  if (job.assignmentStatus === 'accepted') {
+    return { label: 'ACCEPTED', color: '#2196F3' };
+  }
+  return {
+    label: job.jobStatus.replace('_', ' ').toUpperCase(),
+    color: '#2196F3',
+  };
+}
+
 export const DriverJobDetailScreen: React.FC<DriverJobDetailScreenProps> = ({ navigation, route }) => {
   const { jobId } = route.params;
   const { user } = useAuth();
   const { isApproved, showPendingAlert } = useDriverApproved();
+  const { accept, decline } = useAssignedJobOffer();
   const driverId = user?.id ?? '';
 
-  const [job, setJob] = useState<DriverJob & { addressSnapshot?: { addressLine1: string; area: string; phoneNumber: string } } | null>(null);
+  const [job, setJob] = useState<JobDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [accepting, setAccepting] = useState(false);
+  const [declining, setDeclining] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { toast, showToast } = useBriefToast();
 
   const loadJob = useCallback(async () => {
     if (!driverId || !jobId) return;
@@ -102,7 +151,39 @@ export const DriverJobDetailScreen: React.FC<DriverJobDetailScreenProps> = ({ na
     }
   };
 
-  const canStart = job && job.jobStatus !== 'in_progress' && job.jobStatus !== 'completed';
+  const handleAcceptOffer = async () => {
+    if (!job) return;
+    setAccepting(true);
+    try {
+      await accept(job.id);
+      showToast('Priority +4');
+      await loadJob();
+    } catch (e) {
+      Alert.alert('Error', e instanceof Error ? e.message : 'Could not accept this job');
+    } finally {
+      setAccepting(false);
+    }
+  };
+
+  const handleDeclineOffer = async () => {
+    if (!job) return;
+    setDeclining(true);
+    try {
+      await decline(job.id);
+      await loadJob();
+    } catch (e) {
+      Alert.alert('Error', e instanceof Error ? e.message : 'Could not decline this job');
+    } finally {
+      setDeclining(false);
+    }
+  };
+
+  const pendingOffer = Boolean(job && isPendingOffer(job));
+  const canStart =
+    job &&
+    job.assignmentStatus === 'accepted' &&
+    job.jobStatus !== 'in_progress' &&
+    job.jobStatus !== 'completed';
   const canComplete =
     job && job.jobStatus === 'in_progress' && job.paymentStatus === 'paid';
 
@@ -126,16 +207,20 @@ export const DriverJobDetailScreen: React.FC<DriverJobDetailScreenProps> = ({ na
     );
   }
 
+  const badge = badgeForJob(job);
+
   return (
-    <ScrollView style={styles.container}>
+    <View style={styles.container}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={pendingOffer ? { paddingBottom: 280 } : undefined}
+      >
       {!isApproved && <DriverApprovalBanner />}
       <View style={styles.content}>
         <View style={styles.header}>
           <Text style={styles.title}>Job Details</Text>
-          <View style={[styles.statusBadge, { backgroundColor: job.jobStatus === 'completed' ? '#4CAF50' : job.jobStatus === 'in_progress' ? '#FF9800' : '#2196F3' }]}>
-            <Text style={styles.statusText}>
-              {job.jobStatus.replace('_', ' ').toUpperCase()}
-            </Text>
+          <View style={[styles.statusBadge, { backgroundColor: badge.color }]}>
+            <Text style={styles.statusText}>{badge.label}</Text>
           </View>
         </View>
 
@@ -210,6 +295,27 @@ export const DriverJobDetailScreen: React.FC<DriverJobDetailScreenProps> = ({ na
           </Text>
         )}
       </View>
-    </ScrollView>
+      </ScrollView>
+      {pendingOffer ? (
+        <>
+          <TouchableOpacity
+            style={styles.declinePill}
+            onPress={() => guardAction(() => void handleDeclineOffer())}
+            disabled={accepting || declining}
+            accessibilityRole="button"
+            accessibilityLabel="Decline job"
+          >
+            <Text style={styles.declineLabel}>{declining ? 'Declining…' : 'Decline'}</Text>
+          </TouchableOpacity>
+          <JobOfferSheet
+            offer={toJobOffer(job)}
+            onAccept={() => guardAction(() => void handleAcceptOffer())}
+            accepting={accepting}
+            bottomInset={0}
+          />
+        </>
+      ) : null}
+      <BriefToast message={toast} topOffset={16} />
+    </View>
   );
 };

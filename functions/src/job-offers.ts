@@ -24,6 +24,7 @@ const OFFER_TTL_MS = 10_000;
 const TASKS_LOCATION = "europe-west2";
 const DEFAULT_QUEUE = "job-offer-expiry";
 const REGION = "europe-west2";
+const OFFER_ASSIGNMENT_STATUSES = new Set(["assigned", "reassigned"]);
 
 function getProjectId(): string {
   if (process.env.GCLOUD_PROJECT) return process.env.GCLOUD_PROJECT;
@@ -47,7 +48,7 @@ function tasksClient(): CloudTasksClient {
 }
 
 async function enqueueExpireTask(
-  bookingId: string,
+  jobId: string,
   driverId: string,
   expiresAt: Timestamp
 ): Promise<string | null> {
@@ -59,7 +60,7 @@ async function enqueueExpireTask(
     process.env.TASKS_INVOKER_SA || `${project}@appspot.gserviceaccount.com`;
   const client = tasksClient();
   const parent = client.queuePath(project, location, queue);
-  const taskId = `expire-${bookingId}-${expiresAt.toMillis()}`;
+  const taskId = `expire-${jobId}-${expiresAt.toMillis()}`;
 
   const [task] = await client.createTask({
     parent,
@@ -73,7 +74,7 @@ async function enqueueExpireTask(
         httpMethod: "POST",
         url,
         headers: { "Content-Type": "application/json" },
-        body: Buffer.from(JSON.stringify({ bookingId, driverId })).toString("base64"),
+        body: Buffer.from(JSON.stringify({ jobId, driverId })).toString("base64"),
         oidcToken: {
           serviceAccountEmail,
           audience: url,
@@ -97,15 +98,13 @@ async function deleteExpireTask(taskName: unknown): Promise<void> {
   }
 }
 
-function requireBookingId(data: unknown): string {
-  const bookingId =
-    data && typeof data === "object" && "bookingId" in data
-      ? (data as { bookingId?: unknown }).bookingId
-      : undefined;
-  if (typeof bookingId !== "string" || !bookingId.trim()) {
-    throw new HttpsError("invalid-argument", "bookingId is required.");
+function requireJobId(data: unknown): string {
+  const record = data && typeof data === "object" ? (data as Record<string, unknown>) : {};
+  const jobId = record.jobId;
+  if (typeof jobId !== "string" || !jobId.trim()) {
+    throw new HttpsError("invalid-argument", "jobId is required.");
   }
-  return bookingId.trim();
+  return jobId.trim();
 }
 
 async function bumpPriorityInTransaction(
@@ -117,7 +116,6 @@ async function bumpPriorityInTransaction(
   const snap = await tx.get(driverRef);
   if (!snap.exists) return;
   const raw = snap.data()?.priority;
-  // Missing / non-numeric priority must not become NaN when applying deltas.
   const current =
     typeof raw === "number" && Number.isFinite(raw)
       ? clampPriority(raw)
@@ -133,6 +131,10 @@ function isUnexpired(offerExpiresAt: unknown): boolean {
   return Boolean(expires && expires.getTime() > Date.now());
 }
 
+function isOfferAssignmentStatus(status: unknown): boolean {
+  return typeof status === "string" && OFFER_ASSIGNMENT_STATUSES.has(status);
+}
+
 /**
  * Clamp drivers/{uid}.priority to 0–100 on every write. Missing values become 100.
  */
@@ -142,7 +144,6 @@ export const clampDriverPriority = onDocumentWritten(
     const after = event.data?.after;
     if (!after?.exists) return;
     const current = after.data()?.priority;
-    // Missing / non-numeric values are treated as 100 (see clampPriority).
     const clamped = clampPriority(current);
     if (current === clamped) return;
     await after.ref.update({ priority: clamped });
@@ -150,75 +151,67 @@ export const clampDriverPriority = onDocumentWritten(
 );
 
 /**
- * When a booking is newly assigned to a driver (create or update), start a
- * 10s offer window and enqueue expireJobOffer for that instant.
+ * Start the 10s offer window on a newly assigned/reassigned job.
+ * Called from onJobAssigned so push + expiry stay on one trigger.
  */
-export const onBookingAssigned = onDocumentWritten(
-  { document: "bookings/{bookingId}", region: REGION },
-  async (event) => {
-    const change = event.data;
-    const afterSnap = change?.after;
-    if (!change || !afterSnap?.exists) return;
-    const after = afterSnap.data();
-    const before = change.before.exists ? change.before.data() : undefined;
-    const bookingId = event.params.bookingId;
-    if (!after) return;
+export async function startJobOfferWindow(
+  jobId: string,
+  driverId: string
+): Promise<void> {
+  const jobRef = db.doc(`jobs/${jobId}`);
+  const snap = await jobRef.get();
+  if (!snap.exists) return;
+  const job = snap.data() || {};
+  if (job.assignedTo !== driverId) return;
+  if (!isOfferAssignmentStatus(job.assignmentStatus)) return;
 
-    const afterDriverId =
-      typeof after.driverId === "string" && after.driverId ? after.driverId : "";
-    const beforeDriverId =
-      typeof before?.driverId === "string" && before.driverId ? before.driverId : "";
-    const driverNewlySet = Boolean(afterDriverId) && afterDriverId !== beforeDriverId;
-    if (!driverNewlySet || after.status !== "assigned") return;
-
-    const expiresAt = Timestamp.fromMillis(Date.now() + OFFER_TTL_MS);
-    let taskName: string | null = null;
-    try {
-      taskName = await enqueueExpireTask(bookingId, afterDriverId, expiresAt);
-    } catch (error) {
-      logger.error("Failed to enqueue job-offer expiry task", {
-        bookingId,
-        driverId: afterDriverId,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-
-    await change.after.ref.update({
-      offerExpiresAt: expiresAt,
-      ...(taskName ? { offerTaskName: taskName } : { offerTaskName: FieldValue.delete() }),
+  const expiresAt = Timestamp.fromMillis(Date.now() + OFFER_TTL_MS);
+  let taskName: string | null = null;
+  try {
+    taskName = await enqueueExpireTask(jobId, driverId, expiresAt);
+  } catch (error) {
+    logger.error("Failed to enqueue job-offer expiry task", {
+      jobId,
+      driverId,
+      error: error instanceof Error ? error.message : String(error),
     });
   }
-);
+
+  await jobRef.update({
+    offerExpiresAt: expiresAt,
+    ...(taskName ? { offerTaskName: taskName } : { offerTaskName: FieldValue.delete() }),
+  });
+}
 
 export const acceptJobOffer = onCall({ region: REGION }, async (request) => {
   if (!request.auth?.uid) {
     throw new HttpsError("unauthenticated", "Sign in required.");
   }
   const uid = request.auth.uid;
-  const bookingId = requireBookingId(request.data);
-  const bookingRef = db.doc(`bookings/${bookingId}`);
+  const jobId = requireJobId(request.data);
+  const jobRef = db.doc(`jobs/${jobId}`);
   let taskName: unknown;
 
   await db.runTransaction(async (tx) => {
-    const snap = await tx.get(bookingRef);
+    const snap = await tx.get(jobRef);
     if (!snap.exists) {
-      throw new HttpsError("not-found", "Booking not found.");
+      throw new HttpsError("not-found", "Job not found.");
     }
-    const booking = snap.data() || {};
-    taskName = booking.offerTaskName;
-    if (booking.driverId !== uid) {
+    const job = snap.data() || {};
+    taskName = job.offerTaskName;
+    if (job.assignedTo !== uid) {
       throw new HttpsError("permission-denied", "This offer is not assigned to you.");
     }
-    if (booking.status !== "assigned") {
+    if (!isOfferAssignmentStatus(job.assignmentStatus)) {
       throw new HttpsError("failed-precondition", "Offer is no longer available.");
     }
-    if (!isUnexpired(booking.offerExpiresAt)) {
+    if (!isUnexpired(job.offerExpiresAt)) {
       throw new HttpsError("deadline-exceeded", "Offer has expired.");
     }
 
     await bumpPriorityInTransaction(tx, uid, PRIORITY_ACCEPT_DELTA);
-    tx.update(bookingRef, {
-      status: "in_progress",
+    tx.update(jobRef, {
+      assignmentStatus: "accepted",
       offerExpiresAt: FieldValue.delete(),
       offerTaskName: FieldValue.delete(),
       updatedAt: FieldValue.serverTimestamp(),
@@ -234,32 +227,31 @@ export const declineJobOffer = onCall({ region: REGION }, async (request) => {
     throw new HttpsError("unauthenticated", "Sign in required.");
   }
   const uid = request.auth.uid;
-  const bookingId = requireBookingId(request.data);
-  const bookingRef = db.doc(`bookings/${bookingId}`);
+  const jobId = requireJobId(request.data);
+  const jobRef = db.doc(`jobs/${jobId}`);
   let taskName: unknown;
 
   await db.runTransaction(async (tx) => {
-    const snap = await tx.get(bookingRef);
+    const snap = await tx.get(jobRef);
     if (!snap.exists) {
-      throw new HttpsError("not-found", "Booking not found.");
+      throw new HttpsError("not-found", "Job not found.");
     }
-    const booking = snap.data() || {};
-    taskName = booking.offerTaskName;
-    if (booking.driverId !== uid) {
+    const job = snap.data() || {};
+    taskName = job.offerTaskName;
+    if (job.assignedTo !== uid) {
       throw new HttpsError("permission-denied", "This offer is not assigned to you.");
     }
-    if (booking.status !== "assigned") {
+    if (!isOfferAssignmentStatus(job.assignmentStatus)) {
       throw new HttpsError("failed-precondition", "Offer is no longer available.");
     }
-    if (!isUnexpired(booking.offerExpiresAt)) {
+    if (!isUnexpired(job.offerExpiresAt)) {
       throw new HttpsError("deadline-exceeded", "Offer has expired.");
     }
 
     await bumpPriorityInTransaction(tx, uid, PRIORITY_DECLINE_DELTA);
-    tx.update(bookingRef, {
-      driverId: null,
-      driverName: null,
-      status: "pending",
+    tx.update(jobRef, {
+      assignedTo: null,
+      assignmentStatus: "unassigned",
       declinedBy: FieldValue.arrayUnion(uid),
       offerExpiresAt: FieldValue.delete(),
       offerTaskName: FieldValue.delete(),
@@ -276,27 +268,31 @@ export const cancelAcceptedJob = onCall({ region: REGION }, async (request) => {
     throw new HttpsError("unauthenticated", "Sign in required.");
   }
   const uid = request.auth.uid;
-  const bookingId = requireBookingId(request.data);
-  const bookingRef = db.doc(`bookings/${bookingId}`);
+  const jobId = requireJobId(request.data);
+  const jobRef = db.doc(`jobs/${jobId}`);
 
   await db.runTransaction(async (tx) => {
-    const snap = await tx.get(bookingRef);
+    const snap = await tx.get(jobRef);
     if (!snap.exists) {
-      throw new HttpsError("not-found", "Booking not found.");
+      throw new HttpsError("not-found", "Job not found.");
     }
-    const booking = snap.data() || {};
-    if (booking.driverId !== uid) {
+    const job = snap.data() || {};
+    if (job.assignedTo !== uid) {
       throw new HttpsError("permission-denied", "This job is not assigned to you.");
     }
-    if (booking.status !== "in_progress") {
-      throw new HttpsError("failed-precondition", "Job is not in progress.");
+    const accepted = job.assignmentStatus === "accepted";
+    const inProgress = job.jobStatus === "in_progress";
+    if (!accepted && !inProgress) {
+      throw new HttpsError("failed-precondition", "Job is not accepted or in progress.");
     }
 
     await bumpPriorityInTransaction(tx, uid, PRIORITY_CANCEL_DELTA);
-    tx.update(bookingRef, {
-      driverId: null,
-      driverName: null,
-      status: "pending",
+    tx.update(jobRef, {
+      assignedTo: null,
+      assignmentStatus: "unassigned",
+      jobStatus: "scheduled",
+      startedAt: FieldValue.delete(),
+      startedBy: FieldValue.delete(),
       offerExpiresAt: FieldValue.delete(),
       offerTaskName: FieldValue.delete(),
       updatedAt: FieldValue.serverTimestamp(),
@@ -306,31 +302,35 @@ export const cancelAcceptedJob = onCall({ region: REGION }, async (request) => {
   return { ok: true };
 });
 
-export const completeBooking = onCall({ region: REGION }, async (request) => {
+export const completeJob = onCall({ region: REGION }, async (request) => {
   if (!request.auth?.uid) {
     throw new HttpsError("unauthenticated", "Sign in required.");
   }
   const uid = request.auth.uid;
-  const bookingId = requireBookingId(request.data);
-  const bookingRef = db.doc(`bookings/${bookingId}`);
+  const jobId = requireJobId(request.data);
+  const jobRef = db.doc(`jobs/${jobId}`);
 
   await db.runTransaction(async (tx) => {
-    const snap = await tx.get(bookingRef);
+    const snap = await tx.get(jobRef);
     if (!snap.exists) {
-      throw new HttpsError("not-found", "Booking not found.");
+      throw new HttpsError("not-found", "Job not found.");
     }
-    const booking = snap.data() || {};
-    if (booking.driverId !== uid) {
+    const job = snap.data() || {};
+    if (job.assignedTo !== uid) {
       throw new HttpsError("permission-denied", "This job is not assigned to you.");
     }
-    if (booking.status !== "in_progress") {
-      throw new HttpsError("failed-precondition", "Job is not in progress.");
+    if (job.jobStatus === "completed") {
+      throw new HttpsError("failed-precondition", "Job is already completed.");
+    }
+    if (job.jobStatus !== "in_progress") {
+      throw new HttpsError("failed-precondition", "Job must be started before it can be completed.");
     }
 
     const driverRef = db.doc(`drivers/${uid}`);
-    tx.update(bookingRef, {
-      status: "completed",
+    tx.update(jobRef, {
+      jobStatus: "completed",
       completedAt: FieldValue.serverTimestamp(),
+      completedBy: uid,
       updatedAt: FieldValue.serverTimestamp(),
     });
     tx.update(driverRef, {
@@ -362,13 +362,13 @@ async function assertCloudTasksOidc(req: { get: (name: string) => string | undef
   }
 }
 
-function parseExpirePayload(body: unknown): { bookingId: string; driverId: string } | null {
+function parseExpirePayload(body: unknown): { jobId: string; driverId: string } | null {
   const data = typeof body === "string" ? JSON.parse(body) : body;
   if (!data || typeof data !== "object") return null;
-  const bookingId = (data as { bookingId?: unknown }).bookingId;
+  const jobId = (data as { jobId?: unknown }).jobId;
   const driverId = (data as { driverId?: unknown }).driverId;
-  if (typeof bookingId !== "string" || typeof driverId !== "string") return null;
-  return { bookingId, driverId };
+  if (typeof jobId !== "string" || typeof driverId !== "string") return null;
+  return { jobId, driverId };
 }
 
 /**
@@ -385,27 +385,26 @@ export const expireJobOffer = onRequest(
       await assertCloudTasksOidc(req);
       const payload = parseExpirePayload(req.body);
       if (!payload) {
-        res.status(400).json({ error: "bookingId and driverId are required" });
+        res.status(400).json({ error: "jobId and driverId are required" });
         return;
       }
 
-      const bookingRef = db.doc(`bookings/${payload.bookingId}`);
+      const jobRef = db.doc(`jobs/${payload.jobId}`);
       let acted = false;
 
       await db.runTransaction(async (tx) => {
-        const snap = await tx.get(bookingRef);
+        const snap = await tx.get(jobRef);
         if (!snap.exists) return;
-        const booking = snap.data() || {};
-        if (booking.status !== "assigned") return;
-        if (booking.driverId !== payload.driverId) return;
-        const expires = toDate(booking.offerExpiresAt);
+        const job = snap.data() || {};
+        if (!isOfferAssignmentStatus(job.assignmentStatus)) return;
+        if (job.assignedTo !== payload.driverId) return;
+        const expires = toDate(job.offerExpiresAt);
         if (!expires || expires.getTime() > Date.now()) return;
 
         await bumpPriorityInTransaction(tx, payload.driverId, PRIORITY_EXPIRE_DELTA);
-        tx.update(bookingRef, {
-          driverId: null,
-          driverName: null,
-          status: "pending",
+        tx.update(jobRef, {
+          assignedTo: null,
+          assignmentStatus: "unassigned",
           declinedBy: FieldValue.arrayUnion(payload.driverId),
           offerExpiresAt: FieldValue.delete(),
           offerTaskName: FieldValue.delete(),

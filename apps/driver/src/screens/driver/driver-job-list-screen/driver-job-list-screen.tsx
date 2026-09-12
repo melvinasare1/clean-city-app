@@ -32,9 +32,14 @@ function groupByWindow(jobs: DriverJob[]): Record<string, DriverJob[]> {
   return map;
 }
 
+function isPendingOffer(job: DriverJob): boolean {
+  return job.assignmentStatus === 'assigned' || job.assignmentStatus === 'reassigned';
+}
+
 function getStatusColor(status: string): string {
   switch (status) {
     case 'assigned':
+    case 'reassigned':
     case 'scheduled':
       return '#2196F3';
     case 'in_progress':
@@ -43,6 +48,23 @@ function getStatusColor(status: string): string {
       return COLORS.success;
     default:
       return COLORS.textSecondary;
+  }
+}
+
+function badgeForJob(job: DriverJob): { label: string; color: string } {
+  if (isPendingOffer(job)) {
+    return { label: 'Awaiting your response', color: '#2196F3' };
+  }
+  switch (job.jobStatus) {
+    case 'in_progress':
+      return { label: 'IN PROGRESS', color: '#FF9800' };
+    case 'completed':
+      return { label: 'COMPLETED', color: COLORS.success };
+    default:
+      return {
+        label: job.jobStatus.replace('_', ' ').toUpperCase(),
+        color: getStatusColor(job.jobStatus),
+      };
   }
 }
 
@@ -89,7 +111,9 @@ export const DriverJobListScreen: React.FC<DriverJobListScreenProps> = ({ naviga
           Object.entries(grouped).map(([windowLabel, windowJobs]) => (
             <View key={windowLabel} style={{ marginBottom: 12 }}>
               <Text style={[styles.title, { fontSize: 14, marginBottom: 6 }]}>{windowLabel}</Text>
-              {windowJobs.map((job) => (
+              {windowJobs.map((job) => {
+                const badge = badgeForJob(job);
+                return (
                 <TouchableOpacity
                   key={job.id}
                   style={styles.card}
@@ -100,12 +124,10 @@ export const DriverJobListScreen: React.FC<DriverJobListScreenProps> = ({ naviga
                     <View
                       style={[
                         styles.statusBadge,
-                        { backgroundColor: getStatusColor(job.jobStatus) },
+                        { backgroundColor: badge.color },
                       ]}
                     >
-                      <Text style={styles.statusText}>
-                        {job.jobStatus.replace('_', ' ').toUpperCase()}
-                      </Text>
+                      <Text style={styles.statusText}>{badge.label}</Text>
                     </View>
                   </View>
                   <View style={styles.cardDetails}>
@@ -114,7 +136,8 @@ export const DriverJobListScreen: React.FC<DriverJobListScreenProps> = ({ naviga
                   </View>
                   <Text style={styles.cardNote}>Tap to view details</Text>
                 </TouchableOpacity>
-              ))}
+                );
+              })}
             </View>
           ))
         )}

@@ -1,28 +1,72 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActionSheetIOS, Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { colors, radius, spacing, typography } from '@platform/shared-theme';
 import type { ActiveTrip } from '@/hooks/useAssignedJobOffer';
 
 type Props = {
   trip: ActiveTrip;
+  onStart: () => void;
   onComplete: () => void;
   onCancel: () => void;
+  starting?: boolean;
   completing?: boolean;
   cancelling?: boolean;
   bottomInset?: number;
 };
 
+const CANCEL_CONFIRM_COPY =
+  'Cancelling will reduce your priority by 10. Frequent cancellations can lead to account suspension.';
+
+function showHelpStub() {
+  Alert.alert('Get help', 'Support is coming soon. If you need assistance now, contact Clean City.');
+}
+
+function confirmCancelTrip(onCancel: () => void) {
+  Alert.alert('Cancel this trip?', CANCEL_CONFIRM_COPY, [
+    { text: 'Keep trip', style: 'cancel' },
+    { text: 'Cancel trip', style: 'destructive', onPress: onCancel },
+  ]);
+}
+
+function openTripOverflowMenu(onCancel: () => void) {
+  if (Platform.OS === 'ios') {
+    ActionSheetIOS.showActionSheetWithOptions(
+      {
+        options: ['Get help', 'Cancel trip', 'Close'],
+        destructiveButtonIndex: 1,
+        cancelButtonIndex: 2,
+      },
+      (buttonIndex) => {
+        if (buttonIndex === 0) showHelpStub();
+        if (buttonIndex === 1) confirmCancelTrip(onCancel);
+      }
+    );
+    return;
+  }
+
+  Alert.alert('Trip options', undefined, [
+    { text: 'Get help', onPress: showHelpStub },
+    { text: 'Cancel trip', style: 'destructive', onPress: () => confirmCancelTrip(onCancel) },
+    { text: 'Close', style: 'cancel' },
+  ]);
+}
+
 export function ActiveTripSheet({
   trip,
+  onStart,
   onComplete,
   onCancel,
+  starting,
   completing,
   cancelling,
   bottomInset = 0,
 }: Props) {
   const fare = trip.totalPrice ?? trip.amountPaid;
-  const busy = Boolean(completing || cancelling);
+  const busy = Boolean(starting || completing || cancelling);
+  const canStart =
+    trip.assignmentStatus === 'accepted' && (trip.jobStatus === 'scheduled' || !trip.jobStatus);
+  const canComplete = trip.jobStatus === 'in_progress';
 
   return (
     <View style={[styles.sheet, { paddingBottom: spacing.xl + bottomInset }]}>
@@ -30,16 +74,30 @@ export function ActiveTripSheet({
 
       <View style={styles.headerRow}>
         <View style={styles.headerCopy}>
-          <Text style={typography.statusTitle}>Trip in progress</Text>
+          <Text style={typography.statusTitle}>
+            {canComplete ? 'Trip in progress' : 'Job accepted'}
+          </Text>
           <Text style={[typography.statusSubtext, styles.timestamp]}>
-            Head to the pickup
+            {canComplete ? 'Head to the pickup' : 'Start when you head to the pickup'}
           </Text>
         </View>
-        {fare != null ? (
-          <View style={styles.farePill}>
-            <Text style={typography.earningsValue}>¢{Number(fare).toFixed(2)}</Text>
-          </View>
-        ) : null}
+        <View style={styles.headerActions}>
+          {fare != null ? (
+            <View style={styles.farePill}>
+              <Text style={typography.earningsValue}>¢{Number(fare).toFixed(2)}</Text>
+            </View>
+          ) : null}
+          <Pressable
+            onPress={() => openTripOverflowMenu(onCancel)}
+            disabled={busy}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="More trip actions"
+            style={[styles.overflowButton, busy && styles.btnDisabled]}
+          >
+            <Feather name="more-horizontal" size={20} color={colors.inkPrimary} />
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.detailCard}>
@@ -63,25 +121,19 @@ export function ActiveTripSheet({
 
       <Pressable
         style={[styles.btnComplete, busy && styles.btnDisabled]}
-        onPress={onComplete}
-        disabled={busy}
+        onPress={canComplete ? onComplete : onStart}
+        disabled={busy || (!canStart && !canComplete)}
         accessibilityRole="button"
-        accessibilityLabel="Complete job"
+        accessibilityLabel={canComplete ? 'Complete job' : 'Start job'}
       >
         <Text style={styles.btnCompleteLabel}>
-          {completing ? 'Completing…' : 'Complete job'}
-        </Text>
-      </Pressable>
-
-      <Pressable
-        onPress={onCancel}
-        disabled={busy}
-        accessibilityRole="button"
-        accessibilityLabel="Cancel trip"
-        style={styles.cancelLink}
-      >
-        <Text style={[styles.cancelLabel, busy && styles.cancelDisabled]}>
-          {cancelling ? 'Cancelling…' : 'Cancel trip'}
+          {canComplete
+            ? completing
+              ? 'Completing…'
+              : 'Complete job'
+            : starting
+              ? 'Starting…'
+              : 'Start job'}
         </Text>
       </Pressable>
     </View>
@@ -124,6 +176,18 @@ const styles = StyleSheet.create({
   headerCopy: {
     flex: 1,
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  overflowButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   timestamp: {
     marginTop: 2,
   },
@@ -164,17 +228,5 @@ const styles = StyleSheet.create({
   btnCompleteLabel: {
     ...typography.button,
     color: '#fff',
-  },
-  cancelLink: {
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-  },
-  cancelLabel: {
-    ...typography.body,
-    color: colors.signalRed,
-    fontWeight: '600',
-  },
-  cancelDisabled: {
-    opacity: 0.55,
   },
 });

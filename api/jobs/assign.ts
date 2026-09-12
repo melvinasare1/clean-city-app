@@ -7,6 +7,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getFirestore } from "../lib/firebase-admin";
 import { getDriverDoc } from "../lib/collections";
+import { parsePickupCoordinates } from "../lib/geocode-address";
 
 const JOBS_COLLECTION = "jobs";
 
@@ -93,6 +94,7 @@ export default async function handler(
       assignedAt: assignedAt ? assignedAt.toISOString() : null,
       assignedBy: u.assignedBy ?? null,
       addressSnapshot: u.addressSnapshot ?? { addressLine1: "", area: "", phoneNumber: "" },
+      pickup: parsePickupCoordinates(u.pickup),
     });
   } catch (error: unknown) {
     console.error("[POST /api/jobs/assign] Error:", error);
