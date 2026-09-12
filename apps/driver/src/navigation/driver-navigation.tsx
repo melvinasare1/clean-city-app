@@ -4,13 +4,9 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { DriverHomeScreen } from '../screens/driver/driver-home-screen/driver-home-screen';
 import { DriverJobListScreen } from '../screens/driver/driver-job-list-screen/driver-job-list-screen';
 import { DriverJobDetailScreen } from '../screens/driver/driver-job-details-screen/driver-job-details-screen';
+import { DailyEarningsDetailsScreen } from '../screens/driver/daily-earnings-details-screen/daily-earnings-details-screen';
 import { COLORS } from '../lib/constants';
-
-export type DriverStackParamList = {
-    DriverHome: undefined;
-    DriverJobList: undefined;
-    DriverJobDetail: { jobId: string };
-};
+import type { DriverStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<DriverStackParamList>();
 
@@ -48,6 +44,13 @@ export const DriverNavigator: React.FC = () => {
                 component={DriverJobDetailScreen}
                 options={{
                     title: 'Job Details',
+                }}
+            />
+            <Stack.Screen
+                name="DailyEarningsDetails"
+                component={DailyEarningsDetailsScreen}
+                options={{
+                    headerShown: false,
                 }}
             />
         </Stack.Navigator>

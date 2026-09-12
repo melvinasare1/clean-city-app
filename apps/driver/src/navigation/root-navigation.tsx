@@ -1,14 +1,25 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '@platform/shared-firebase';
 import { useAuth } from '../hooks/useAuth';
 import { AuthNavigator } from './auth-navigation';
 import { DriverNavigator } from './driver-navigation';
 import { DriverStatusProvider } from '@/contexts/driver-status-context';
 import { DriverShiftProvider } from '@/contexts/driver-shift-context';
-import { getDriverStatus, type DriverStatus } from '@/services/driver-api';
 import { COLORS } from '../lib/constants';
 import { trackEvent } from '@/services/analytics';
 import { WrongAppScreen } from '@/screens/wrong-app-screen';
+import {
+  isDriverApprovedStatus,
+  normalizeDriverStatus,
+  type DriverAccountStatus,
+} from '@/lib/driver-account';
+
+type DriverStatus = {
+  status: DriverAccountStatus;
+  isApproved: boolean;
+};
 
 export const RootNavigator: React.FC = () => {
     const { user, loading } = useAuth();
@@ -32,37 +43,36 @@ export const RootNavigator: React.FC = () => {
             setDriverStatusResult(null);
             return;
         }
-        let cancelled = false;
+
         setDriverStatusLoading(true);
-        getDriverStatus(user.id)
-            .then((s) => {
-                if (!cancelled) {
-                    setDriverStatusResult(s ?? null);
-                }
-            })
-            .catch((err) => {
-                console.error('[RootNavigator] getDriverStatus failed:', err);
-                if (!cancelled) {
-                    setDriverStatusResult(null);
-                }
-            })
-            .finally(() => {
-                if (!cancelled) {
+        const unsub = onSnapshot(
+            doc(db, 'drivers', user.id),
+            (snap) => {
+                if (!snap.exists()) {
+                    setDriverStatusResult({ status: 'pending', isApproved: false });
                     setDriverStatusLoading(false);
+                    return;
                 }
-            });
-        return () => {
-            cancelled = true;
-        };
+                const status = normalizeDriverStatus(snap.data() as Record<string, unknown>);
+                setDriverStatusResult({
+                    status,
+                    isApproved: isDriverApprovedStatus(status),
+                });
+                setDriverStatusLoading(false);
+            },
+            (err) => {
+                console.error('[RootNavigator] driver status listener failed:', err);
+                setDriverStatusLoading(false);
+            }
+        );
+        return unsub;
     }, [user?.role, user?.id]);
 
     const refreshDriverStatus = useCallback(async () => {
-        if (!user?.id) return;
-        const s = await getDriverStatus(user.id);
-        setDriverStatusResult(s ?? null);
-    }, [user?.id]);
+        // Live listener keeps status current; no-op keeps call sites working.
+    }, []);
 
-    const showLoading = loading || (user?.role === 'driver' && driverStatusLoading);
+    const showLoading = loading || (user?.role === 'driver' && driverStatusLoading && !driverStatusResult && !user.driverStatus);
 
     if (showLoading) {
         return (
@@ -81,7 +91,8 @@ export const RootNavigator: React.FC = () => {
     }
 
     const isApproved =
-        driverStatusResult !== null && driverStatusResult.isApproved === true;
+        driverStatusResult?.isApproved === true ||
+        user.driverStatus === 'approved';
     return (
         <DriverStatusProvider
             value={{

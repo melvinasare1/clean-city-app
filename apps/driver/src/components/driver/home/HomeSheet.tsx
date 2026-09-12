@@ -1,7 +1,11 @@
 import React from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable as GesturePressable } from 'react-native-gesture-handler';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Feather } from '@expo/vector-icons';
 import { colors, radius, spacing, typography } from '@platform/shared-theme';
+import type { DriverStackParamList } from '@/navigation/types';
 
 type Props = {
   greeting: string;
@@ -9,7 +13,7 @@ type Props = {
   isOnline: boolean;
   todaysEarnings: number;
   onToggleOnline: () => void;
-  onEarningsPress: () => void;
+  onEarningsPress?: () => void;
   toggleLoading?: boolean;
   bottomInset?: number;
 };
@@ -24,6 +28,13 @@ export function HomeSheet({
   toggleLoading,
   bottomInset = 0,
 }: Props) {
+  const navigation = useNavigation<NativeStackNavigationProp<DriverStackParamList>>();
+
+  const openEarnings = () => {
+    navigation.navigate('DailyEarningsDetails');
+    onEarningsPress?.();
+  };
+
   return (
     <View style={[styles.sheet, { paddingBottom: spacing.xl + bottomInset }]}>
       <View style={styles.grabber} />
@@ -38,18 +49,19 @@ export function HomeSheet({
           </Text>
         </View>
 
-        <Pressable
+        <GesturePressable
           style={styles.earningsPill}
-          onPress={onEarningsPress}
+          onPress={openEarnings}
           accessibilityRole="button"
           accessibilityLabel="Today's earnings"
+          hitSlop={8}
         >
-          <View>
+          <View pointerEvents="none">
             <Text style={typography.earningsValue}>¢{todaysEarnings.toFixed(2)}</Text>
             <Text style={typography.earningsLabel}>Today's earnings</Text>
           </View>
           <Feather name="chevron-right" size={16} color={colors.inkSecondary} />
-        </Pressable>
+        </GesturePressable>
       </View>
 
       <View style={styles.statusRow}>
@@ -116,8 +128,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 1,
     shadowRadius: 20,
     shadowOffset: { width: 0, height: -6 },
-    elevation: 10,
-    zIndex: 20,
+    elevation: 24,
+    zIndex: 40,
   },
   grabber: {
     width: 36,

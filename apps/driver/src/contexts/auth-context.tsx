@@ -99,7 +99,7 @@ async function readDriverDocument(
         const driverSnap = await getDoc(doc(db, 'drivers', uid));
         if (driverSnap.exists()) {
             const driverData = driverSnap.data() as Record<string, unknown>;
-            if (driverData?.role === 'driver') {
+            if (driverData?.role == null || driverData.role === 'driver') {
                 return driverData;
             }
         }

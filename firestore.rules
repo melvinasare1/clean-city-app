@@ -10,16 +10,19 @@ service cloud.firestore {
     }
     function isAdmin() {
       return isSignedIn()
+        && exists(/databases/$(database)/documents/profiles/$(request.auth.uid))
         && get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.role == 'admin';
     }
+    function driverPath() {
+      return /databases/$(database)/documents/drivers/$(request.auth.uid);
+    }
     function isDriver() {
-      return isSignedIn()
-        && get(/databases/$(database)/documents/drivers/$(request.auth.uid)).data.role == 'driver';
+      return isSignedIn() && exists(driverPath());
     }
     function isApprovedDriver() {
       return isDriver()
-        && (get(/databases/$(database)/documents/drivers/$(request.auth.uid)).data.status == 'approved'
-          || get(/databases/$(database)/documents/drivers/$(request.auth.uid)).data.isActive == true);
+        && (get(driverPath()).data.status == 'approved'
+          || get(driverPath()).data.isActive == true);
     }
 
     // Admin can do everything (web admin dashboard)
@@ -97,6 +100,19 @@ service cloud.firestore {
     // Jobs — API (Admin SDK) only, no client access
     match /jobs/{jobId} {
       allow read, write: if false;
+    }
+
+    // Driver shift sessions — queryable online-time history (not RTDB presence).
+    // List queries must include driverId == request.auth.uid so they satisfy this rule.
+    match /driverShiftSessions/{sessionId} {
+      allow read: if isSignedIn() && resource.data.driverId == request.auth.uid;
+      allow create: if isSignedIn()
+        && request.resource.data.driverId == request.auth.uid;
+      allow update: if isSignedIn()
+        && resource.data.driverId == request.auth.uid
+        && request.resource.data.driverId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['endedAt']);
+      allow delete: if false;
     }
   }
 }
