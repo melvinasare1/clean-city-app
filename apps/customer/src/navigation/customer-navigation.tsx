@@ -4,7 +4,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { CustomerHomeScreen } from '../screens/customer/customer-home-screen/customer-home-screen';
-import { NewBookingScreen } from '../screens/customer/new-booking-screen/new-booking-screen';
+import { BookPickupScreen } from '../screens/customer/book-pickup-screen';
 import { MyBookingsScreen } from '../screens/customer/my-bookings/my-bookings-screen';
 import { BookingDetailScreen } from '../screens/customer/booking-detail/booking-detail-screen';
 import { CompleteProfileScreen } from '../screens/customer/complete-profile/complete-profile-screen';
@@ -140,13 +140,13 @@ export const CustomerNavigator: React.FC = () => {
             />
             <Stack.Screen
                 name="NewBooking"
-                component={NewBookingScreen}
-                options={{ title: 'Book a Pickup' }}
+                component={BookPickupScreen}
+                options={{ headerShown: false, title: 'Book a Pickup' }}
             />
             <Stack.Screen
                 name="CreateBooking"
                 component={CreateBookingScreen}
-                options={{ title: 'Schedule Pickup' }}
+                options={{ headerShown: false, title: 'Schedule Pickup' }}
             />
             <Stack.Screen
                 name="BookingDetail"

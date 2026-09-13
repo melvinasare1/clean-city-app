@@ -1,1 +1,4 @@
-export * from "./new-booking-screen";
+export {
+  BookPickupScreen,
+  NewBookingScreen,
+} from '../book-pickup-screen';

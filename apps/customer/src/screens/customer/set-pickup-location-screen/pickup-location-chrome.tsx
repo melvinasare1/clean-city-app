@@ -51,9 +51,10 @@ export function PickupLocationChrome({
       ? 'Searching…'
       : null;
 
-  const addressLine = mapMoving || geocoding
-    ? 'Finding address…'
-    : liveAddress;
+  const addressLine =
+    mapMoving || geocoding
+      ? liveAddress || 'Finding address…'
+      : liveAddress;
 
   return (
     <>

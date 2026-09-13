@@ -1,281 +1,417 @@
-import { StyleSheet } from "react-native";
-import { COLORS, VARS } from "@/lib/constants";
+import { StyleSheet } from 'react-native';
+import { COLORS, VARS } from '@/lib/constants';
+
+const CARD_RADIUS = 16;
+const BORDER = COLORS.background;
 
 export const styles = StyleSheet.create({
-  form: {
-    padding: VARS.medium,
-    gap: VARS.small,
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: VARS.xsmall,
+    paddingTop: VARS.xxsmall,
+    paddingBottom: VARS.xsmall,
+    backgroundColor: COLORS.white,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  helpPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: BORDER,
+    borderRadius: 22,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  helpPillText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  titleBlock: {
+    paddingHorizontal: VARS.small,
+    paddingBottom: VARS.small,
+    backgroundColor: COLORS.white,
   },
   title: {
-    fontSize: 24,
-    fontWeight: "700",
+    fontSize: 28,
+    fontWeight: '700',
     color: COLORS.text,
   },
   subtitle: {
-    fontSize: 16,
-    color: COLORS.textSecondary,
-    marginBottom: VARS.small,
-    lineHeight: 22,
-  },
-  summaryCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: VARS.small,
-    padding: VARS.medium,
-    borderWidth: 1,
-    borderColor: "#E0E0E0",
-  },
-  summaryTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: VARS.xsmall,
-    color: COLORS.text,
-  },
-  summaryItem: {
-    marginTop: VARS.xsmall,
-  },
-  summaryItemType: {
+    marginTop: 4,
     fontSize: 15,
-    fontWeight: "600",
-    color: COLORS.text,
-  },
-  summaryItemMeta: {
-    fontSize: 13,
     color: COLORS.textSecondary,
   },
-  summaryDivider: {
-    height: 1,
-    backgroundColor: "#E0E0E0",
-    marginVertical: VARS.small,
+  scrollView: {
+    flex: 1,
   },
-  summaryTotalRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  summaryTotalLabel: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.textSecondary,
-  },
-  summaryTotalValue: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: COLORS.primary,
-  },
-  summaryOriginalValue: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    textDecorationLine: "line-through",
-  },
-  summarySavingsText: {
-    fontSize: 13,
-    color: COLORS.primary,
-  },
-  noItemsNotice: {
-    backgroundColor: "#FFF3E0",
-    borderRadius: VARS.xsmall,
-    padding: VARS.small,
-  },
-  noItemsText: {
-    fontSize: 13,
-    color: COLORS.accent,
-    lineHeight: 18,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: COLORS.text,
-    marginTop: VARS.small,
-  },
-  dateSelector: {
-    marginTop: VARS.xsmall,
-    borderRadius: VARS.xsmall,
-    borderWidth: 1,
-    borderColor: "#E0E0E0",
-    paddingVertical: VARS.small,
+  scrollContent: {
     paddingHorizontal: VARS.small,
-    backgroundColor: COLORS.white,
+    paddingTop: VARS.small,
+    paddingBottom: VARS.medium,
   },
-  dateSelectorText: {
-    fontSize: 16,
+  sectionLabel: {
+    fontSize: 14,
+    fontWeight: '700',
     color: COLORS.text,
+    marginBottom: VARS.xsmall,
   },
-  windowButtonsContainer: {
-    marginTop: VARS.xsmall,
+  timeWindowBlock: {
+    marginBottom: VARS.medium,
+  },
+  segmentTrack: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.background,
+    borderRadius: 28,
+    padding: 4,
+    marginBottom: VARS.medium,
+  },
+  segmentButton: {
+    flex: 1,
+    borderRadius: 24,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  segmentButtonActive: {
+    backgroundColor: COLORS.primary,
+  },
+  segmentText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: COLORS.textSecondary,
+  },
+  segmentTextActive: {
+    color: COLORS.white,
+  },
+  card: {
+    backgroundColor: COLORS.white,
+    borderRadius: CARD_RADIUS,
+    borderWidth: 1,
+    borderColor: BORDER,
+    padding: VARS.small,
+    marginBottom: VARS.medium,
+  },
+  dateCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: VARS.xsmall,
   },
-  windowButton: {
-    paddingVertical: VARS.small,
-    paddingHorizontal: VARS.small,
-    borderRadius: VARS.xsmall,
-    borderWidth: 1,
-    borderColor: "#E0E0E0",
+  dateIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: COLORS.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dateCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  dateTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  dateHint: {
+    marginTop: 2,
+    fontSize: 13,
+    color: COLORS.textSecondary,
+  },
+  frequencyList: {
+    gap: VARS.xsmall,
+    marginBottom: VARS.medium,
+  },
+  frequencyCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: CARD_RADIUS,
+    borderWidth: 1.5,
+    borderColor: BORDER,
+    padding: VARS.small,
+  },
+  frequencyCardSelected: {
+    borderColor: COLORS.primary,
     backgroundColor: COLORS.white,
   },
-  windowButtonSelected: {
-    borderColor: COLORS.primary,
-    backgroundColor: "#E8F5E9",
-  },
-  windowButtonText: {
-    fontSize: 16,
-    color: COLORS.text,
-  },
-  windowButtonTextSelected: {
-    color: COLORS.primary,
-    fontWeight: "600",
-  },
-  frequencyCardInner: {
-    width: "100%",
-    gap: 6,
-  },
-  frequencyCardTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    flexWrap: "wrap",
+  frequencyTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: VARS.xxsmall,
   },
-  frequencyCardTitle: {
-    fontSize: 17,
-    fontWeight: "700",
+  frequencyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
     color: COLORS.text,
   },
-  frequencyCardTitleSelected: {
+  frequencyTitleSelected: {
     color: COLORS.primary,
   },
-  frequencyDiscountBadge: {
-    alignSelf: "flex-start",
+  frequencyBadge: {
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
-    backgroundColor: "#E8F5E9",
-    borderWidth: 1,
-    borderColor: COLORS.primary,
+    backgroundColor: COLORS.background,
   },
-  frequencyDiscountBadgeText: {
+  frequencyBadgeText: {
     fontSize: 11,
-    fontWeight: "700",
+    fontWeight: '700',
     color: COLORS.primary,
   },
-  frequencyCardDetail: {
+  frequencyDetail: {
+    marginTop: 4,
     fontSize: 13,
-    lineHeight: 18,
     color: COLORS.textSecondary,
   },
-  frequencyCardDetailSelected: {
-    color: COLORS.text,
-  },
   frequencyPriceRow: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    flexWrap: "wrap",
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    flexWrap: 'wrap',
     gap: 8,
-    marginTop: 2,
+    marginTop: 6,
   },
   frequencyPriceOriginal: {
     fontSize: 14,
     color: COLORS.textSecondary,
-    textDecorationLine: "line-through",
+    textDecorationLine: 'line-through',
   },
   frequencyPriceDiscount: {
     fontSize: 15,
-    fontWeight: "700",
+    fontWeight: '700',
     color: COLORS.primary,
-  },
-  dayDropdown: {
-    marginTop: VARS.xsmall,
-    marginBottom: VARS.medium,
-    borderRadius: VARS.xsmall,
-    borderWidth: 1,
-    borderColor: "#E0E0E0",
-    paddingVertical: VARS.small,
-    paddingHorizontal: VARS.small,
-    backgroundColor: COLORS.white,
-  },
-  dayDropdownText: {
-    fontSize: 16,
-    color: COLORS.text,
-  },
-  dayDropdownPlaceholder: {
-    fontSize: 16,
-    color: COLORS.textSecondary,
   },
   collectionHelperText: {
     fontSize: 13,
-    fontWeight: "700",
     color: COLORS.textSecondary,
-    marginTop: VARS.xxsmall,
+    marginTop: -12,
+    marginBottom: VARS.medium,
     lineHeight: 18,
   },
-  dayModalOverlay: {
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: VARS.xsmall,
+    paddingVertical: 10,
+  },
+  summaryIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: COLORS.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  summaryItemLabel: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: VARS.medium,
-  },
-  dayModal: {
-    width: "100%",
-    maxHeight: "80%",
-    backgroundColor: COLORS.white,
-    borderRadius: VARS.small,
-    padding: VARS.medium,
-  },
-  dayModalTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    marginBottom: VARS.small,
+    fontSize: 15,
+    fontWeight: '600',
     color: COLORS.text,
   },
-  dayOption: {
-    paddingVertical: VARS.xsmall,
-  },
-  dayOptionText: {
-    fontSize: 16,
+  summaryItemPrice: {
+    fontSize: 15,
+    fontWeight: '600',
     color: COLORS.text,
   },
-  dayModalCancel: {
-    marginTop: VARS.small,
-    paddingVertical: VARS.xsmall,
-    alignItems: "center",
+  summaryDivider: {
+    height: 1,
+    backgroundColor: BORDER,
+    marginVertical: 4,
   },
-  dayModalCancelText: {
-    fontSize: 16,
-    color: COLORS.error,
-    fontWeight: "600",
+  summaryTotalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 8,
   },
-  locationText: {
+  summaryTotalLabel: {
     fontSize: 16,
+    fontWeight: '700',
     color: COLORS.text,
-    marginTop: VARS.xsmall,
   },
-  locationWarningContainer: {
-    backgroundColor: "#FFF3E0",
-    borderRadius: VARS.xsmall,
-    padding: VARS.small,
-    marginTop: VARS.xsmall,
+  summaryTotalValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.text,
   },
-  locationWarning: {
+  summaryTotalAmounts: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  summaryOriginalValue: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    textDecorationLine: 'line-through',
+    marginRight: 8,
+  },
+  summarySavingsText: {
+    marginTop: 6,
+    fontSize: 13,
+    color: COLORS.primary,
+  },
+  addressCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: VARS.xsmall,
+  },
+  addressCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  addressText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  addressMissing: {
     fontSize: 14,
     color: COLORS.accent,
-    marginBottom: VARS.xsmall,
   },
-  completeProfileLink: {
-    alignSelf: "flex-start",
+  changeLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
   },
-  completeProfileText: {
+  changeLinkText: {
     fontSize: 14,
+    fontWeight: '700',
     color: COLORS.primary,
-    fontWeight: "600",
   },
-  confirmButton: {
-    marginTop: VARS.medium,
-    width: "100%",
+  paymentRow: {
+    flexDirection: 'row',
+    gap: VARS.xsmall,
   },
-  confirmButtonDisabled: {
-    opacity: 0.7,
+  paymentCard: {
+    flex: 1,
+    borderRadius: CARD_RADIUS,
+    borderWidth: 1.5,
+    borderColor: BORDER,
+    backgroundColor: COLORS.white,
+    padding: VARS.xsmall,
   },
-  confirmButtonText: {
-    fontWeight: "600",
+  paymentCardSelected: {
+    borderColor: COLORS.primary,
+  },
+  paymentCardDisabled: {
+    opacity: 0.55,
+    backgroundColor: COLORS.background,
+  },
+  paymentCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  paymentIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: COLORS.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  paymentRadio: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: COLORS.textSecondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.white,
+  },
+  paymentRadioSelected: {
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primary,
+  },
+  paymentTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  paymentSubtitle: {
+    marginTop: 2,
+    fontSize: 12,
+    lineHeight: 16,
+    color: COLORS.textSecondary,
+  },
+  comingSoon: {
+    marginTop: 6,
+    alignSelf: 'flex-start',
+    backgroundColor: COLORS.background,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  comingSoonText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.textSecondary,
+  },
+  noItemsNotice: {
+    backgroundColor: COLORS.amberLight,
+    borderRadius: VARS.xsmall,
+    padding: VARS.small,
+    marginBottom: VARS.small,
+  },
+  noItemsText: {
+    fontSize: 13,
+    color: COLORS.amberDark,
+    lineHeight: 18,
+  },
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: VARS.small,
+    paddingHorizontal: VARS.small,
+    paddingTop: VARS.small,
+    backgroundColor: COLORS.white,
+    borderTopWidth: 1,
+    borderTopColor: BORDER,
+  },
+  totalLabel: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    marginBottom: 2,
+  },
+  totalValue: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  continueButton: {
+    flex: 1,
+    maxWidth: 230,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: COLORS.primary,
+    borderRadius: 28,
+    paddingVertical: 16,
+    paddingHorizontal: VARS.small,
+  },
+  continueButtonDisabled: {
+    opacity: 0.4,
+  },
+  continueButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: COLORS.white,
   },
 });

@@ -69,12 +69,11 @@ export function SubscriptionCollectionCalendarModal({
   const [viewMonth, setViewMonth] = useState(() => new Date().getMonth());
 
   useEffect(() => {
-    if (visible) {
-      const now = new Date();
-      setViewYear(now.getFullYear());
-      setViewMonth(now.getMonth());
-    }
-  }, [visible]);
+    if (!visible) return;
+    const anchor = selectedDate ?? minimumDate;
+    setViewYear(anchor.getFullYear());
+    setViewMonth(anchor.getMonth());
+  }, [visible, selectedDate, minimumDate]);
 
   const weeks = useMemo(
     () => buildMonthGrid(viewYear, viewMonth),

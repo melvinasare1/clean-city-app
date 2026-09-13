@@ -3,14 +3,16 @@ import { Alert, Keyboard, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText } from '@/components';
+import { useAuth } from '@/hooks/useAuth';
 import { getDeviceCoordinates } from '@/lib/device-location';
 import { getPlaceDetails, type AddressSuggestion } from '@/lib/google-places-search';
-import { reverseGeocodePermanent } from '@/lib/permanent-geocode';
+import { reverseGeocode } from '@/lib/google-geocode';
 import {
   GHANA_FALLBACK_CENTER,
   type PickupCoordinates,
 } from '@/lib/profile-location';
 import { CustomerStackParamList } from '@/navigation/types';
+import { persistPickupLocationToProfile } from './persist-pickup-location';
 import { PickupLocationChrome } from './pickup-location-chrome';
 import { styles } from './set-pickup-location-screen.styles';
 import { usePickupSearch } from './use-pickup-search';
@@ -19,6 +21,7 @@ type Props = NativeStackScreenProps<CustomerStackParamList, 'SetPickupLocation'>
 
 export function SetPickupLocationFallbackScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
+  const { user, refreshUserProfile } = useAuth();
   const cameraCenterRef = useRef<PickupCoordinates | null>(
     route.params?.initialLocation ?? GHANA_FALLBACK_CENTER
   );
@@ -42,7 +45,7 @@ export function SetPickupLocationFallbackScreen({ navigation, route }: Props) {
   const applyLocation = useCallback((location: PickupCoordinates) => {
     cameraCenterRef.current = location;
     setGeocoding(true);
-    reverseGeocodePermanent(location.lat, location.lng)
+    reverseGeocode(location.lat, location.lng)
       .then((hit) => {
         setLiveAddress(hit?.address || hit?.name?.trim() || null);
       })
@@ -91,17 +94,35 @@ export function SetPickupLocationFallbackScreen({ navigation, route }: Props) {
       console.error('Current location failed:', err);
       Alert.alert(
         'Location failed',
-        'Search for an address for now. The live map needs a rebuilt customer app with Mapbox linked.'
+        'Search for an address for now. The live map needs a rebuilt customer app with the map module linked.'
       );
     } finally {
       setLocating(false);
     }
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     const location = cameraCenterRef.current;
     if (!location) return;
     const address = (liveAddress || query).trim() || 'Selected location';
+    if (route.params?.saveToProfile) {
+      if (!user?.id) {
+        Alert.alert('Error', 'You need to be logged in to save a pickup address.');
+        return;
+      }
+      try {
+        await persistPickupLocationToProfile(user.id, address, location);
+        await refreshUserProfile();
+        navigation.goBack();
+      } catch (err) {
+        console.error('[pickup] persist address failed', err);
+        Alert.alert(
+          'Could not save address',
+          err instanceof Error ? err.message : 'Please try again.'
+        );
+      }
+      return;
+    }
     navigation.navigate({
       name: 'CompleteProfile',
       params: { pickup: { address, location } },
@@ -117,9 +138,9 @@ export function SetPickupLocationFallbackScreen({ navigation, route }: Props) {
       <View style={styles.fallback}>
         <AppText style={styles.fallbackTitle}>Rebuild needed for the map</AppText>
         <AppText style={styles.fallbackBody}>
-          This install of Clean City was built before Mapbox was added. Reload
-          will not fix it — install a new customer development build, then open
-          this screen again. Search still works below until then.
+          This install of Clean City was built before the live map was added.
+          Reload will not fix it — install a new customer development build,
+          then open this screen again. Search still works below until then.
         </AppText>
       </View>
       <View

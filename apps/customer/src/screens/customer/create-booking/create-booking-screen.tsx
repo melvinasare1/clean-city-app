@@ -1,10 +1,20 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppText, AppButton, TimeWindowPicker, ResponsiveContent } from '@/components';
+import { Ionicons } from '@expo/vector-icons';
+import type { ComponentProps } from 'react';
+import { AppText, ResponsiveContent, TimeWindowPicker } from '@/components';
 import { useAuth } from '@/hooks/useAuth';
+import { COLORS } from '@/lib/constants';
 import { TIME_WINDOWS, TimeWindowId } from '@/lib/time-windows';
-import type { BookingType } from '@platform/shared-types';
+import type { BookingBinItem, BookingType } from '@platform/shared-types';
 import { serverTimestamp } from 'firebase/firestore';
 import { createBooking, initiatePaymentForBooking, updateBooking } from '@/services/booking-service';
 import { createSubscription, confirmFreeBooking } from '@/services/payments';
@@ -26,6 +36,8 @@ type CreateBookingScreenProps = NativeStackScreenProps<
   CustomerStackParamList,
   'CreateBooking'
 >;
+
+type IoniconName = ComponentProps<typeof Ionicons>['name'];
 
 const SCREEN = 'create_booking';
 
@@ -51,8 +63,11 @@ function addDaysLocal(d: Date, n: number): Date {
   return startOfDayLocal(x);
 }
 
-/** First selectable subscription start: past + today + next 2 calendar days blocked. */
-function formatSubscriptionStartDisplay(d: Date): string {
+function earliestPickupDate(): Date {
+  return addDaysLocal(startOfDayLocal(new Date()), 3);
+}
+
+function formatLongDate(d: Date): string {
   return d.toLocaleDateString('en-GB', {
     weekday: 'long',
     day: 'numeric',
@@ -87,7 +102,6 @@ const formatDate = (date: Date) =>
 
 const formatPrice = (value: number) => `¢${value.toFixed(2)}`;
 
-/** Pickups included in each billed period (weekly/biweekly: 28-day cycle; monthly: one calendar pickup). */
 function pickupsPerBillingPeriod(intervalWeeks: number): number {
   if (intervalWeeks === 1) return 4;
   if (intervalWeeks === 2) return 2;
@@ -113,74 +127,68 @@ const FREQUENCY_OPTIONS: {
 }[] = [
   {
     intervalWeeks: 1,
-    frequency: "weekly",
-    title: "Weekly",
-    pickupsCopy: "4 pickups covered",
-    billingCopy: "Billed every 28 days",
-    pricePeriodSuffix: "/28 days",
+    frequency: 'weekly',
+    title: 'Weekly',
+    pickupsCopy: '4 pickups covered',
+    billingCopy: 'Billed every 28 days',
+    pricePeriodSuffix: '/28 days',
   },
   {
     intervalWeeks: 2,
-    frequency: "biweekly",
-    title: "Biweekly",
-    pickupsCopy: "2 pickups covered",
-    billingCopy: "Billed every 28 days",
-    pricePeriodSuffix: "/28 days",
+    frequency: 'biweekly',
+    title: 'Biweekly',
+    pickupsCopy: '2 pickups covered',
+    billingCopy: 'Billed every 28 days',
+    pricePeriodSuffix: '/28 days',
   },
   {
     intervalWeeks: 4,
-    frequency: "monthly",
-    title: "Monthly",
-    pickupsCopy: "1 pickup covered",
-    billingCopy: "Billed monthly",
-    pricePeriodSuffix: "/month",
+    frequency: 'monthly',
+    title: 'Monthly',
+    pickupsCopy: '1 pickup covered',
+    billingCopy: 'Billed monthly',
+    pricePeriodSuffix: '/month',
   },
 ];
+
+function itemIcon(item: BookingBinItem): IoniconName {
+  const id = (item.id ?? '').toUpperCase();
+  const type = item.type.toLowerCase();
+  if (id.includes('SMALL') || type.includes('bag')) return 'bag-handle-outline';
+  if (id.includes('WHEELIE') || type.includes('wheelie')) return 'trash-outline';
+  return 'file-tray-outline';
+}
 
 export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
   route,
   navigation,
 }) => {
   const { items, totalPrice } = route.params;
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const address = pickupAddressText(user ?? {});
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [showOneOffCalendar, setShowOneOffCalendar] = useState(false);
-  const [selectedWindowId, setSelectedWindowId] = useState<TimeWindowId | null>(
-    null
+
+  const minimumPickupCalendarDate = useMemo(() => earliestPickupDate(), []);
+  const [selectedDate, setSelectedDate] = useState<Date>(earliestPickupDate);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [selectedWindowId, setSelectedWindowId] = useState<TimeWindowId>(
+    TIME_WINDOWS[0].id
   );
   const [isSaving, setIsSaving] = useState(false);
-  const [bookingType, setBookingType] = useState<BookingType>("one_off");
+  const [bookingType, setBookingType] = useState<BookingType>('one_off');
   const [intervalWeeks, setIntervalWeeks] = useState<number>(1);
-  /** Map intervalWeeks to collectionFrequency: 1=weekly, 2=biweekly, 4=monthly. Billing is always monthly. */
-  const collectionFrequency: "weekly" | "biweekly" | "monthly" =
-    intervalWeeks === 1 ? "weekly" : intervalWeeks === 2 ? "biweekly" : "monthly";
-  const [subscriptionStartDate, setSubscriptionStartDate] = useState<Date | null>(null);
-  const [showSubscriptionCalendar, setShowSubscriptionCalendar] = useState(false);
+  const collectionFrequency: 'weekly' | 'biweekly' | 'monthly' =
+    intervalWeeks === 1 ? 'weekly' : intervalWeeks === 2 ? 'biweekly' : 'monthly';
   const subscriptionFlowInFlightRef = useRef(false);
 
   const collectionDayKey = useMemo(() => {
-    if (!subscriptionStartDate) return null;
-    return COLLECTION_DAYS[subscriptionStartDate.getDay()];
-  }, [subscriptionStartDate]);
-
-  const minimumPickupCalendarDate = useMemo(
-    () => addDaysLocal(startOfDayLocal(new Date()), 3),
-    []
-  );
+    if (!selectedDate) return null;
+    return COLLECTION_DAYS[selectedDate.getDay()];
+  }, [selectedDate]);
 
   const locationMissing = !address;
   const hasItems = items.length > 0;
-
-  const isOneTimeConfirmDisabled =
-    !user ||
-    !selectedDate ||
-    !selectedWindowId ||
-    !address ||
-    !hasItems ||
-    isSaving;
-
-  const isSubscription = bookingType === "subscription";
+  const isSubscription = bookingType === 'subscription';
 
   const subscriptionPeriodPricing = useMemo(
     () => subscriptionPeriodAmounts(totalPrice, intervalWeeks),
@@ -188,56 +196,63 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
   );
 
   const discountedTotal = useMemo(() => {
-    if (!isSubscription) {
-      return totalPrice;
-    }
+    if (!isSubscription) return totalPrice;
     return subscriptionPeriodPricing.discounted;
   }, [isSubscription, totalPrice, subscriptionPeriodPricing.discounted]);
 
   const subscriptionUndiscountedTotal = useMemo(() => {
-    if (!isSubscription) {
-      return totalPrice;
-    }
+    if (!isSubscription) return totalPrice;
     return subscriptionPeriodPricing.undiscounted;
   }, [isSubscription, totalPrice, subscriptionPeriodPricing.undiscounted]);
 
-  const isSubscriptionStartDisabled =
-    !user ||
-    !address ||
-    !hasItems ||
-    !subscriptionStartDate ||
-    discountedTotal <= 0 ||
-    isSaving;
-
-  const selectedWindowLabel = useMemo(() => {
-    if (!selectedWindowId) {
-      return null;
-    }
-    return TIME_WINDOWS.find((window) => window.id === selectedWindowId)?.label;
-  }, [selectedWindowId]);
-
   const savings = useMemo(() => {
-    if (!isSubscription) {
-      return 0;
-    }
+    if (!isSubscription) return 0;
     return subscriptionUndiscountedTotal - discountedTotal;
   }, [isSubscription, subscriptionUndiscountedTotal, discountedTotal]);
 
   const selectedSubscriptionDiscountPercent = useMemo(() => {
-    if (!isSubscription) {
-      return 0;
-    }
+    if (!isSubscription) return 0;
     return Math.round(getSubscriptionDiscount(collectionFrequency) * 100);
   }, [isSubscription, collectionFrequency]);
+
+  const selectedWindowLabel = useMemo(() => {
+    return TIME_WINDOWS.find((window) => window.id === selectedWindowId)?.label;
+  }, [selectedWindowId]);
+
+  const displayTotal = isSubscription ? discountedTotal : totalPrice;
+
+  const canContinue = isSubscription
+    ? !!user &&
+      !!address &&
+      hasItems &&
+      !!selectedDate &&
+      discountedTotal > 0 &&
+      !isSaving
+    : !!user &&
+      !!selectedDate &&
+      !!selectedWindowId &&
+      !!address &&
+      hasItems &&
+      !isSaving;
 
   useEffect(() => {
     trackEvent('checkout_viewed', { screen: 'checkout' });
   }, []);
 
+  const handleHelp = () => {
+    navigation.navigate('CustomerTabs', { screen: 'CustomerHelp' });
+  };
+
+  const handleChangeAddress = () => {
+    navigation.navigate('SetPickupLocation', {
+      initialAddress: address || undefined,
+      initialLocation: user?.location ?? null,
+      saveToProfile: true,
+    });
+  };
+
   const handleStartSubscription = async () => {
-    if (subscriptionFlowInFlightRef.current) {
-      return;
-    }
+    if (subscriptionFlowInFlightRef.current) return;
     if (!user?.email) {
       Alert.alert(
         'Email required',
@@ -252,14 +267,14 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
       );
       return;
     }
-    if (!subscriptionStartDate || !collectionDayKey) {
+    if (!selectedDate || !collectionDayKey) {
       Alert.alert('Please select your first collection date');
       return;
     }
     subscriptionFlowInFlightRef.current = true;
     try {
       setIsSaving(true);
-      const startDateIso = subscriptionStartDate.toISOString().slice(0, 10);
+      const startDateIso = selectedDate.toISOString().slice(0, 10);
       const defaultWindow = TIME_WINDOWS[0];
       let bookingId: string;
       try {
@@ -279,9 +294,11 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
         console.error('Subscription booking create error:', bookingErr);
         Alert.alert(
           'Booking failed',
-          bookingErr?.message?.includes('network') || bookingErr?.message?.includes('Network')
+          bookingErr?.message?.includes('network') ||
+            bookingErr?.message?.includes('Network')
             ? 'Check your internet connection and try again.'
-            : bookingErr?.message ?? 'Could not create subscription booking. Please try again.'
+            : bookingErr?.message ??
+                'Could not create subscription booking. Please try again.'
         );
         return;
       }
@@ -333,12 +350,18 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
         }
       } catch (subscriptionErr: any) {
         console.error('Subscription start error:', subscriptionErr);
-        await trackEvent('activation_failed', { screen: SCREEN, reason: 'subscription_init' });
-        const msg = subscriptionErr?.message ?? 'Could not start subscription. Please try again.';
+        await trackEvent('activation_failed', {
+          screen: SCREEN,
+          reason: 'subscription_init',
+        });
+        const msg =
+          subscriptionErr?.message ??
+          'Could not start subscription. Please try again.';
         Alert.alert(
           'Payment link failed',
           msg.includes('Cannot reach the server')
-            ? msg + ' If using a device, ensure it can reach the API (e.g. use a deployed URL, not localhost).'
+            ? msg +
+                ' If using a device, ensure it can reach the API (e.g. use a deployed URL, not localhost).'
             : msg
         );
         return;
@@ -375,8 +398,14 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
       );
     } catch (err: any) {
       console.error('Subscription start error:', err);
-      await trackEvent('activation_failed', { screen: SCREEN, reason: 'subscription_init' });
-      Alert.alert('Error', err?.message ?? 'Could not start subscription. Please try again.');
+      await trackEvent('activation_failed', {
+        screen: SCREEN,
+        reason: 'subscription_init',
+      });
+      Alert.alert(
+        'Error',
+        err?.message ?? 'Could not start subscription. Please try again.'
+      );
     } finally {
       subscriptionFlowInFlightRef.current = false;
       setIsSaving(false);
@@ -389,16 +418,13 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
       return;
     }
     if (!selectedDate || !selectedWindowId || !selectedWindowLabel) {
-      Alert.alert(
-        'Missing info',
-        'Please select both a date and a time window.'
-      );
+      Alert.alert('Missing info', 'Please select both a date and a time window.');
       return;
     }
     if (!address) {
       Alert.alert(
         'Missing location',
-        'Please complete your profile with a pickup address before scheduling.'
+        'Please add a pickup address before scheduling.'
       );
       return;
     }
@@ -428,7 +454,7 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
         windowLabel: windowDef.label,
         location: address,
         items,
-        totalPrice: totalPrice,
+        totalPrice,
         type: 'one_off',
       });
       await trackEvent('activation_completed', {
@@ -479,7 +505,8 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
     } catch (paymentError: any) {
       console.error('Error during booking + payment flow:', paymentError);
 
-      const message = (paymentError?.message as string | undefined)?.toLowerCase() ?? '';
+      const message =
+        (paymentError?.message as string | undefined)?.toLowerCase() ?? '';
       const reason = message.includes('network') ? 'network_error' : 'unknown';
 
       await trackEvent('activation_failed', {
@@ -496,103 +523,141 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
     }
   };
 
+  const handleContinue = () => {
+    if (isSubscription) {
+      handleStartSubscription();
+      return;
+    }
+    handleConfirm();
+  };
 
   return (
-    <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
-      <ResponsiveContent innerStyle={styles.form}>
-        <AppText style={styles.title}>Schedule a pickup</AppText>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <View style={styles.headerRow}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
+          <Ionicons name="chevron-back" size={26} color={COLORS.text} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.helpPill}
+          onPress={handleHelp}
+          accessibilityRole="button"
+          accessibilityLabel="Help"
+        >
+          <Ionicons
+            name="help-circle-outline"
+            size={18}
+            color={COLORS.textSecondary}
+          />
+          <AppText style={styles.helpPillText}>Help</AppText>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.titleBlock}>
+        <AppText style={styles.title}>Schedule pickup</AppText>
         <AppText style={styles.subtitle}>
-          Choose a date and time window for your waste collection.
+          Choose when you'd like us to collect your items
         </AppText>
+      </View>
 
-        <AppText style={styles.label}>Pickup type</AppText>
-        <View style={styles.windowButtonsContainer}>
-          <TouchableOpacity
-            style={[
-              styles.windowButton,
-              bookingType === "one_off" && styles.windowButtonSelected,
-            ]}
-            onPress={() => {
-              setBookingType("one_off");
-              trackEvent('payment_plan_selected', { screen: SCREEN, type: 'one_off' });
-            }}
-          >
-            <AppText
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <ResponsiveContent>
+          <View style={styles.segmentTrack}>
+            <TouchableOpacity
               style={[
-                styles.windowButtonText,
-                bookingType === "one_off" && styles.windowButtonTextSelected,
+                styles.segmentButton,
+                bookingType === 'one_off' && styles.segmentButtonActive,
               ]}
+              onPress={() => {
+                setBookingType('one_off');
+                trackEvent('payment_plan_selected', {
+                  screen: SCREEN,
+                  type: 'one_off',
+                });
+              }}
+              accessibilityRole="button"
+              accessibilityState={{ selected: bookingType === 'one_off' }}
             >
-              One-time pickup
-            </AppText>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.windowButton,
-              bookingType === "subscription" && styles.windowButtonSelected,
-            ]}
-            onPress={() => {
-              setBookingType("subscription");
-              trackEvent('payment_plan_selected', { screen: SCREEN, type: 'subscription' });
-            }}
-          >
-            <AppText
+              <AppText
+                style={[
+                  styles.segmentText,
+                  bookingType === 'one_off' && styles.segmentTextActive,
+                ]}
+              >
+                One-off
+              </AppText>
+            </TouchableOpacity>
+            <TouchableOpacity
               style={[
-                styles.windowButtonText,
-                bookingType === "subscription" && styles.windowButtonTextSelected,
+                styles.segmentButton,
+                bookingType === 'subscription' && styles.segmentButtonActive,
               ]}
+              onPress={() => {
+                setBookingType('subscription');
+                trackEvent('payment_plan_selected', {
+                  screen: SCREEN,
+                  type: 'subscription',
+                });
+              }}
+              accessibilityRole="button"
+              accessibilityState={{ selected: bookingType === 'subscription' }}
             >
-              Subscription
-            </AppText>
-          </TouchableOpacity>
-        </View>
+              <AppText
+                style={[
+                  styles.segmentText,
+                  bookingType === 'subscription' && styles.segmentTextActive,
+                ]}
+              >
+                Subscription
+              </AppText>
+            </TouchableOpacity>
+          </View>
 
-        {isSubscription && (
-          <>
-            <AppText style={styles.subtitle}>
-              Recurring pickups at a discount. You can cancel anytime from My Bookings.
-            </AppText>
-            <AppText style={styles.label}>Collection frequency</AppText>
-            <View style={styles.windowButtonsContainer}>
-              {FREQUENCY_OPTIONS.map((opt) => {
-                const isSelected = intervalWeeks === opt.intervalWeeks;
-                const { undiscounted, discounted } = subscriptionPeriodAmounts(
-                  totalPrice,
-                  opt.intervalWeeks
-                );
-                return (
-                  <TouchableOpacity
-                    key={opt.intervalWeeks}
-                    style={[
-                      styles.windowButton,
-                      isSelected && styles.windowButtonSelected,
-                    ]}
-                    onPress={() => setIntervalWeeks(opt.intervalWeeks)}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: isSelected }}
-                  >
-                    <View style={styles.frequencyCardInner}>
-                      <View style={styles.frequencyCardTitleRow}>
+          {isSubscription ? (
+            <>
+              <AppText style={styles.sectionLabel}>Collection frequency</AppText>
+              <View style={styles.frequencyList}>
+                {FREQUENCY_OPTIONS.map((opt) => {
+                  const isSelected = intervalWeeks === opt.intervalWeeks;
+                  const { undiscounted, discounted } = subscriptionPeriodAmounts(
+                    totalPrice,
+                    opt.intervalWeeks
+                  );
+                  return (
+                    <TouchableOpacity
+                      key={opt.intervalWeeks}
+                      style={[
+                        styles.frequencyCard,
+                        isSelected && styles.frequencyCardSelected,
+                      ]}
+                      onPress={() => setIntervalWeeks(opt.intervalWeeks)}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: isSelected }}
+                    >
+                      <View style={styles.frequencyTitleRow}>
                         <AppText
                           style={[
-                            styles.frequencyCardTitle,
-                            isSelected && styles.frequencyCardTitleSelected,
+                            styles.frequencyTitle,
+                            isSelected && styles.frequencyTitleSelected,
                           ]}
                         >
                           {opt.title}
                         </AppText>
-                        <View style={styles.frequencyDiscountBadge}>
-                          <AppText style={styles.frequencyDiscountBadgeText}>
+                        <View style={styles.frequencyBadge}>
+                          <AppText style={styles.frequencyBadgeText}>
                             {formatSubscriptionDiscountBadge(opt.frequency)}
                           </AppText>
                         </View>
                       </View>
-                      <AppText
-                        style={[
-                          styles.frequencyCardDetail,
-                          isSelected && styles.frequencyCardDetailSelected,
-                        ]}
-                      >
+                      <AppText style={styles.frequencyDetail}>
                         {`${opt.pickupsCopy} · ${opt.billingCopy}`}
                       </AppText>
                       <View style={styles.frequencyPriceRow}>
@@ -605,191 +670,225 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
                           {opt.pricePeriodSuffix}
                         </AppText>
                       </View>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </>
+          ) : null}
 
-            <AppText style={styles.label}>Select your collection day</AppText>
-            <TouchableOpacity
-              style={styles.dayDropdown}
-              onPress={() => setShowSubscriptionCalendar(true)}
-            >
-              <AppText
-                style={
-                  subscriptionStartDate
-                    ? styles.dayDropdownText
-                    : styles.dayDropdownPlaceholder
-                }
-              >
-                {subscriptionStartDate
-                  ? formatSubscriptionStartDisplay(subscriptionStartDate)
-                  : 'Select first collection date'}
+          <AppText style={styles.sectionLabel}>First collection</AppText>
+          <TouchableOpacity
+            style={[styles.card, styles.dateCard]}
+            onPress={() => setShowCalendar(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Change collection date"
+          >
+            <View style={styles.dateIconWrap}>
+              <Ionicons name="calendar-outline" size={22} color={COLORS.primary} />
+            </View>
+            <View style={styles.dateCopy}>
+              <AppText style={styles.dateTitle}>
+                {formatLongDate(selectedDate)}
               </AppText>
-            </TouchableOpacity>
-            {subscriptionStartDate && collectionDayKey && (
-              <AppText style={styles.collectionHelperText}>
-                {subscriptionRecurringHelperCopy(
-                  intervalWeeks,
-                  formatDayLabel(collectionDayKey)
-                )}
-              </AppText>
-            )}
-            <SubscriptionCollectionCalendarModal
-              visible={showSubscriptionCalendar}
-              onClose={() => setShowSubscriptionCalendar(false)}
-              minimumDate={minimumPickupCalendarDate}
-              selectedDate={subscriptionStartDate}
-              onSelectDate={setSubscriptionStartDate}
+              <AppText style={styles.dateHint}>Tap to change date</AppText>
+            </View>
+            <Ionicons
+              name="chevron-forward"
+              size={18}
+              color={COLORS.textSecondary}
             />
-          </>
-        )}
-
-        <View style={styles.summaryCard}>
-          <AppText style={styles.summaryTitle}>Selected bins</AppText>
-          {items.map((item) => (
-            <View key={item.id ?? item.type} style={styles.summaryItem}>
-              <AppText style={styles.summaryItemType}>
-                {item.quantity} x {item.type}
-              </AppText>
-              <AppText style={styles.summaryItemMeta}>
-                {formatPrice(item.unitPrice)} each • {formatPrice(item.totalPrice)}
-              </AppText>
-            </View>
-          ))}
-          <View style={styles.summaryDivider} />
-          <View style={styles.summaryTotalRow}>
-            <AppText style={styles.summaryTotalLabel}>
-              {isSubscription ? 'Subscription total' : 'Total'}
+          </TouchableOpacity>
+          {isSubscription && collectionDayKey ? (
+            <AppText style={styles.collectionHelperText}>
+              {subscriptionRecurringHelperCopy(
+                intervalWeeks,
+                formatDayLabel(collectionDayKey)
+              )}
             </AppText>
-            {isSubscription ? (
-              <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
-                <AppText
-                  style={[styles.summaryOriginalValue, { marginRight: 8 }]}
-                >
-                  {formatPrice(subscriptionUndiscountedTotal)}
+          ) : null}
+
+          <SubscriptionCollectionCalendarModal
+            visible={showCalendar}
+            onClose={() => setShowCalendar(false)}
+            minimumDate={minimumPickupCalendarDate}
+            selectedDate={selectedDate}
+            onSelectDate={setSelectedDate}
+            title={isSubscription ? 'First collection date' : 'Pickup date'}
+            subtitle={
+              isSubscription
+                ? 'Pick a day for your first pickup. Recurring pickups follow this day of the week.'
+                : "Choose when you'd like your pickup. Past dates and the next two days are not available."
+            }
+          />
+
+          {!isSubscription ? (
+            <>
+              <AppText style={styles.sectionLabel}>Time window</AppText>
+              <View style={styles.timeWindowBlock}>
+                <TimeWindowPicker
+                  selectedWindowId={selectedWindowId}
+                  onSelect={setSelectedWindowId}
+                />
+              </View>
+            </>
+          ) : null}
+
+          <AppText style={styles.sectionLabel}>Pickup summary</AppText>
+          <View style={styles.card}>
+            {items.map((item) => (
+              <View key={item.id ?? item.type} style={styles.summaryRow}>
+                <View style={styles.summaryIconWrap}>
+                  <Ionicons
+                    name={itemIcon(item)}
+                    size={18}
+                    color={COLORS.primary}
+                  />
+                </View>
+                <AppText style={styles.summaryItemLabel}>
+                  {item.type} × {item.quantity}
                 </AppText>
-                <AppText style={styles.summaryTotalValue}>
-                  {formatPrice(discountedTotal)}
+                <AppText style={styles.summaryItemPrice}>
+                  {formatPrice(item.totalPrice)}
                 </AppText>
               </View>
-            ) : (
-              <AppText style={styles.summaryTotalValue}>
-                {formatPrice(totalPrice)}
-              </AppText>
-            )}
-          </View>
-          {isSubscription && savings > 0 && (
-            <View style={{ marginTop: 4 }}>
+            ))}
+            <View style={styles.summaryDivider} />
+            <View style={styles.summaryTotalRow}>
+              <AppText style={styles.summaryTotalLabel}>Total</AppText>
+              {isSubscription ? (
+                <View style={styles.summaryTotalAmounts}>
+                  <AppText style={styles.summaryOriginalValue}>
+                    {formatPrice(subscriptionUndiscountedTotal)}
+                  </AppText>
+                  <AppText style={styles.summaryTotalValue}>
+                    {formatPrice(discountedTotal)}
+                  </AppText>
+                </View>
+              ) : (
+                <AppText style={styles.summaryTotalValue}>
+                  {formatPrice(totalPrice)}
+                </AppText>
+              )}
+            </View>
+            {isSubscription && savings > 0 ? (
               <AppText style={styles.summarySavingsText}>
-                You’re saving {formatPrice(savings)} with a {selectedSubscriptionDiscountPercent}% subscription discount.
+                You’re saving {formatPrice(savings)} with a{' '}
+                {selectedSubscriptionDiscountPercent}% subscription discount.
+              </AppText>
+            ) : null}
+          </View>
+
+          {!hasItems ? (
+            <View style={styles.noItemsNotice}>
+              <AppText style={styles.noItemsText}>
+                No bins selected. Please go back and add bins before confirming.
               </AppText>
             </View>
-          )}
-          {isSubscription && subscriptionStartDate && collectionDayKey && (
-            <View style={{ marginTop: 8 }}>
-              <AppText style={styles.summaryItemMeta}>
-                First collection: {formatSubscriptionStartDisplay(subscriptionStartDate)}
+          ) : null}
+
+          <AppText style={styles.sectionLabel}>Pickup address</AppText>
+          <View style={[styles.card, styles.addressCard]}>
+            <View style={styles.dateIconWrap}>
+              <Ionicons name="location-outline" size={22} color={COLORS.primary} />
+            </View>
+            <View style={styles.addressCopy}>
+              {address ? (
+                <AppText style={styles.addressText}>{address}</AppText>
+              ) : (
+                <AppText style={styles.addressMissing}>
+                  Add a pickup address to continue
+                </AppText>
+              )}
+            </View>
+            <TouchableOpacity
+              style={styles.changeLink}
+              onPress={handleChangeAddress}
+              accessibilityRole="button"
+              accessibilityLabel="Change pickup address"
+            >
+              <AppText style={styles.changeLinkText}>Change</AppText>
+              <Ionicons name="chevron-forward" size={16} color={COLORS.primary} />
+            </TouchableOpacity>
+          </View>
+
+          <AppText style={styles.sectionLabel}>Payment method</AppText>
+          <View style={styles.paymentRow}>
+            <View
+              style={[styles.paymentCard, styles.paymentCardSelected]}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: true }}
+              accessibilityLabel="Mobile Money"
+            >
+              <View style={styles.paymentCardHeader}>
+                <View style={styles.paymentIconWrap}>
+                  <Ionicons name="phone-portrait-outline" size={18} color={COLORS.primary} />
+                </View>
+                <View style={[styles.paymentRadio, styles.paymentRadioSelected]}>
+                  <Ionicons name="checkmark" size={12} color={COLORS.white} />
+                </View>
+              </View>
+              <AppText style={styles.paymentTitle}>Mobile Money</AppText>
+              <AppText style={styles.paymentSubtitle}>
+                Pay with MTN, Telecel or AirtelTigo.
               </AppText>
             </View>
-          )}
+
+            <View
+              style={[styles.paymentCard, styles.paymentCardDisabled]}
+              accessibilityRole="radio"
+              accessibilityState={{ disabled: true }}
+              accessibilityLabel="Card, coming soon"
+            >
+              <View style={styles.paymentCardHeader}>
+                <View style={styles.paymentIconWrap}>
+                  <Ionicons
+                    name="card-outline"
+                    size={18}
+                    color={COLORS.textSecondary}
+                  />
+                </View>
+                <View style={styles.paymentRadio} />
+              </View>
+              <AppText style={styles.paymentTitle}>Card</AppText>
+              <AppText style={styles.paymentSubtitle}>
+                Visa, Mastercard or other cards
+              </AppText>
+              <View style={styles.comingSoon}>
+                <AppText style={styles.comingSoonText}>Coming soon</AppText>
+              </View>
+            </View>
+          </View>
+        </ResponsiveContent>
+      </ScrollView>
+
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+        <View>
+          <AppText style={styles.totalLabel}>Total</AppText>
+          <AppText style={styles.totalValue}>{formatPrice(displayTotal)}</AppText>
         </View>
-
-        {!hasItems && (
-          <View style={styles.noItemsNotice}>
-            <AppText style={styles.noItemsText}>
-              No bins selected. Please go back and add bins before confirming.
-            </AppText>
-          </View>
-        )}
-
-        {!isSubscription && (
-          <>
-            <AppText style={styles.label}>Date</AppText>
-            <TouchableOpacity
-              style={styles.dayDropdown}
-              onPress={() => setShowOneOffCalendar(true)}
-            >
-              <AppText
-                style={
-                  selectedDate ? styles.dayDropdownText : styles.dayDropdownPlaceholder
-                }
-              >
-                {selectedDate
-                  ? formatSubscriptionStartDisplay(selectedDate)
-                  : 'Select pickup date'}
+        <TouchableOpacity
+          style={[
+            styles.continueButton,
+            !canContinue && styles.continueButtonDisabled,
+          ]}
+          onPress={handleContinue}
+          disabled={!canContinue}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !canContinue }}
+        >
+          {isSaving ? (
+            <ActivityIndicator color={COLORS.white} />
+          ) : (
+            <>
+              <AppText style={styles.continueButtonText}>
+                Continue to Payment
               </AppText>
-            </TouchableOpacity>
-            <SubscriptionCollectionCalendarModal
-              visible={showOneOffCalendar}
-              onClose={() => setShowOneOffCalendar(false)}
-              minimumDate={minimumPickupCalendarDate}
-              selectedDate={selectedDate}
-              onSelectDate={setSelectedDate}
-              title="Pickup date"
-              subtitle="Choose when you'd like your pickup. Past dates and the next two days are not available."
-            />
-
-            <AppText style={styles.label}>Time window</AppText>
-            <TimeWindowPicker
-              selectedWindowId={selectedWindowId}
-              onSelect={setSelectedWindowId}
-            />
-          </>
-        )}
-
-        <AppText style={styles.label}>Pickup address</AppText>
-        {address ? (
-          <AppText style={styles.locationText}>
-            Pickup address: {address}
-          </AppText>
-        ) : (
-          <View style={styles.locationWarningContainer}>
-            <AppText style={styles.locationWarning}>
-              Add your pickup address to schedule pickups.
-            </AppText>
-            <TouchableOpacity
-              style={styles.completeProfileLink}
-              onPress={() => navigation.navigate('CompleteProfile')}
-            >
-              <AppText style={styles.completeProfileText}>
-                Complete your profile
-              </AppText>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {isSubscription ? (
-          <AppButton
-            title="Pay with MoMo"
-            onPress={handleStartSubscription}
-            disabled={isSubscriptionStartDisabled || locationMissing}
-            loading={isSaving}
-            buttonStyle={{
-              ...styles.confirmButton,
-              ...(isSubscriptionStartDisabled || locationMissing ? styles.confirmButtonDisabled : {}),
-            }}
-            textStyle={styles.confirmButtonText}
-          />
-        ) : (
-          <AppButton
-            title="Confirm booking"
-            onPress={handleConfirm}
-            disabled={isOneTimeConfirmDisabled || locationMissing}
-            loading={isSaving}
-            buttonStyle={{
-              ...styles.confirmButton,
-              ...(isOneTimeConfirmDisabled || locationMissing
-                ? styles.confirmButtonDisabled
-                : {}),
-            }}
-            textStyle={styles.confirmButtonText}
-          />
-        )}
-      </ResponsiveContent>
-    </ScrollView>
+              <Ionicons name="arrow-forward" size={16} color={COLORS.white} />
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
   );
 };
-
-

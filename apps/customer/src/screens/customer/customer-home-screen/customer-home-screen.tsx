@@ -208,7 +208,7 @@ export const CustomerHomeScreen: React.FC<CustomerHomeScreenProps> = ({
                 accessibilityRole="button"
                 accessibilityState={{ disabled: !profileComplete }}
               >
-                <AppText style={styles.bookButtonText}>Book...</AppText>
+                <AppText style={styles.bookButtonText}>Book</AppText>
               </TouchableOpacity>
             </View>
           </View>
@@ -296,7 +296,7 @@ export const CustomerHomeScreen: React.FC<CustomerHomeScreenProps> = ({
               style={styles.actionRow}
               onPress={() => {
                 trackEvent('recycling_guide_cta_tapped', { screen: SCREEN }).catch(
-                  () => {}
+                  () => { }
                 );
                 navigation.navigate('RecyclingGuides');
               }}

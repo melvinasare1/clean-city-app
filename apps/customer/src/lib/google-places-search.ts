@@ -1,3 +1,4 @@
+import { googlePlacesHeaders } from '@/lib/google-maps-client-headers';
 import { resolveGooglePlacesApiKey } from '@/lib/google-places-access-token';
 import type { PickupCoordinates } from '@/lib/profile-location';
 
@@ -27,6 +28,13 @@ export function newPlacesSessionToken(): string {
 
 /**
  * Search-as-you-type via Places API (New) Autocomplete, restricted to Ghana.
+ *
+ * Security: this is a REST fetch from JS with a hand-set
+ * `X-Ios-Bundle-Identifier` header, not Google's native Places SDK.
+ * An iOS bundle restriction on `EXPO_PUBLIC_GOOGLE_PLACES_API_KEY` is
+ * therefore spoofable — same class of issue the Geocoding proxy exists to
+ * avoid. Do not treat this key as app-locked.
+ *
  * Billed per session (not per keystroke) as long as the same sessionToken is
  * reused across every suggestion request and then passed once to
  * getPlaceDetails to close it out — see usePickupSearch's resetSession.
@@ -58,9 +66,10 @@ export async function suggestPlaces(
     signal,
     headers: {
       'Content-Type': 'application/json',
-      'X-Goog-Api-Key': apiKey,
-      'X-Goog-FieldMask':
-        'suggestions.placePrediction.placeId,suggestions.placePrediction.text.text,suggestions.placePrediction.structuredFormat',
+      ...googlePlacesHeaders(
+        apiKey,
+        'suggestions.placePrediction.placeId,suggestions.placePrediction.text.text,suggestions.placePrediction.structuredFormat'
+      ),
     },
     body: JSON.stringify(body),
   });
@@ -125,10 +134,7 @@ export async function getPlaceDetails(
   console.log('[google-places] details request', { url, placeId });
 
   const res = await fetch(url, {
-    headers: {
-      'X-Goog-Api-Key': apiKey,
-      'X-Goog-FieldMask': 'location,formattedAddress',
-    },
+    headers: googlePlacesHeaders(apiKey, 'location,formattedAddress'),
   });
 
   if (!res.ok) {

@@ -49,6 +49,8 @@ export type CustomerStackParamList = {
     | {
         initialAddress?: string;
         initialLocation?: { lat: number; lng: number } | null;
+        /** Persist to profiles/{uid} and return, instead of CompleteProfile. */
+        saveToProfile?: boolean;
       }
     | undefined;
   PaymentMethods: undefined;

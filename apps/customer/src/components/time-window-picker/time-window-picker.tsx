@@ -63,7 +63,9 @@ export function TimeWindowPicker({
                 isSelected && styles.radioOuterSelected,
               ]}
             >
-              {isSelected ? <View style={styles.radioInner} /> : null}
+              {isSelected ? (
+                <Ionicons name="checkmark" size={14} color={COLORS.white} />
+              ) : null}
             </View>
           </Pressable>
         );

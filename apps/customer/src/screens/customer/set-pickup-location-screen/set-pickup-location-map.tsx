@@ -3,62 +3,57 @@ import {
   ActivityIndicator,
   Alert,
   Keyboard,
+  Platform,
   View,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import Mapbox, { Camera, MapView, UserLocation } from '@rnmapbox/maps';
+import MapView, { PROVIDER_GOOGLE, type Details, type Region } from 'react-native-maps';
 import { AppText } from '@/components';
+import { useAuth } from '@/hooks/useAuth';
 import { COLORS } from '@/lib/constants';
 import {
   getDeviceCoordinates,
   getGrantedDeviceCoordinates,
 } from '@/lib/device-location';
 import { getPlaceDetails, type AddressSuggestion } from '@/lib/google-places-search';
-import { resolveMapboxToken } from '@/lib/mapbox-access-token';
-import { reverseGeocodePermanent, geocodeAddressPermanent } from '@/lib/permanent-geocode';
+import { geocodeAddress, reverseGeocode } from '@/lib/google-geocode';
 import {
   GHANA_FALLBACK_CENTER,
-  parsePickupCoordinates,
   type PickupCoordinates,
 } from '@/lib/profile-location';
 import { CustomerStackParamList } from '@/navigation/types';
+import { persistPickupLocationToProfile } from './persist-pickup-location';
 import { PickupLocationChrome } from './pickup-location-chrome';
 import { styles } from './set-pickup-location-screen.styles';
 import { usePickupSearch } from './use-pickup-search';
 
-const STREET_ZOOM = 16;
-const CITY_ZOOM = 12;
+const STREET_DELTA = 0.006;
+const CITY_DELTA = 0.08;
 const REVERSE_DEBOUNCE_MS = 400;
-
-const accessToken = resolveMapboxToken();
-if (accessToken) {
-  Mapbox.setAccessToken(accessToken);
-}
+const ANIMATE_DURATION_MS = 700;
 
 type Props = NativeStackScreenProps<CustomerStackParamList, 'SetPickupLocation'>;
 
-function centerFromState(center: unknown): PickupCoordinates | null {
-  if (!Array.isArray(center) || center.length < 2) return null;
-  return parsePickupCoordinates({ lng: center[0], lat: center[1] });
-}
-
-function isUserCameraGesture(state: {
-  gestures?: { isGestureActive?: boolean };
-}): boolean {
-  return state.gestures?.isGestureActive === true;
+function regionFrom(location: PickupCoordinates, delta: number): Region {
+  return {
+    latitude: location.lat,
+    longitude: location.lng,
+    latitudeDelta: delta,
+    longitudeDelta: delta,
+  };
 }
 
 export function SetPickupLocationMapScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
-  const cameraRef = useRef<Camera>(null);
+  const { user, refreshUserProfile } = useAuth();
+  const mapRef = useRef<MapView>(null);
   const cameraCenterRef = useRef<PickupCoordinates | null>(
     route.params?.initialLocation ?? null
   );
   const reverseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reverseAbortRef = useRef(0);
-  const flyToWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [query, setQuery] = useState(route.params?.initialAddress ?? '');
   const [resolving, setResolving] = useState(false);
@@ -68,10 +63,7 @@ export function SetPickupLocationMapScreen({ navigation, route }: Props) {
   const [liveAddress, setLiveAddress] = useState<string | null>(
     route.params?.initialAddress?.trim() || null
   );
-  const [initialCamera, setInitialCamera] = useState<{
-    center: [number, number];
-    zoom: number;
-  } | null>(null);
+  const [initialRegion, setInitialRegion] = useState<Region | null>(null);
 
   const {
     suggestions,
@@ -89,7 +81,7 @@ export function SetPickupLocationMapScreen({ navigation, route }: Props) {
     console.log('[pickup] scheduleReverse queued', requestId, location);
     reverseTimerRef.current = setTimeout(() => {
       console.log('[pickup] reverse geocode start', requestId, location);
-      reverseGeocodePermanent(location.lat, location.lng)
+      reverseGeocode(location.lat, location.lng)
         .then((hit) => {
           console.log('[pickup] reverse geocode resolved', requestId, hit);
           if (reverseAbortRef.current !== requestId) return;
@@ -106,34 +98,20 @@ export function SetPickupLocationMapScreen({ navigation, route }: Props) {
     }, REVERSE_DEBOUNCE_MS);
   }, []);
 
-  // Jumping the camera (GPS button or search selection) is imperative and
-  // fire-and-forget: `Camera.setCamera` returns void, so there is no promise
-  // to await for "animation finished." We already know the destination
-  // synchronously, so kick off the reverse-geocode right away instead of
-  // waiting on `onMapIdle` — on some devices that native idle event does not
-  // reliably fire after a programmatic flyTo, which previously left the
-  // address stuck on "Finding address…" forever for both the GPS and search
-  // paths (they both funnel through this function). The watchdog below is a
-  // matching safety net for `mapMoving`, which is only otherwise cleared by
-  // that same idle event.
-  const flyTo = useCallback((location: PickupCoordinates, zoom = STREET_ZOOM) => {
+  // Jumping the camera (GPS button or search selection) is imperative:
+  // animateToRegion has no promise to await for "animation finished." Unlike
+  // the old Mapbox onMapIdle event — which on some devices did not reliably
+  // fire after a programmatic flyTo and left the address stuck on "Finding
+  // address…" forever — react-native-maps' onRegionChangeComplete fires
+  // reliably both after a user drag AND after animateToRegion completes, so
+  // this is the single source of truth for "camera settled, go reverse
+  // geocode." No watchdog timer needed here.
+  const flyTo = useCallback((location: PickupCoordinates, delta = STREET_DELTA) => {
     cameraCenterRef.current = location;
     setMapMoving(true);
-    console.log('[pickup] flyTo', location, zoom);
-    cameraRef.current?.setCamera({
-      centerCoordinate: [location.lng, location.lat],
-      zoomLevel: zoom,
-      animationMode: 'flyTo',
-      animationDuration: 700,
-    });
-    scheduleReverse(location);
-
-    if (flyToWatchdogRef.current) clearTimeout(flyToWatchdogRef.current);
-    flyToWatchdogRef.current = setTimeout(() => {
-      console.log('[pickup] flyTo watchdog fired — onMapIdle did not clear mapMoving in time');
-      setMapMoving(false);
-    }, 1200);
-  }, [scheduleReverse]);
+    console.log('[pickup] flyTo', location, delta);
+    mapRef.current?.animateToRegion(regionFrom(location, delta), ANIMATE_DURATION_MS);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -143,7 +121,7 @@ export function SetPickupLocationMapScreen({ navigation, route }: Props) {
       if (cancelled) return;
       if (gps) {
         cameraCenterRef.current = gps;
-        setInitialCamera({ center: [gps.lng, gps.lat], zoom: STREET_ZOOM });
+        setInitialRegion(regionFrom(gps, STREET_DELTA));
         scheduleReverse(gps);
         return;
       }
@@ -151,32 +129,26 @@ export function SetPickupLocationMapScreen({ navigation, route }: Props) {
       const saved = route.params?.initialLocation ?? null;
       if (saved) {
         cameraCenterRef.current = saved;
-        setInitialCamera({ center: [saved.lng, saved.lat], zoom: STREET_ZOOM });
+        setInitialRegion(regionFrom(saved, STREET_DELTA));
         scheduleReverse(saved);
         return;
       }
 
       const typed = route.params?.initialAddress?.trim();
       if (typed) {
-        const hit = await geocodeAddressPermanent(typed);
+        const hit = await geocodeAddress(typed);
         if (cancelled) return;
         if (hit) {
           const location = { lat: hit.lat, lng: hit.lng };
           cameraCenterRef.current = location;
-          setInitialCamera({
-            center: [hit.lng, hit.lat],
-            zoom: STREET_ZOOM,
-          });
+          setInitialRegion(regionFrom(location, STREET_DELTA));
           scheduleReverse(location);
           return;
         }
       }
 
       cameraCenterRef.current = GHANA_FALLBACK_CENTER;
-      setInitialCamera({
-        center: [GHANA_FALLBACK_CENTER.lng, GHANA_FALLBACK_CENTER.lat],
-        zoom: CITY_ZOOM,
-      });
+      setInitialRegion(regionFrom(GHANA_FALLBACK_CENTER, CITY_DELTA));
       scheduleReverse(GHANA_FALLBACK_CENTER);
     };
 
@@ -184,7 +156,6 @@ export function SetPickupLocationMapScreen({ navigation, route }: Props) {
     return () => {
       cancelled = true;
       if (reverseTimerRef.current) clearTimeout(reverseTimerRef.current);
-      if (flyToWatchdogRef.current) clearTimeout(flyToWatchdogRef.current);
     };
   }, [route.params?.initialAddress, route.params?.initialLocation, scheduleReverse]);
 
@@ -205,7 +176,7 @@ export function SetPickupLocationMapScreen({ navigation, route }: Props) {
         return;
       }
       setQuery(details.formattedAddress || suggestion.label);
-      flyTo(details.location, STREET_ZOOM);
+      flyTo(details.location, STREET_DELTA);
     } catch (err) {
       console.error('Address details failed:', err);
       Alert.alert(
@@ -224,7 +195,7 @@ export function SetPickupLocationMapScreen({ navigation, route }: Props) {
       const position = await getDeviceCoordinates();
       clearSuggestions();
       resetSession();
-      flyTo(position, STREET_ZOOM);
+      flyTo(position, STREET_DELTA);
     } catch (err) {
       console.error('Current location failed:', err);
       const message = err instanceof Error ? err.message : '';
@@ -251,10 +222,28 @@ export function SetPickupLocationMapScreen({ navigation, route }: Props) {
     }
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     const location = cameraCenterRef.current;
     if (!location) return;
     const address = (liveAddress || query).trim() || 'Selected location';
+    if (route.params?.saveToProfile) {
+      if (!user?.id) {
+        Alert.alert('Error', 'You need to be logged in to save a pickup address.');
+        return;
+      }
+      try {
+        await persistPickupLocationToProfile(user.id, address, location);
+        await refreshUserProfile();
+        navigation.goBack();
+      } catch (err) {
+        console.error('[pickup] persist address failed', err);
+        Alert.alert(
+          'Could not save address',
+          err instanceof Error ? err.message : 'Please try again.'
+        );
+      }
+      return;
+    }
     navigation.navigate({
       name: 'CompleteProfile',
       params: { pickup: { address, location } },
@@ -263,66 +252,33 @@ export function SetPickupLocationMapScreen({ navigation, route }: Props) {
   };
 
   const canConfirm =
-    !!initialCamera && !mapMoving && !geocoding && !resolving && !locating;
-
-  if (!accessToken) {
-    return (
-      <View style={styles.root}>
-        <View style={styles.fallback}>
-          <AppText style={styles.fallbackTitle}>Mapbox token missing</AppText>
-          <AppText style={styles.fallbackBody}>
-            Set EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN, then rebuild the native app.
-          </AppText>
-        </View>
-      </View>
-    );
-  }
+    !!initialRegion && !mapMoving && !geocoding && !resolving && !locating;
 
   return (
     <View style={styles.root}>
-      {initialCamera ? (
+      {initialRegion ? (
         <MapView
+          ref={mapRef}
           style={styles.map}
-          styleURL={Mapbox.StyleURL.Street}
-          logoEnabled={false}
-          attributionPosition={{ bottom: 8, left: 12 }}
+          // iOS Google tiles need GMSApiKey in the native binary. The current
+          // dev client was built with the uninterpolated app.json placeholder,
+          // so Apple Maps is used here. Android still uses Google Maps.
+          provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+          initialRegion={initialRegion}
+          showsUserLocation
+          showsMyLocationButton={false}
           onTouchStart={() => Keyboard.dismiss()}
-          onCameraChanged={(state) => {
-            const next = centerFromState(state.properties?.center);
-            if (next) cameraCenterRef.current = next;
-            if (isUserCameraGesture(state)) {
-              setMapMoving(true);
-            }
+          onRegionChange={(_region: Region, details: Details) => {
+            if (details?.isGesture) setMapMoving(true);
           }}
-          onMapIdle={(state) => {
-            console.log('[pickup] onMapIdle fired', state.properties?.center);
-            if (flyToWatchdogRef.current) {
-              clearTimeout(flyToWatchdogRef.current);
-              flyToWatchdogRef.current = null;
-            }
-            const next = centerFromState(state.properties?.center);
-            if (next) {
-              cameraCenterRef.current = next;
-              scheduleReverse(next);
-            }
+          onRegionChangeComplete={(region: Region, details: Details) => {
+            console.log('[pickup] onRegionChangeComplete', region, details);
+            const next = { lat: region.latitude, lng: region.longitude };
+            cameraCenterRef.current = next;
+            scheduleReverse(next);
             setMapMoving(false);
           }}
-        >
-          <Camera
-            ref={cameraRef}
-            defaultSettings={{
-              centerCoordinate: initialCamera.center,
-              zoomLevel: initialCamera.zoom,
-              animationDuration: 0,
-              animationMode: 'none',
-            }}
-          />
-          <UserLocation
-            visible
-            showsUserHeadingIndicator
-            androidRenderMode="normal"
-          />
-        </MapView>
+        />
       ) : (
         <View style={styles.fallback}>
           <ActivityIndicator color={COLORS.primary} />
