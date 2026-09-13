@@ -1,15 +1,17 @@
-import React, { forwardRef, useImperativeHandle } from 'react';
+import React, { forwardRef, useEffect, useImperativeHandle } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { colors } from '@platform/shared-theme';
 import type { DriverMapHandle, DriverMapProps } from './driver-map.types';
 
 export const DriverMap = forwardRef<DriverMapHandle, DriverMapProps>(function DriverMap(
-  _props,
+  { onRouteAwayLabelChange },
   ref
 ) {
+  useEffect(() => {
+    onRouteAwayLabelChange?.(null);
+  }, [onRouteAwayLabelChange]);
   useImperativeHandle(ref, () => ({
     recenter: () => {},
-    resetHeading: () => {},
   }));
 
   return (

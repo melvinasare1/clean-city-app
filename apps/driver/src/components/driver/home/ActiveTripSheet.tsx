@@ -13,6 +13,7 @@ type Props = {
   completing?: boolean;
   cancelling?: boolean;
   bottomInset?: number;
+  routeAwayLabel?: string | null;
 };
 
 const CANCEL_CONFIRM_COPY =
@@ -61,6 +62,7 @@ export function ActiveTripSheet({
   completing,
   cancelling,
   bottomInset = 0,
+  routeAwayLabel,
 }: Props) {
   const fare = trip.totalPrice ?? trip.amountPaid;
   const busy = Boolean(starting || completing || cancelling);
@@ -99,6 +101,12 @@ export function ActiveTripSheet({
           </Pressable>
         </View>
       </View>
+      {routeAwayLabel ? (
+        <View style={styles.routeAwayPill}>
+          <Feather name="navigation" size={18} color={colors.brandGreen} />
+          <Text style={styles.routeAwayText}>{routeAwayLabel}</Text>
+        </View>
+      ) : null}
 
       <View style={styles.detailCard}>
         <View style={styles.detailRow}>
@@ -196,6 +204,22 @@ const styles = StyleSheet.create({
     borderRadius: radius.card,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
+  },
+  routeAwayPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.brandGreenSoft,
+    borderRadius: radius.card,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 12,
+    marginBottom: spacing.md,
+  },
+  routeAwayText: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.brandGreen,
+    flex: 1,
   },
   detailCard: {
     backgroundColor: '#F7F6F2',

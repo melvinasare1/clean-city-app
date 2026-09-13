@@ -64,7 +64,7 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
   const { isOnline, goOnline, goOffline } = useDriverPresence(driverId);
   const priority = useDriverPriority(driverId);
 
-  const handleToggleOnline = useCallback(async () => {
+  const handleToggleOnline = useCallback(() => {
     if (!driverId) return;
     if (!isApproved) {
       showPendingAlert();
@@ -76,23 +76,35 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
       return;
     }
 
-    setToggleLoading(true);
-    try {
-      if (isOnline) {
-        await goOffline();
-        await trackEvent('driver_end_shift', { screen: 'driver_home' });
-      } else {
-        const started = await goOnline();
-        if (started) {
-          await trackEvent('driver_start_shift', { screen: 'driver_home' });
+    const applyToggle = async () => {
+      setToggleLoading(true);
+      try {
+        if (isOnline) {
+          await goOffline();
+          await trackEvent('driver_end_shift', { screen: 'driver_home' });
+        } else {
+          const started = await goOnline();
+          if (started) {
+            await trackEvent('driver_start_shift', { screen: 'driver_home' });
+          }
         }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Could not update your online status';
+        Alert.alert('Error', msg);
+      } finally {
+        setToggleLoading(false);
       }
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Could not update your online status';
-      Alert.alert('Error', msg);
-    } finally {
-      setToggleLoading(false);
+    };
+
+    if (isOnline) {
+      Alert.alert('Go offline?', 'Are you sure you want to go offline?', [
+        { text: 'Stay online', style: 'cancel' },
+        { text: 'Go offline', onPress: () => void applyToggle() },
+      ]);
+      return;
     }
+
+    void applyToggle();
   }, [activeTrip, driverId, goOffline, goOnline, isApproved, isOnline, showPendingAlert, toggleLoading]);
 
   const handleAccept = useCallback(async () => {
@@ -168,6 +180,7 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
     if (!pickup) return null;
     return [pickup.lng, pickup.lat];
   }, [activeTrip, offer]);
+  const [routeAwayLabel, setRouteAwayLabel] = useState<string | null>(null);
 
   useEffect(() => {
     console.log('[DriverHome] offer.pickup', offer?.pickup ?? null);
@@ -183,7 +196,11 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
 
   return (
     <View style={styles.container}>
-      <DriverMap ref={mapRef} pickupCoordinate={pickupCoordinate} />
+      <DriverMap
+        ref={mapRef}
+        pickupCoordinate={pickupCoordinate}
+        onRouteAwayLabelChange={setRouteAwayLabel}
+      />
 
       <TopBar
         isOnline={isOnline}
@@ -217,10 +234,6 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
 
       <MapControls
         bottomOffset={isOnline || offer || activeTrip ? 260 : 250}
-        onCompassPress={() => mapRef.current?.resetHeading()}
-        onLayersPress={() => {
-          Alert.alert('Map style', 'Satellite, traffic, and streets switching is coming soon.');
-        }}
         onRecenterPress={() => mapRef.current?.recenter()}
       />
 
@@ -232,6 +245,7 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
           }}
           accepting={accepting}
           bottomInset={0}
+          routeAwayLabel={routeAwayLabel}
         />
       ) : activeTrip ? (
         <ActiveTripSheet
@@ -247,6 +261,7 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
           completing={completing}
           cancelling={cancelling}
           bottomInset={0}
+          routeAwayLabel={routeAwayLabel}
         />
       ) : (
         <HomeSheet

@@ -10,6 +10,7 @@ type Props = {
   onAccept: () => void;
   accepting?: boolean;
   bottomInset?: number;
+  routeAwayLabel?: string | null;
 };
 
 function toDate(value: JobOffer['offerExpiresAt'] | JobOffer['scheduledDate']): Date | null {
@@ -42,7 +43,13 @@ function remainingSeconds(expiresAt: Date | null): number | null {
   return Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / 1000));
 }
 
-export function JobOfferSheet({ offer, onAccept, accepting, bottomInset = 0 }: Props) {
+export function JobOfferSheet({
+  offer,
+  onAccept,
+  accepting,
+  bottomInset = 0,
+  routeAwayLabel,
+}: Props) {
   const fare = offer.totalPrice ?? offer.amountPaid;
   const expiresAt = toDate(offer.offerExpiresAt);
   const [secondsLeft, setSecondsLeft] = useState(() => remainingSeconds(expiresAt));
@@ -86,6 +93,12 @@ export function JobOfferSheet({ offer, onAccept, accepting, bottomInset = 0 }: P
 
       {fare != null && secondsLeft != null ? (
         <Text style={styles.fareUnderTimer}>¢{Number(fare).toFixed(2)}</Text>
+      ) : null}
+      {routeAwayLabel ? (
+        <View style={styles.routeAwayPill}>
+          <Feather name="navigation" size={18} color={colors.brandGreen} />
+          <Text style={styles.routeAwayText}>{routeAwayLabel}</Text>
+        </View>
       ) : null}
 
       <View style={styles.detailCard}>
@@ -170,7 +183,23 @@ const styles = StyleSheet.create({
   fareUnderTimer: {
     ...typography.earningsValue,
     marginTop: -8,
+    marginBottom: spacing.sm,
+  },
+  routeAwayPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.brandGreenSoft,
+    borderRadius: radius.card,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 12,
     marginBottom: spacing.md,
+  },
+  routeAwayText: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.brandGreen,
+    flex: 1,
   },
   timerPill: {
     minWidth: 52,

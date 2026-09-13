@@ -15,7 +15,8 @@
     "seed:pricing": "cd functions && node ../scripts/seed-pricing-config.js",
     "seed:pricing:dry-run": "cd functions && node ../scripts/seed-pricing-config.js --dry-run",
     "deploy:firestore-rules": "node scripts/deploy-firestore-rules.js",
-    "deploy:database-rules": "node scripts/deploy-database-rules.js"
+    "deploy:database-rules": "node scripts/deploy-database-rules.js",
+    "mapbox:directions-usage": "node scripts/check-mapbox-directions-usage.js"
   },
   "overrides": {
     "expo-constants": "18.0.12",

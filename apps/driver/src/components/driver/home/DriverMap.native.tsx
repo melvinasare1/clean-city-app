@@ -6,7 +6,6 @@ import React, {
   useState,
 } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import Constants from 'expo-constants';
 import * as Location from 'expo-location';
 import Mapbox, {
   Camera,
@@ -17,20 +16,12 @@ import Mapbox, {
   UserLocation,
 } from '@rnmapbox/maps';
 import { colors } from '@platform/shared-theme';
+import { useMapboxDrivingRoute } from '@/hooks/useMapboxDrivingRoute';
+import { resolveMapboxToken } from '@/lib/mapbox-access-token';
+import { formatAwayLabel } from '@/lib/mapbox-driving-route';
 import type { DriverMapHandle, DriverMapProps } from './driver-map.types';
 
 const INITIAL_ZOOM = 15;
-
-function resolveMapboxToken(): string {
-  const extra = Constants.expoConfig?.extra?.mapboxAccessToken;
-  const fromEnv = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN;
-  for (const value of [fromEnv, extra]) {
-    if (typeof value === 'string' && value.length > 0 && !value.includes('${')) {
-      return value;
-    }
-  }
-  return '';
-}
 
 const accessToken = resolveMapboxToken();
 
@@ -57,7 +48,7 @@ function isUserCameraGesture(state: {
 }
 
 export const DriverMap = forwardRef<DriverMapHandle, DriverMapProps>(function DriverMap(
-  { pickupCoordinate = null },
+  { pickupCoordinate = null, onRouteAwayLabelChange },
   ref
 ) {
   const cameraRef = useRef<Camera>(null);
@@ -72,19 +63,31 @@ export const DriverMap = forwardRef<DriverMapHandle, DriverMapProps>(function Dr
   const driverCoordinateRef = useRef(driverCoordinate);
   pickupCoordinateRef.current = pickupCoordinate;
   driverCoordinateRef.current = driverCoordinate;
+  const route = useMapboxDrivingRoute(driverCoordinate, pickupCoordinate, accessToken);
 
   useEffect(() => {
     console.log('[DriverMap] pickupCoordinate', pickupCoordinate);
   }, [pickupCoordinate]);
 
+  useEffect(() => {
+    onRouteAwayLabelChange?.(
+      route ? formatAwayLabel(route.distanceMeters, route.durationSeconds) : null
+    );
+  }, [onRouteAwayLabelChange, route]);
+
   const pickupKey = (coordinate: [number, number] | null) =>
     coordinate ? `${coordinate[0]},${coordinate[1]}` : null;
 
-  const fitDriverAndPickup = (driver: [number, number], pickup: [number, number]) => {
-    let west = Math.min(driver[0], pickup[0]);
-    let east = Math.max(driver[0], pickup[0]);
-    let south = Math.min(driver[1], pickup[1]);
-    let north = Math.max(driver[1], pickup[1]);
+  const fitDriverAndPickup = (
+    driver: [number, number],
+    pickup: [number, number],
+    extraCoordinates: [number, number][] = []
+  ) => {
+    const points = [driver, pickup, ...extraCoordinates];
+    let west = Math.min(...points.map((point) => point[0]));
+    let east = Math.max(...points.map((point) => point[0]));
+    let south = Math.min(...points.map((point) => point[1]));
+    let north = Math.max(...points.map((point) => point[1]));
     if (east - west < 0.002) {
       west -= 0.001;
       east += 0.001;
@@ -152,12 +155,16 @@ export const DriverMap = forwardRef<DriverMapHandle, DriverMapProps>(function Dr
       return;
     }
     if (!driverCoordinate || !mapLoadedRef.current) return;
-    const key = pickupKey(pickupCoordinate);
+    const key = `${pickupKey(pickupCoordinate)}:${route?.source ?? 'pending'}`;
     if (framedPickupKeyRef.current === key) return;
     framedPickupKeyRef.current = key;
     setIsFollowingUser(false);
-    fitDriverAndPickup(driverCoordinate, pickupCoordinate);
-  }, [driverCoordinate, mapVisible, pickupCoordinate]);
+    fitDriverAndPickup(
+      driverCoordinate,
+      pickupCoordinate,
+      route?.geometry.coordinates ?? []
+    );
+  }, [driverCoordinate, mapVisible, pickupCoordinate, route]);
 
   useImperativeHandle(
     ref,
@@ -179,9 +186,6 @@ export const DriverMap = forwardRef<DriverMapHandle, DriverMapProps>(function Dr
           setDriverCoordinate(center);
           snapTo(center);
         });
-      },
-      resetHeading: () => {
-        cameraRef.current?.setCamera({ heading: 0, animationDuration: 300 });
       },
     }),
     [pickupCoordinate]
@@ -210,17 +214,13 @@ export const DriverMap = forwardRef<DriverMapHandle, DriverMapProps>(function Dr
         animationMode: 'none' as const,
       };
 
-  const routeLine =
-    driverCoordinate && pickupCoordinate
-      ? {
-          type: 'Feature' as const,
-          properties: {},
-          geometry: {
-            type: 'LineString' as const,
-            coordinates: [driverCoordinate, pickupCoordinate],
-          },
-        }
-      : null;
+  const routeLine = route
+    ? {
+        type: 'Feature' as const,
+        properties: {},
+        geometry: route.geometry,
+      }
+    : null;
 
   return (
     <View style={StyleSheet.absoluteFillObject}>
@@ -243,7 +243,7 @@ export const DriverMap = forwardRef<DriverMapHandle, DriverMapProps>(function Dr
             if (framedPickupKeyRef.current !== key) {
               framedPickupKeyRef.current = key;
               setIsFollowingUser(false);
-              fitDriverAndPickup(driver, pickup);
+              fitDriverAndPickup(driver, pickup, route?.geometry.coordinates ?? []);
               return;
             }
           }

@@ -4,36 +4,16 @@ import { Feather } from '@expo/vector-icons';
 import { colors, sizes, spacing } from '@platform/shared-theme';
 
 type Props = {
-  onCompassPress: () => void;
-  onLayersPress: () => void;
   onRecenterPress: () => void;
   bottomOffset?: number;
 };
 
 export function MapControls({
-  onCompassPress,
-  onLayersPress,
   onRecenterPress,
   bottomOffset = 240,
 }: Props) {
   return (
     <View style={[styles.stack, { bottom: bottomOffset }]}>
-      <Pressable
-        style={styles.button}
-        onPress={onCompassPress}
-        accessibilityRole="button"
-        accessibilityLabel="Reset map heading"
-      >
-        <Feather name="navigation" size={18} color={colors.inkPrimary} />
-      </Pressable>
-      <Pressable
-        style={styles.button}
-        onPress={onLayersPress}
-        accessibilityRole="button"
-        accessibilityLabel="Map layers"
-      >
-        <Feather name="layers" size={18} color={colors.inkPrimary} />
-      </Pressable>
       <Pressable
         style={styles.button}
         onPress={onRecenterPress}
