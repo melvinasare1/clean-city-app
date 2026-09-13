@@ -13,6 +13,7 @@ import * as Linking from 'expo-linking';
 import { CustomerStackParamList } from '@/navigation/types';
 import { styles } from './create-booking-screen.styles';
 import { trackEvent } from '@/services/analytics';
+import { pickupAddressText } from '@/lib/profile-location';
 import { SubscriptionCollectionCalendarModal } from './subscription-collection-calendar-modal';
 import {
   getSubscriptionDiscount,
@@ -142,6 +143,7 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
 }) => {
   const { items, totalPrice } = route.params;
   const { user } = useAuth();
+  const address = pickupAddressText(user ?? {});
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [showOneOffCalendar, setShowOneOffCalendar] = useState(false);
   const [selectedWindowId, setSelectedWindowId] = useState<TimeWindowId | null>(
@@ -167,14 +169,14 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
     []
   );
 
-  const locationMissing = !user?.location;
+  const locationMissing = !address;
   const hasItems = items.length > 0;
 
   const isOneTimeConfirmDisabled =
     !user ||
     !selectedDate ||
     !selectedWindowId ||
-    !user?.location ||
+    !address ||
     !hasItems ||
     isSaving;
 
@@ -201,7 +203,7 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
 
   const isSubscriptionStartDisabled =
     !user ||
-    !user?.location ||
+    !address ||
     !hasItems ||
     !subscriptionStartDate ||
     discountedTotal <= 0 ||
@@ -243,10 +245,10 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
       );
       return;
     }
-    if (!user?.location || !hasItems) {
+    if (!address || !hasItems) {
       Alert.alert(
         'Missing info',
-        'Please add your service area and at least one bin.'
+        'Please add your pickup address and at least one bin.'
       );
       return;
     }
@@ -267,7 +269,7 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
           date: startDateIso,
           windowId: defaultWindow.id,
           windowLabel: defaultWindow.label,
-          location: user.location ?? '',
+          location: address,
           items,
           totalPrice: discountedTotal,
           type: 'subscription',
@@ -301,11 +303,11 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
             unitPrice: i.unitPrice,
             totalPrice: i.totalPrice,
           })),
-          location: user.location ?? '',
+          location: address,
           metadata: {
             binType: items.map((i) => i.type).join(', '),
             quantity: items.reduce((acc, i) => acc + (i.quantity ?? 1), 0),
-            location: user.location ?? '',
+            location: address,
             startDate: startDateIso,
           },
         });
@@ -393,10 +395,10 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
       );
       return;
     }
-    if (!user.location) {
+    if (!address) {
       Alert.alert(
         'Missing location',
-        'Please complete your profile with a service area before scheduling.'
+        'Please complete your profile with a pickup address before scheduling.'
       );
       return;
     }
@@ -424,7 +426,7 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
         date: dateStr,
         windowId: windowDef.id,
         windowLabel: windowDef.label,
-        location: user.location,
+        location: address,
         items,
         totalPrice: totalPrice,
         type: 'one_off',
@@ -737,15 +739,15 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
           </>
         )}
 
-        <AppText style={styles.label}>Service area</AppText>
-        {user?.location ? (
+        <AppText style={styles.label}>Pickup address</AppText>
+        {address ? (
           <AppText style={styles.locationText}>
-            Pickup area: {user.location}
+            Pickup address: {address}
           </AppText>
         ) : (
           <View style={styles.locationWarningContainer}>
             <AppText style={styles.locationWarning}>
-              Add your service area to schedule pickups.
+              Add your pickup address to schedule pickups.
             </AppText>
             <TouchableOpacity
               style={styles.completeProfileLink}

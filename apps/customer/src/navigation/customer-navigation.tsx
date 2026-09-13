@@ -2,43 +2,32 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { Ionicons } from '@expo/vector-icons';
 import { CustomerHomeScreen } from '../screens/customer/customer-home-screen/customer-home-screen';
 import { NewBookingScreen } from '../screens/customer/new-booking-screen/new-booking-screen';
 import { MyBookingsScreen } from '../screens/customer/my-bookings/my-bookings-screen';
 import { BookingDetailScreen } from '../screens/customer/booking-detail/booking-detail-screen';
 import { CompleteProfileScreen } from '../screens/customer/complete-profile/complete-profile-screen';
+import { SetPickupLocationScreen } from '../screens/customer/set-pickup-location-screen';
 import { CreateBookingScreen } from '../screens/customer/create-booking/create-booking-screen';
 import { PaymentCallbackScreen } from '../screens/customer/payment/payment-callback-screen';
 import { PrivacyPolicyScreen } from '../screens/privacy-policy/privacy-policy-screen';
 import { TermsAndConditionsScreen } from '../screens/terms-and-conditions/terms-and-conditions-screen';
 import { ReferralProgramScreen } from "@/screens/referral/referral-program-screen";
 import { RecyclingGuidesScreen } from '../screens/customer/recycling-guides/recycling-guides-screen';
+import { CustomerProfileScreen } from '../screens/customer/customer-profile-screen';
+import { HelpScreen } from '../screens/customer/help-screen';
+import { PricingPlansScreen } from '../screens/customer/pricing-plans-screen';
+import { PaymentMethodsScreen } from '../screens/customer/payment-methods-screen';
 import { COLORS } from '../lib/constants';
 
 import {
     CustomerStackParamList,
     CustomerTabParamList,
 } from './types';
-import { IconsComponent } from '@/components';
 
 const Stack = createNativeStackNavigator<CustomerStackParamList>();
 const Tab = createBottomTabNavigator<CustomerTabParamList>();
-
-type TabIconProps = {
-    Icon: React.FC<React.SVGProps<SVGSVGElement>>;
-    color?: string;
-    size?: number;
-};
-
-const TabIcon: React.FC<TabIconProps> = ({
-    Icon,
-    color = "currentColor",
-    size = 24,
-}) => {
-    return <Icon width={size} height={size} fill={color} />;
-};
-
-export default TabIcon;
 
 const CustomerTabs = () => (
     <Tab.Navigator
@@ -48,7 +37,11 @@ const CustomerTabs = () => (
             tabBarStyle: {
                 backgroundColor: COLORS.white,
                 borderTopWidth: 1,
-                borderTopColor: '#E0E0E0',
+                borderTopColor: COLORS.background,
+            },
+            tabBarLabelStyle: {
+                fontSize: 12,
+                fontWeight: '600',
             },
             headerStyle: {
                 backgroundColor: COLORS.primary,
@@ -65,17 +58,14 @@ const CustomerTabs = () => (
             options={{
                 title: 'Home',
                 tabBarLabel: 'Home',
-                tabBarIcon: () => <IconsComponent name='HomeIcon' />,
+                tabBarIcon: ({ color, focused }) => (
+                    <Ionicons
+                        name={focused ? 'home' : 'home-outline'}
+                        size={22}
+                        color={color}
+                    />
+                ),
                 headerShown: false,
-            }}
-        />
-        <Tab.Screen
-            name="NewBooking"
-            component={NewBookingScreen}
-            options={{
-                title: 'New Booking',
-                tabBarLabel: 'New Booking',
-                tabBarIcon: () => <IconsComponent name='DeliveryIcon' />,
             }}
         />
         <Tab.Screen
@@ -83,9 +73,47 @@ const CustomerTabs = () => (
             component={MyBookingsScreen}
             options={{
                 title: 'My Bookings',
-                tabBarLabel: 'Pickups',
-                tabBarIcon: () => <IconsComponent name='BookingIcon' />,
+                tabBarLabel: 'Bookings',
+                tabBarIcon: ({ color, focused }) => (
+                    <Ionicons
+                        name={focused ? 'calendar' : 'calendar-outline'}
+                        size={22}
+                        color={color}
+                    />
+                ),
                 headerTitleAlign: 'center',
+            }}
+        />
+        <Tab.Screen
+            name="CustomerProfile"
+            component={CustomerProfileScreen}
+            options={{
+                title: 'Profile',
+                tabBarLabel: 'Profile',
+                tabBarIcon: ({ color, focused }) => (
+                    <Ionicons
+                        name={focused ? 'person' : 'person-outline'}
+                        size={22}
+                        color={color}
+                    />
+                ),
+                headerShown: false,
+            }}
+        />
+        <Tab.Screen
+            name="CustomerHelp"
+            component={HelpScreen}
+            options={{
+                title: 'Help',
+                tabBarLabel: 'Help',
+                tabBarIcon: ({ color, focused }) => (
+                    <Ionicons
+                        name={focused ? 'help-circle' : 'help-circle-outline'}
+                        size={22}
+                        color={color}
+                    />
+                ),
+                headerShown: false,
             }}
         />
     </Tab.Navigator>
@@ -111,6 +139,11 @@ export const CustomerNavigator: React.FC = () => {
                 options={{ headerShown: false, title: '' }}
             />
             <Stack.Screen
+                name="NewBooking"
+                component={NewBookingScreen}
+                options={{ title: 'Book a Pickup' }}
+            />
+            <Stack.Screen
                 name="CreateBooking"
                 component={CreateBookingScreen}
                 options={{ title: 'Schedule Pickup' }}
@@ -124,6 +157,11 @@ export const CustomerNavigator: React.FC = () => {
                 name="CompleteProfile"
                 component={CompleteProfileScreen}
                 options={{ title: 'Complete Profile' }}
+            />
+            <Stack.Screen
+                name="SetPickupLocation"
+                component={SetPickupLocationScreen}
+                options={{ headerShown: false, title: 'Set pickup' }}
             />
             <Stack.Screen
                 name="PaymentCallback"
@@ -149,6 +187,16 @@ export const CustomerNavigator: React.FC = () => {
               name="RecyclingGuides"
               component={RecyclingGuidesScreen}
               options={{ title: 'Recycling Guides' }}
+            />
+            <Stack.Screen
+              name="PricingPlans"
+              component={PricingPlansScreen}
+              options={{ title: 'Pricing & Plans' }}
+            />
+            <Stack.Screen
+              name="PaymentMethods"
+              component={PaymentMethodsScreen}
+              options={{ title: 'Payment Methods' }}
             />
         </Stack.Navigator>
     );

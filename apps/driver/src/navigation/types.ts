@@ -18,6 +18,7 @@ export type DriverStackParamList = {
   DriverTabs: NavigatorScreenParams<DriverTabParamList> | undefined;
   DriverJobList: undefined;
   DriverJobDetail: { jobId: string };
+  JobSheet: { jobId: string };
   DailyEarningsDetails: undefined;
   ServiceProvider: undefined;
   PaymentMethod: undefined;

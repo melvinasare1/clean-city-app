@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useMemo, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import {
     Alert,
     ScrollView,
@@ -12,7 +12,8 @@ import { AppText, AppTextInput, ScreenContainer } from '@/components';
 import { useAuth } from '@/hooks/useAuth';
 import { useReferralWindow } from '@/hooks/useReferralWindow';
 import { setDocAtPath } from '@/lib/utils';
-import { SERVICE_AREAS, ServiceArea } from '@/lib/service-areas';
+import { pickupAddressText } from '@/lib/profile-location';
+import type { PickupCoordinates } from '@/lib/profile-location';
 import { CustomerStackParamList } from '@/navigation/types';
 import {
     getProfileCompletionSteps,
@@ -25,6 +26,7 @@ import {
 import { applyReferralCode } from '@/services/referral-api';
 import type { ReferralApplyErrorCode } from '@/types/referral';
 import { COLORS, VARS } from '@/lib/constants';
+import { PickupAddressField } from './pickup-address-field';
 import { styles } from './complete-profile-screen.styles';
 
 type CompleteProfileScreenProps = NativeStackScreenProps<
@@ -34,16 +36,18 @@ type CompleteProfileScreenProps = NativeStackScreenProps<
 
 export const CompleteProfileScreen: React.FC<CompleteProfileScreenProps> = ({
     navigation,
+    route,
 }) => {
     const { user, refreshUserProfile } = useAuth();
+    const [name, setName] = useState(user?.name ?? '');
     const [phone, setPhone] = useState(user?.phone ?? '');
-    const [location, setLocation] = useState<ServiceArea | ''>(
-        (user?.location as ServiceArea) ?? ''
+    const [address, setAddress] = useState(pickupAddressText(user ?? {}));
+    const [coords, setCoords] = useState<PickupCoordinates | null>(
+        user?.location ?? null
     );
     const [referralInput, setReferralInput] = useState('');
     const [referralError, setReferralError] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
-    const [showAreaPicker, setShowAreaPicker] = useState(false);
 
     const { referralWindowOpen } = useReferralWindow(user);
 
@@ -51,14 +55,23 @@ export const CompleteProfileScreen: React.FC<CompleteProfileScreenProps> = ({
         navigation.setOptions({ headerShown: false });
     }, [navigation]);
 
+    useEffect(() => {
+        const pickup = route.params?.pickup;
+        if (!pickup) return;
+        setAddress(pickup.address);
+        setCoords(pickup.location);
+        navigation.setParams({ pickup: undefined });
+    }, [navigation, route.params?.pickup]);
+
     const checklistSteps = useMemo(
         () =>
             getProfileCompletionSteps({
                 email: user?.email,
+                name: name || undefined,
                 phone: phone || undefined,
-                location: location || undefined,
+                address: address || undefined,
             }),
-        [user?.email, phone, location]
+        [user?.email, name, phone, address]
     );
 
     const referralCodeValid = useMemo(
@@ -67,8 +80,10 @@ export const CompleteProfileScreen: React.FC<CompleteProfileScreenProps> = ({
     );
 
     const canSave =
+        !!name &&
         !!phone &&
-        !!location &&
+        !!address &&
+        !!coords &&
         (!referralInput || referralCodeValid) &&
         !isSaving;
 
@@ -86,10 +101,10 @@ export const CompleteProfileScreen: React.FC<CompleteProfileScreenProps> = ({
             return;
         }
 
-        if (!phone || !location) {
+        if (!name || !phone || !address || !coords) {
             Alert.alert(
                 'Missing info',
-                'Please add both a contact number and your service area.'
+                'Please add your name, contact number, and a confirmed pickup address.'
             );
             return;
         }
@@ -120,7 +135,12 @@ export const CompleteProfileScreen: React.FC<CompleteProfileScreenProps> = ({
 
             await setDocAtPath(
                 ['profiles', user.id],
-                { phone, location },
+                {
+                    name,
+                    phone,
+                    address,
+                    location: { lat: coords.lat, lng: coords.lng },
+                },
                 { merge: true, addTimestamps: false }
             );
             await refreshUserProfile();
@@ -186,6 +206,16 @@ export const CompleteProfileScreen: React.FC<CompleteProfileScreenProps> = ({
                 </View>
 
                 <View style={styles.form}>
+                    <AppText style={styles.label}>Full name</AppText>
+                    <AppTextInput
+                        value={name}
+                        onChangeText={setName}
+                        autoCapitalize="words"
+                        autoCorrect={false}
+                        placeholder="Jane Mensah"
+                        style={styles.input}
+                    />
+
                     <AppText style={styles.label}>Phone number</AppText>
                     <AppTextInput
                         value={phone}
@@ -195,23 +225,20 @@ export const CompleteProfileScreen: React.FC<CompleteProfileScreenProps> = ({
                         style={styles.input}
                     />
 
-                    <AppText style={styles.label}>Pickup location</AppText>
-                    <TouchableOpacity
-                        style={styles.selectInput}
-                        onPress={() => setShowAreaPicker(true)}
-                    >
-                        <AppText
-                            style={
-                                location ? styles.selectText : styles.selectPlaceholder
-                            }
-                        >
-                            {location || 'Search your address or area'}
-                        </AppText>
-                    </TouchableOpacity>
-
+                    <AppText style={styles.label}>Pickup address</AppText>
+                    <PickupAddressField
+                        address={address}
+                        location={coords}
+                        onPress={() =>
+                            navigation.navigate('SetPickupLocation', {
+                                initialAddress: address,
+                                initialLocation: coords,
+                            })
+                        }
+                    />
                     <AppText style={styles.helperText}>
-                        We currently only cover selected areas in East Legon. We'll be
-                        expanding to more locations soon.
+                        Open the map, search or pan to your building entrance, then confirm.
+                        We save the spot under the center pin.
                     </AppText>
 
                     {referralWindowOpen ? (
@@ -267,34 +294,6 @@ export const CompleteProfileScreen: React.FC<CompleteProfileScreenProps> = ({
                     </TouchableOpacity>
                 </View>
             </ScrollView>
-
-            {showAreaPicker ? (
-                <View style={styles.areaModalOverlay}>
-                    <View style={styles.areaModal}>
-                        <AppText style={styles.modalTitle}>Select your area</AppText>
-
-                        {SERVICE_AREAS.map((areaOption) => (
-                            <TouchableOpacity
-                                key={areaOption}
-                                style={styles.areaOption}
-                                onPress={() => {
-                                    setLocation(areaOption);
-                                    setShowAreaPicker(false);
-                                }}
-                            >
-                                <AppText style={styles.areaOptionText}>{areaOption}</AppText>
-                            </TouchableOpacity>
-                        ))}
-
-                        <TouchableOpacity
-                            style={styles.modalCancel}
-                            onPress={() => setShowAreaPicker(false)}
-                        >
-                            <AppText style={styles.modalCancelText}>Cancel</AppText>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            ) : null}
         </ScreenContainer>
     );
 };

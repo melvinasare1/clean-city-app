@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { CompositeNavigationProp } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -9,18 +9,17 @@ import { useDriverApproved } from '@/hooks/useDriverApproved';
 import { useDriverPresence } from '@/hooks/useDriverPresence';
 import { DriverApprovalBanner } from '@/components/driver/DriverApprovalBanner';
 import { TopBar } from '@/components/driver/home/TopBar';
-import { MapControls } from '@/components/driver/home/MapControls';
 import { HomeSheet } from '@/components/driver/home/HomeSheet';
 import { JobOfferSheet } from '@/components/driver/home/JobOfferSheet';
 import { ActiveTripSheet } from '@/components/driver/home/ActiveTripSheet';
 import { DriverMap } from '@/components/driver/home/DriverMap';
-import type { DriverMapHandle } from '@/components/driver/home/driver-map.types';
 import { colors } from '@platform/shared-theme';
 import { trackEvent } from '@/services/analytics';
 import { BriefToast, useBriefToast } from '@/components/driver/BriefToast';
 import { useAssignedJobOffer } from '@/hooks/useAssignedJobOffer';
 import { useDriverPriority } from '@/hooks/useDriverPriority';
 import { startJob } from '@/services/driver-api';
+import { openNavigation } from '@/lib/open-navigation';
 import type { DriverStackParamList, DriverTabParamList } from '@/navigation/types';
 
 type DriverHomeScreenProps = {
@@ -50,12 +49,13 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
   const { isApproved, showPendingAlert } = useDriverApproved();
   const [toggleLoading, setToggleLoading] = useState(false);
   const [todaysEarnings] = useState(0);
-  const mapRef = useRef<DriverMapHandle>(null);
-  const { offer, activeTrip, accept, decline, complete, cancel } = useAssignedJobOffer();
+  const { offer, activeTrip, accept, decline, complete, cancel, markArrived } =
+    useAssignedJobOffer();
   const [accepting, setAccepting] = useState(false);
   const [declining, setDeclining] = useState(false);
   const [completing, setCompleting] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [arriving, setArriving] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const { toast, showToast } = useBriefToast();
 
@@ -139,6 +139,10 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
     setStarting(true);
     try {
       await startJob(activeTrip.id, driverId);
+      const pickup = activeTrip.pickup;
+      if (pickup) {
+        await openNavigation(pickup.lat, pickup.lng);
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Could not start this job';
       Alert.alert('Error', msg);
@@ -146,6 +150,30 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
       setStarting(false);
     }
   }, [activeTrip, driverId]);
+
+  const handleNavigate = useCallback(() => {
+    const pickup = activeTrip?.pickup;
+    if (!pickup) return;
+    void openNavigation(pickup.lat, pickup.lng);
+  }, [activeTrip]);
+
+  const handleArrived = useCallback(async () => {
+    if (!activeTrip) return;
+    setArriving(true);
+    try {
+      await markArrived(activeTrip.id);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Could not mark arrival';
+      Alert.alert('Error', msg);
+    } finally {
+      setArriving(false);
+    }
+  }, [activeTrip, markArrived]);
+
+  const handleOpenJobSheet = useCallback(() => {
+    if (!activeTrip) return;
+    navigation.navigate('JobSheet', { jobId: activeTrip.id });
+  }, [activeTrip, navigation]);
 
   const handleComplete = useCallback(async () => {
     if (!activeTrip) return;
@@ -197,7 +225,6 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
   return (
     <View style={styles.container}>
       <DriverMap
-        ref={mapRef}
         pickupCoordinate={pickupCoordinate}
         onRouteAwayLabelChange={setRouteAwayLabel}
       />
@@ -232,11 +259,6 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
         </Pressable>
       ) : null}
 
-      <MapControls
-        bottomOffset={isOnline || offer || activeTrip ? 260 : 250}
-        onRecenterPress={() => mapRef.current?.recenter()}
-      />
-
       {offer ? (
         <JobOfferSheet
           offer={offer}
@@ -253,11 +275,17 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
           onStart={() => {
             void handleStart();
           }}
+          onNavigate={handleNavigate}
+          onArrived={() => {
+            void handleArrived();
+          }}
+          onOpenJobSheet={handleOpenJobSheet}
           onComplete={() => {
             void handleComplete();
           }}
           onCancel={handleCancelTrip}
           starting={starting}
+          arriving={arriving}
           completing={completing}
           cancelling={cancelling}
           bottomInset={0}

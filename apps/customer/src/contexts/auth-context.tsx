@@ -29,6 +29,11 @@ import { loadReminderSettingsAndReschedule, loadWeeklyReminderSettingsAndResched
 import { createReferralIfValid } from '@/services/referralService';
 import { registerDriverAccount } from '@/services/driver-api';
 import { isProfileComplete, toMillis } from '@/lib/referral-utils';
+import {
+    parsePickupCoordinates,
+    resolveProfileAddress,
+    type PickupCoordinates,
+} from '@/lib/profile-location';
 import { type DriverAccountStatus, normalizeDriverStatus } from '@/lib/driver-account';
 
 export type AppUserRole = 'customer' | 'driver' | 'admin';
@@ -44,13 +49,16 @@ export interface AppUser {
     role: AppUserRole | null;
     name?: string;
     phone?: string;
-    location?: string;
+    address?: string;
+    location?: PickupCoordinates;
     signupAt?: string;
     referralCodeUsed?: string | null;
     referralCodeApplied?: boolean;
     firstBookingAt?: string | null;
     profileComplete?: boolean;
     referralCode?: string;
+    bookingRemindersEnabled?: boolean;
+    promotionsEnabled?: boolean;
     referralStats?: {
         friendsReferred: number;
         freePickupsEarned: number;
@@ -113,14 +121,18 @@ async function readDriverDocument(
 type ProfileData = {
     email?: string;
     role?: AppUserRole | null;
+    name?: string | null;
     phone?: string | null;
-    location?: string | null;
+    address?: string | null;
+    location?: string | PickupCoordinates | null;
     createdAt?: unknown;
     referredBy?: string | null;
     referralCodeUsed?: string | null;
     referralCodeApplied?: boolean;
     firstBookingAt?: unknown;
     referralCode?: string;
+    bookingRemindersEnabled?: boolean;
+    promotionsEnabled?: boolean;
 };
 
 const mapProfile = (firebaseUser: FirebaseUser | null, data?: ProfileData): AppUser => {
@@ -132,8 +144,10 @@ const mapProfile = (firebaseUser: FirebaseUser | null, data?: ProfileData): AppU
         };
     }
 
+    const name = data?.name ?? undefined;
     const phone = data?.phone ?? undefined;
-    const location = data?.location ?? undefined;
+    const address = resolveProfileAddress(data ?? {});
+    const location = parsePickupCoordinates(data?.location) ?? undefined;
     const signupMs =
         toMillis(data?.createdAt) ??
         (firebaseUser.metadata.creationTime
@@ -144,18 +158,26 @@ const mapProfile = (firebaseUser: FirebaseUser | null, data?: ProfileData): AppU
     return {
         id: firebaseUser.uid,
         email: data?.email ?? firebaseUser.email ?? '',
+        name: name || undefined,
         phone: phone || undefined,
-        location: location || undefined,
+        address: address || undefined,
+        location,
         role: data?.role ?? null,
         signupAt: signupMs ? new Date(signupMs).toISOString() : undefined,
         referralCodeUsed: data?.referralCodeUsed ?? data?.referredBy ?? null,
         referralCodeApplied: data?.referralCodeApplied === true,
         firstBookingAt: firstBookingMs ? new Date(firstBookingMs).toISOString() : null,
-        profileComplete: isProfileComplete({ phone: phone || undefined, location: location || undefined }),
+        profileComplete: isProfileComplete({
+            name: name || undefined,
+            phone: phone || undefined,
+            address: address || undefined,
+        }),
         referralCode:
             typeof data?.referralCode === 'string'
                 ? data.referralCode
                 : `CC-${firebaseUser.uid.slice(0, 6).toUpperCase()}`,
+        bookingRemindersEnabled: data?.bookingRemindersEnabled !== false,
+        promotionsEnabled: data?.promotionsEnabled === true,
     };
 };
 
@@ -201,12 +223,17 @@ const createProfileIfMissing = async (firebaseUser: FirebaseUser): Promise<void>
         {
             email: firebaseUser.email ?? '',
             role: 'customer' as AppUserRole,
+            name: null,
             phone: null,
+            address: null,
             location: null,
             referralCode: generatedReferralCode,
             referredBy: null,
             creditBalance: 0,
             referralRewarded: false,
+            bookingRemindersEnabled: true,
+            promotionsEnabled: false,
+            notificationPreferences: { enabled: true },
         },
         { merge: true, addTimestamps: true }
     );
@@ -439,6 +466,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             email,
             role: 'customer',
             phone: null,
+            address: null,
             location: null,
             referralCode: generatedReferralCode,
             referredBy: null,

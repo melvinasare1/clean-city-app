@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   ActivityIndicator,
@@ -8,8 +8,6 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
-import { CompositeScreenProps } from '@react-navigation/native';
-import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '@/hooks/useAuth';
 import { usePricing } from '@/hooks/usePricing';
@@ -17,16 +15,17 @@ import { isProfileComplete } from '@/lib/referral-utils';
 import { BIN_CATALOG, getEnabledBinCatalog, getUnitPrice } from '@/lib/pricing';
 import type { BinPriceKey } from '@/types/pricing';
 import { BookingBinItem } from '@platform/shared-types';
-import {
-  CustomerStackParamList,
-  CustomerTabParamList,
-} from '@/navigation/types';
+import { CustomerStackParamList } from '@/navigation/types';
 import { ResponsiveContent } from '@/components';
 import { styles } from './new-booking-screen.styles';
+import {
+  hasPrefillQuantities,
+  quantitiesFromBookingItems,
+} from '../customer-home-screen/customer-home-screen.utils';
 
-type NewBookingScreenProps = CompositeScreenProps<
-  BottomTabScreenProps<CustomerTabParamList, 'NewBooking'>,
-  NativeStackScreenProps<CustomerStackParamList>
+type NewBookingScreenProps = NativeStackScreenProps<
+  CustomerStackParamList,
+  'NewBooking'
 >;
 
 const formatPrice = (value: number) => `¢${value.toFixed(2)}`;
@@ -39,6 +38,7 @@ const initialQuantities = (): Record<BinPriceKey, number> => ({
 
 export const NewBookingScreen: React.FC<NewBookingScreenProps> = ({
   navigation,
+  route,
 }) => {
   const { user } = useAuth();
   const { pricing, loading: pricingLoading } = usePricing();
@@ -46,6 +46,16 @@ export const NewBookingScreen: React.FC<NewBookingScreenProps> = ({
     user?.profileComplete ?? isProfileComplete(user ?? {});
 
   const [quantities, setQuantities] = useState(initialQuantities);
+
+  useEffect(() => {
+    const items = route.params?.prefillItems;
+    if (items?.length) {
+      const next = quantitiesFromBookingItems(items);
+      setQuantities(hasPrefillQuantities(next) ? next : initialQuantities());
+      return;
+    }
+    setQuantities(initialQuantities());
+  }, [route.params?.nonce, route.params?.prefillItems]);
   const [showBinInfoSheet, setShowBinInfoSheet] = useState(false);
 
   const enabledBins = useMemo(
@@ -90,7 +100,7 @@ export const NewBookingScreen: React.FC<NewBookingScreenProps> = ({
 
   const handleProceed = () => {
     if (!profileComplete) {
-      navigation.getParent()?.navigate('CompleteProfile');
+      navigation.navigate('CompleteProfile');
       return;
     }
 

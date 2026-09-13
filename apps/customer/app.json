@@ -20,7 +20,8 @@
       "googleServicesFile": "./firebase/GoogleService-Info.plist",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "UIDeviceFamily": [1, 2]
+        "UIDeviceFamily": [1, 2],
+        "NSLocationWhenInUseUsageDescription": "Clean City uses your location to fill your pickup address."
       }
     },
     "android": {
@@ -29,7 +30,11 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.cleancity.app",
-      "googleServicesFile": "./firebase/google-services.json"
+      "googleServicesFile": "./firebase/google-services.json",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -38,7 +43,9 @@
       "eas": {
         "projectId": "16248649-26d4-431e-a380-a40be65350a0"
       },
-      "aptabaseKey": "${EXPO_PUBLIC_APTABASE_KEY}"
+      "aptabaseKey": "${EXPO_PUBLIC_APTABASE_KEY}",
+      "mapboxAccessToken": "${EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN}",
+      "googlePlacesApiKey": "${EXPO_PUBLIC_GOOGLE_PLACES_API_KEY}"
     },
     "plugins": [
       "expo-dev-client",
@@ -66,7 +73,19 @@
       ],
       "expo-apple-authentication",
       "expo-web-browser",
-      "@react-native-google-signin/google-signin"
+      "@react-native-google-signin/google-signin",
+      [
+        "@rnmapbox/maps",
+        {
+          "RNMapboxMapsVersion": "11.23.1"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Clean City uses your location to fill your pickup address."
+        }
+      ]
     ],
     "scheme": "com.cleancity.app",
     "runtimeVersion": "1.0.0",

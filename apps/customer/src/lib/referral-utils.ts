@@ -97,29 +97,33 @@ export function formatReferralTimeRemaining(msRemaining: number): string {
 
 export function getProfileCompletionSteps(user: {
   email?: string;
+  name?: string;
   phone?: string;
-  location?: string;
+  address?: string;
 }): { label: string; complete: boolean }[] {
   return [
     { label: 'Email address', complete: !!user.email },
+    { label: 'Full name', complete: !!user.name },
     { label: 'Phone number', complete: !!user.phone },
-    { label: 'Pickup location', complete: !!user.location },
+    { label: 'Pickup location', complete: !!user.address },
   ];
 }
 
 export function getProfileCompletionCount(user: {
   email?: string;
+  name?: string;
   phone?: string;
-  location?: string;
+  address?: string;
 }): number {
   return getProfileCompletionSteps(user).filter((step) => step.complete).length;
 }
 
 export function isProfileComplete(user: {
+  name?: string;
   phone?: string;
-  location?: string;
+  address?: string;
 }): boolean {
-  return !!user.phone && !!user.location;
+  return !!user.name && !!user.phone && !!user.address;
 }
 
 export function getReferralStatsDisplay(

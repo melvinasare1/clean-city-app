@@ -76,7 +76,7 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
         [bookings]
     );
 
-    const needsProfileCompletion = !user?.phone || !user?.location;
+    const needsProfileCompletion = !user?.name || !user?.phone || !user?.address;
 
     useEffect(() => {
         if (!user?.id) return;
@@ -233,7 +233,7 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
                 >
                     <AppText style={styles.bannerTitle}>Complete your profile</AppText>
                     <AppText style={styles.bannerSubtitle}>
-                        Add your contact number and service area so we can handle your
+                        Add your name, contact number, and service area so we can handle your
                         bookings smoothly.
                     </AppText>
                 </TouchableOpacity>
@@ -267,7 +267,7 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
                             style={styles.subscriptionEmptyCta}
                             onPress={() => {
                                 trackEvent('activation_started', { screen: SCREEN, source: 'subscription_empty' });
-                                navigation.navigate('NewBooking');
+                                navigation.navigate('NewBooking', { prefillItems: [], nonce: Date.now() });
                             }}
                         >
                             <AppText style={styles.subscriptionEmptyCtaText}>Create subscription</AppText>
@@ -351,7 +351,7 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
                                 screen: SCREEN,
                                 source: 'one_time_section_schedule',
                             });
-                            navigation.navigate('NewBooking');
+                            navigation.navigate('NewBooking', { prefillItems: [], nonce: Date.now() });
                         }}
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
@@ -387,7 +387,7 @@ export const MyBookingsScreen: React.FC<MyBookingsScreenProps> = ({
                                     screen: SCREEN,
                                     source: 'empty_state_cta',
                                 });
-                                navigation.navigate('NewBooking');
+                                navigation.navigate('NewBooking', { prefillItems: [], nonce: Date.now() });
                             }}
                         >
                             <AppText style={styles.emptyActionText}>

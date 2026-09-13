@@ -1,74 +1,80 @@
 import React from 'react';
-import { ActionSheetIOS, Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { colors, radius, spacing, typography } from '@platform/shared-theme';
 import type { ActiveTrip } from '@/hooks/useAssignedJobOffer';
+import { isTimestampSet } from '@/lib/job-sheet';
+import { openTripOverflowMenu } from '@/lib/trip-overflow';
 
 type Props = {
   trip: ActiveTrip;
   onStart: () => void;
+  onNavigate: () => void;
+  onArrived: () => void;
+  onOpenJobSheet: () => void;
   onComplete: () => void;
   onCancel: () => void;
   starting?: boolean;
+  arriving?: boolean;
   completing?: boolean;
   cancelling?: boolean;
   bottomInset?: number;
   routeAwayLabel?: string | null;
 };
 
-const CANCEL_CONFIRM_COPY =
-  'Cancelling will reduce your priority by 10. Frequent cancellations can lead to account suspension.';
-
-function showHelpStub() {
-  Alert.alert('Get help', 'Support is coming soon. If you need assistance now, contact Clean City.');
-}
-
-function confirmCancelTrip(onCancel: () => void) {
-  Alert.alert('Cancel this trip?', CANCEL_CONFIRM_COPY, [
-    { text: 'Keep trip', style: 'cancel' },
-    { text: 'Cancel trip', style: 'destructive', onPress: onCancel },
-  ]);
-}
-
-function openTripOverflowMenu(onCancel: () => void) {
-  if (Platform.OS === 'ios') {
-    ActionSheetIOS.showActionSheetWithOptions(
-      {
-        options: ['Get help', 'Cancel trip', 'Close'],
-        destructiveButtonIndex: 1,
-        cancelButtonIndex: 2,
-      },
-      (buttonIndex) => {
-        if (buttonIndex === 0) showHelpStub();
-        if (buttonIndex === 1) confirmCancelTrip(onCancel);
-      }
-    );
-    return;
-  }
-
-  Alert.alert('Trip options', undefined, [
-    { text: 'Get help', onPress: showHelpStub },
-    { text: 'Cancel trip', style: 'destructive', onPress: () => confirmCancelTrip(onCancel) },
-    { text: 'Close', style: 'cancel' },
-  ]);
-}
-
 export function ActiveTripSheet({
   trip,
   onStart,
+  onNavigate,
+  onArrived,
+  onOpenJobSheet,
   onComplete,
   onCancel,
   starting,
+  arriving,
   completing,
   cancelling,
   bottomInset = 0,
   routeAwayLabel,
 }: Props) {
   const fare = trip.totalPrice ?? trip.amountPaid;
-  const busy = Boolean(starting || completing || cancelling);
+  const busy = Boolean(starting || arriving || completing || cancelling);
   const canStart =
     trip.assignmentStatus === 'accepted' && (trip.jobStatus === 'scheduled' || !trip.jobStatus);
-  const canComplete = trip.jobStatus === 'in_progress';
+  const inProgress = trip.jobStatus === 'in_progress';
+  const arrived = isTimestampSet(trip.arrivedAt);
+  const pickupConfirmed = isTimestampSet(trip.pickupConfirmedAt);
+
+  let primaryLabel = 'Navigate';
+  let primaryBusyLabel = 'Starting…';
+  let onPrimary = onStart;
+  let primaryDisabled = busy || !canStart;
+  let accessibilityLabel = 'Navigate';
+
+  if (inProgress && !arrived) {
+    primaryLabel = 'Arrived';
+    primaryBusyLabel = 'Marking arrived…';
+    onPrimary = onArrived;
+    primaryDisabled = busy;
+    accessibilityLabel = 'Arrived';
+  } else if (inProgress && arrived && !pickupConfirmed) {
+    primaryLabel = 'Job Sheet';
+    primaryBusyLabel = 'Job Sheet';
+    onPrimary = onOpenJobSheet;
+    primaryDisabled = busy;
+    accessibilityLabel = 'Job Sheet';
+  } else if (inProgress && pickupConfirmed) {
+    primaryLabel = 'Complete job';
+    primaryBusyLabel = 'Completing…';
+    onPrimary = onComplete;
+    primaryDisabled = busy;
+    accessibilityLabel = 'Complete job';
+  }
+
+  const showPrimaryBusy =
+    (inProgress && !arrived && arriving) ||
+    (inProgress && pickupConfirmed && completing) ||
+    (!inProgress && starting);
 
   return (
     <View style={[styles.sheet, { paddingBottom: spacing.xl + bottomInset }]}>
@@ -77,10 +83,10 @@ export function ActiveTripSheet({
       <View style={styles.headerRow}>
         <View style={styles.headerCopy}>
           <Text style={typography.statusTitle}>
-            {canComplete ? 'Trip in progress' : 'Job accepted'}
+            {inProgress ? 'Trip in progress' : 'Job accepted'}
           </Text>
           <Text style={[typography.statusSubtext, styles.timestamp]}>
-            {canComplete ? 'Head to the pickup' : 'Start when you head to the pickup'}
+            {inProgress ? 'Head to the pickup' : 'Start when you head to the pickup'}
           </Text>
         </View>
         <View style={styles.headerActions}>
@@ -90,7 +96,12 @@ export function ActiveTripSheet({
             </View>
           ) : null}
           <Pressable
-            onPress={() => openTripOverflowMenu(onCancel)}
+            onPress={() =>
+              openTripOverflowMenu({
+                phone: trip.phoneNumber,
+                onCancel,
+              })
+            }
             disabled={busy}
             hitSlop={8}
             accessibilityRole="button"
@@ -127,23 +138,43 @@ export function ActiveTripSheet({
         ) : null}
       </View>
 
-      <Pressable
-        style={[styles.btnComplete, busy && styles.btnDisabled]}
-        onPress={canComplete ? onComplete : onStart}
-        disabled={busy || (!canStart && !canComplete)}
-        accessibilityRole="button"
-        accessibilityLabel={canComplete ? 'Complete job' : 'Start job'}
-      >
-        <Text style={styles.btnCompleteLabel}>
-          {canComplete
-            ? completing
-              ? 'Completing…'
-              : 'Complete job'
-            : starting
-              ? 'Starting…'
-              : 'Start job'}
-        </Text>
-      </Pressable>
+      {inProgress ? (
+        <View style={styles.actionRow}>
+          <Pressable
+            style={[styles.renavigateButton, busy && styles.btnDisabled]}
+            onPress={onNavigate}
+            disabled={busy}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Navigate to pickup"
+          >
+            <Feather name="navigation" size={18} color={colors.inkPrimary} />
+          </Pressable>
+          <Pressable
+            style={[styles.btnComplete, styles.btnCompleteFlex, primaryDisabled && styles.btnDisabled]}
+            onPress={onPrimary}
+            disabled={primaryDisabled}
+            accessibilityRole="button"
+            accessibilityLabel={accessibilityLabel}
+          >
+            <Text style={styles.btnCompleteLabel}>
+              {showPrimaryBusy ? primaryBusyLabel : primaryLabel}
+            </Text>
+          </Pressable>
+        </View>
+      ) : (
+        <Pressable
+          style={[styles.btnComplete, primaryDisabled && styles.btnDisabled]}
+          onPress={onPrimary}
+          disabled={primaryDisabled}
+          accessibilityRole="button"
+          accessibilityLabel={accessibilityLabel}
+        >
+          <Text style={styles.btnCompleteLabel}>
+            {showPrimaryBusy ? primaryBusyLabel : primaryLabel}
+          </Text>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -238,6 +269,26 @@ const styles = StyleSheet.create({
     color: colors.inkPrimary,
     flex: 1,
   },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  renavigateButton: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: colors.surfaceWhite,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E3E0D9',
+    shadowColor: colors.shadow,
+    shadowOpacity: 1,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 5,
+  },
   btnComplete: {
     borderRadius: radius.card,
     paddingVertical: 16,
@@ -245,6 +296,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.brandGreen,
     minHeight: 54,
     justifyContent: 'center',
+  },
+  btnCompleteFlex: {
+    flex: 1,
   },
   btnDisabled: {
     opacity: 0.55,

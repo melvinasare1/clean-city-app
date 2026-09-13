@@ -293,6 +293,8 @@ export const cancelAcceptedJob = onCall({ region: REGION }, async (request) => {
       jobStatus: "scheduled",
       startedAt: FieldValue.delete(),
       startedBy: FieldValue.delete(),
+      arrivedAt: FieldValue.delete(),
+      pickupConfirmedAt: FieldValue.delete(),
       offerExpiresAt: FieldValue.delete(),
       offerTaskName: FieldValue.delete(),
       updatedAt: FieldValue.serverTimestamp(),
@@ -335,6 +337,71 @@ export const completeJob = onCall({ region: REGION }, async (request) => {
     });
     tx.update(driverRef, {
       jobsCompletedCount: FieldValue.increment(1),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+  });
+
+  return { ok: true };
+});
+
+function assertAssignedInProgress(job: Record<string, unknown>, uid: string): void {
+  if (job.assignedTo !== uid) {
+    throw new HttpsError("permission-denied", "This job is not assigned to you.");
+  }
+  if (job.jobStatus !== "in_progress") {
+    throw new HttpsError("failed-precondition", "Job must be in progress.");
+  }
+}
+
+export const markArrived = onCall({ region: REGION }, async (request) => {
+  if (!request.auth?.uid) {
+    throw new HttpsError("unauthenticated", "Sign in required.");
+  }
+  const uid = request.auth.uid;
+  const jobId = requireJobId(request.data);
+  const jobRef = db.doc(`jobs/${jobId}`);
+
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(jobRef);
+    if (!snap.exists) {
+      throw new HttpsError("not-found", "Job not found.");
+    }
+    const job = snap.data() || {};
+    assertAssignedInProgress(job, uid);
+    if (job.arrivedAt) {
+      return;
+    }
+
+    tx.update(jobRef, {
+      arrivedAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+  });
+
+  return { ok: true };
+});
+
+export const confirmPickup = onCall({ region: REGION }, async (request) => {
+  if (!request.auth?.uid) {
+    throw new HttpsError("unauthenticated", "Sign in required.");
+  }
+  const uid = request.auth.uid;
+  const jobId = requireJobId(request.data);
+  const jobRef = db.doc(`jobs/${jobId}`);
+
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(jobRef);
+    if (!snap.exists) {
+      throw new HttpsError("not-found", "Job not found.");
+    }
+    const job = snap.data() || {};
+    assertAssignedInProgress(job, uid);
+    if (job.pickupConfirmedAt) {
+      return;
+    }
+
+    tx.update(jobRef, {
+      pickupConfirmedAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     });
   });

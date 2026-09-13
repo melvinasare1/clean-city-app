@@ -1,0 +1,212 @@
+import { StyleSheet } from 'react-native';
+import { colors, radius, spacing, typography } from '@platform/shared-theme';
+
+export const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#F4F5F3',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.sm,
+  },
+  headerSide: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    flex: 1,
+    textAlign: 'center',
+    ...typography.headline,
+    fontSize: 17,
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xl,
+    gap: spacing.md,
+  },
+  windowPill: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.brandGreenSoft,
+    borderRadius: radius.pill,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  windowPillText: {
+    color: colors.brandGreen,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  card: {
+    backgroundColor: colors.surfaceWhite,
+    borderRadius: radius.card,
+    padding: spacing.md,
+  },
+  customerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+  },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.brandGreenSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  customerCopy: {
+    flex: 1,
+  },
+  customerName: {
+    color: colors.inkPrimary,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  customerAddress: {
+    ...typography.body,
+    marginTop: 4,
+    lineHeight: 20,
+  },
+  phoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#E8E6E1',
+  },
+  iconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.brandGreenSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  phoneNumber: {
+    flex: 1,
+    color: colors.inkPrimary,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  callPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.brandGreenSoft,
+    borderRadius: radius.pill,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  callPillText: {
+    color: colors.brandGreen,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  paymentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  paymentCopy: {
+    flex: 1,
+  },
+  paymentCaption: {
+    ...typography.earningsLabel,
+    fontWeight: '500',
+  },
+  paymentValue: {
+    color: colors.inkPrimary,
+    fontSize: 16,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  sectionTitle: {
+    color: colors.inkPrimary,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  itemsStack: {
+    gap: spacing.sm,
+  },
+  itemCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: colors.brandGreenSoft,
+    borderRadius: radius.card,
+    padding: spacing.md,
+  },
+  itemIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: colors.surfaceWhite,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  itemCopy: {
+    flex: 1,
+  },
+  itemTitle: {
+    color: colors.inkPrimary,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  itemSubtitle: {
+    ...typography.body,
+    marginTop: 2,
+  },
+  photo: {
+    width: '100%',
+    height: 168,
+    borderRadius: 12,
+    backgroundColor: colors.surfaceMutedIcon,
+  },
+  footer: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
+    backgroundColor: '#F4F5F3',
+  },
+  confirmButton: {
+    borderRadius: radius.card,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.brandGreen,
+    minHeight: 54,
+  },
+  confirmButtonDisabled: {
+    opacity: 0.55,
+  },
+  confirmButtonLabel: {
+    ...typography.button,
+    color: colors.surfaceWhite,
+  },
+  emptyState: {
+    paddingVertical: spacing.xl,
+    alignItems: 'center',
+  },
+  emptyText: {
+    ...typography.body,
+  },
+});

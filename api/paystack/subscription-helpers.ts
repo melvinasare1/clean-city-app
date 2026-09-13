@@ -17,6 +17,7 @@ import {
 const PAYSTACK_BASE_URL = "https://api.paystack.co";
 const SUBSCRIPTIONS_COLLECTION = "subscriptions";
 const JOBS_COLLECTION = "jobs";
+const PROFILES_COLLECTION = "profiles";
 
 /** Normalize Firestore Timestamp or { _seconds } to Date */
 export function toDate(ts: FirebaseTimestamp | { toDate(): Date } | undefined | null): Date | null {
@@ -211,6 +212,27 @@ export function getJobScheduledDates(
   return dates;
 }
 
+function trimString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+/**
+ * One profile read at job-creation time.
+ * Phone on the profile is `phone`; name is `name`.
+ */
+async function loadCustomerProfile(
+  firestore: Firestore,
+  userId: string
+): Promise<{ phone: string; name: string }> {
+  if (!userId) return { phone: "", name: "" };
+  const profileSnap = await firestore.collection(PROFILES_COLLECTION).doc(userId).get();
+  const data = profileSnap.data();
+  return {
+    phone: trimString(data?.phone),
+    name: trimString(data?.name),
+  };
+}
+
 /**
  * Create one job in the top-level "jobs" collection for a one-time booking after successful payment.
  * Snapshots items, location, and address at creation; job is self-contained.
@@ -244,10 +266,11 @@ export async function createJobForOneTimeBooking(
   const docRef = jobsRef.doc();
   const now = new Date();
   const nowTs = Timestamp.fromDate(now);
+  const profile = await loadCustomerProfile(firestore, userId);
   const normalizedAddress = {
     addressLine1: addressSnapshot.addressLine1 ?? "",
     area: addressSnapshot.area ?? "",
-    phoneNumber: addressSnapshot.phoneNumber ?? "",
+    phoneNumber: trimString(addressSnapshot.phoneNumber) || profile.phone,
   };
   const pickup = await geocodeAddressToPickup(
     addressQueryFromJob({ location, addressSnapshot: normalizedAddress })
@@ -257,6 +280,7 @@ export async function createJobForOneTimeBooking(
     type: "one_time",
     bookingId,
     userId,
+    customerName: profile.name,
     scheduledDate: Timestamp.fromDate(scheduledDate),
     paymentStatus: "paid",
     jobStatus: "scheduled",
@@ -267,6 +291,7 @@ export async function createJobForOneTimeBooking(
     ...(pickup ? { pickup } : {}),
     windowId: windowId ?? "",
     windowLabel: windowLabel ?? "",
+    paymentMethod: "momo",
     createdAt: nowTs,
     updatedAt: nowTs,
   });
@@ -312,10 +337,11 @@ export async function createJobsForSubscription(
   const jobsRef = firestore.collection(JOBS_COLLECTION);
   const now = new Date();
   const nowTs = Timestamp.fromDate(now);
+  const profile = await loadCustomerProfile(firestore, userId);
   const normalizedAddress: JobAddressSnapshot = {
     addressLine1: addressSnapshot?.addressLine1 ?? "",
     area: addressSnapshot?.area ?? "",
-    phoneNumber: addressSnapshot?.phoneNumber ?? "",
+    phoneNumber: trimString(addressSnapshot?.phoneNumber) || profile.phone,
   };
   const pickup = await geocodeAddressToPickup(
     addressQueryFromJob({ location, addressSnapshot: normalizedAddress })
@@ -327,6 +353,7 @@ export async function createJobsForSubscription(
       type: "subscription",
       subscriptionId,
       userId,
+      customerName: profile.name,
       scheduledDate: Timestamp.fromDate(scheduledDate),
       paymentStatus: "paid",
       jobStatus: "scheduled",
@@ -337,6 +364,7 @@ export async function createJobsForSubscription(
       ...(pickup ? { pickup } : {}),
       windowId: windowId ?? "",
       windowLabel: windowLabel ?? "",
+      paymentMethod: "momo",
       ...(collectionFrequency ? { collectionFrequency } : {}),
       ...(collectionDay != null && collectionDay !== "" ? { collectionDay } : {}),
       createdAt: nowTs,

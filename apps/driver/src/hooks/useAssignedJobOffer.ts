@@ -12,10 +12,22 @@ import {
 import type { Timestamp } from '@platform/shared-firebase';
 import { useDriverApproved } from '@/hooks/useDriverApproved';
 
+export type JobItem = {
+  id?: string;
+  type: string;
+  quantity: number;
+  unitPrice?: number;
+  totalPrice?: number;
+};
+
 export type JobOffer = {
   id: string;
   customerName?: string;
   address?: string;
+  addressLine1?: string;
+  area?: string;
+  location?: string;
+  phoneNumber?: string;
   scheduledDate?: Timestamp | string;
   amountPaid?: number;
   totalPrice?: number;
@@ -24,6 +36,13 @@ export type JobOffer = {
   assignmentStatus?: string;
   jobStatus?: string;
   pickup?: { lat: number; lng: number } | null;
+  windowId?: string;
+  windowLabel?: string;
+  items?: JobItem[];
+  paymentMethod?: string;
+  photoUrl?: string | null;
+  arrivedAt?: Timestamp | Date | string | null;
+  pickupConfirmedAt?: Timestamp | Date | string | null;
 };
 
 export type ActiveTrip = JobOffer;
@@ -44,18 +63,42 @@ const cancelAcceptedJobFn = httpsCallable<{ jobId: string }, { ok: boolean }>(
   functions,
   'cancelAcceptedJob'
 );
+const markArrivedFn = httpsCallable<{ jobId: string }, { ok: boolean }>(
+  functions,
+  'markArrived'
+);
+const confirmPickupFn = httpsCallable<{ jobId: string }, { ok: boolean }>(
+  functions,
+  'confirmPickup'
+);
 
 type JobDoc = {
   customerName?: string;
   location?: string;
-  addressSnapshot?: { addressLine1?: string };
+  addressSnapshot?: {
+    addressLine1?: string;
+    area?: string;
+    phoneNumber?: string;
+  };
   scheduledDate?: Timestamp | string;
-  items?: Array<{ totalPrice?: number }>;
+  items?: Array<{
+    id?: string;
+    type?: string;
+    quantity?: number;
+    unitPrice?: number;
+    totalPrice?: number;
+  }>;
   subscriptionId?: string | null;
   offerExpiresAt?: Timestamp | Date | string | number | null;
   assignmentStatus?: string;
   jobStatus?: string;
   pickup?: { lat?: number; lng?: number };
+  windowId?: string;
+  windowLabel?: string;
+  paymentMethod?: string;
+  photoUrl?: string | null;
+  arrivedAt?: Timestamp | Date | string | null;
+  pickupConfirmedAt?: Timestamp | Date | string | null;
 };
 
 function fareFromItems(items: JobDoc['items']): number | undefined {
@@ -72,12 +115,30 @@ function parsePickup(value: JobDoc['pickup']): JobOffer['pickup'] {
   return { lat, lng };
 }
 
-function mapJobDoc(id: string, data: JobDoc): JobOffer {
-  const address = data.addressSnapshot?.addressLine1 || data.location;
+function parseItems(items: JobDoc['items']): JobItem[] {
+  if (!Array.isArray(items)) return [];
+  return items
+    .map((item) => ({
+      id: item?.id,
+      type: String(item?.type ?? '').trim(),
+      quantity: Number(item?.quantity ?? 0),
+      unitPrice: item?.unitPrice,
+      totalPrice: item?.totalPrice,
+    }))
+    .filter((item) => item.type && Number.isFinite(item.quantity));
+}
+
+export function mapJobDoc(id: string, data: JobDoc): JobOffer {
+  const addressLine1 = data.addressSnapshot?.addressLine1;
+  const address = addressLine1 || data.location;
   return {
     id,
     customerName: data.customerName,
     address,
+    addressLine1,
+    area: data.addressSnapshot?.area,
+    location: data.location,
+    phoneNumber: data.addressSnapshot?.phoneNumber,
     scheduledDate: data.scheduledDate,
     totalPrice: fareFromItems(data.items),
     subscriptionId: data.subscriptionId,
@@ -85,6 +146,13 @@ function mapJobDoc(id: string, data: JobDoc): JobOffer {
     assignmentStatus: data.assignmentStatus,
     jobStatus: data.jobStatus,
     pickup: parsePickup(data.pickup),
+    windowId: data.windowId,
+    windowLabel: data.windowLabel,
+    items: parseItems(data.items),
+    paymentMethod: data.paymentMethod,
+    photoUrl: data.photoUrl,
+    arrivedAt: data.arrivedAt,
+    pickupConfirmedAt: data.pickupConfirmedAt,
   };
 }
 
@@ -184,5 +252,23 @@ export function useAssignedJobOffer() {
     await cancelAcceptedJobFn({ jobId });
   }, []);
 
-  return { offer, activeTrip, loading, accept, decline, complete, cancel };
+  const markArrived = useCallback(async (jobId: string) => {
+    await markArrivedFn({ jobId });
+  }, []);
+
+  const confirmPickup = useCallback(async (jobId: string) => {
+    await confirmPickupFn({ jobId });
+  }, []);
+
+  return {
+    offer,
+    activeTrip,
+    loading,
+    accept,
+    decline,
+    complete,
+    cancel,
+    markArrived,
+    confirmPickup,
+  };
 }

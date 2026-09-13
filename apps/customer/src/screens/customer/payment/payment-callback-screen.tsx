@@ -157,7 +157,9 @@ export const PaymentCallbackScreen: React.FC<Props> = ({
 
       <AppButton
         title="Back to bookings"
-        onPress={() => navigation.navigate("MyBookings")}
+        onPress={() =>
+          navigation.navigate("CustomerTabs", { screen: "MyBookings" })
+        }
       />
     </View>
   );

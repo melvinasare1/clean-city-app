@@ -90,6 +90,8 @@ export interface JobDocument {
   subscriptionId?: string;
 
   userId: string;
+  /** Snapshot from profiles/{userId}.name at job creation. */
+  customerName?: string;
 
   scheduledDate: FirebaseTimestamp;
 
@@ -119,9 +121,18 @@ export interface JobDocument {
   /** Set when driver starts the job */
   startedAt?: FirebaseTimestamp;
   startedBy?: string;
+  /** Checkpoint within in_progress: driver arrived at pickup */
+  arrivedAt?: FirebaseTimestamp | null;
+  /** Checkpoint within in_progress: driver confirmed pickup on the job sheet */
+  pickupConfirmedAt?: FirebaseTimestamp | null;
   /** Set when driver completes the job */
   completedAt?: FirebaseTimestamp;
   completedBy?: string;
+
+  /** Snapshot from Paystack/booking payment. Currently always "momo". */
+  paymentMethod?: "momo" | string;
+  /** Customer-attached pickup photo. Not captured anywhere today. */
+  photoUrl?: string | null;
 
   createdAt: FirebaseTimestamp;
   updatedAt: FirebaseTimestamp;

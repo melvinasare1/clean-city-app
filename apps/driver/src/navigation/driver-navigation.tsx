@@ -13,6 +13,7 @@ import { MessagesScreen } from '../screens/driver/messages-screen/messages-scree
 import { DriverProfileScreen } from '../screens/driver/driver-profile-screen/driver-profile-screen';
 import { ComingSoonScreen } from '../screens/driver/coming-soon-screen/coming-soon-screen';
 import { SettingsScreen } from '../screens/driver/settings-screen/settings-screen';
+import { JobSheetScreen } from '../screens/driver/job-sheet-screen/job-sheet-screen';
 import { COLORS } from '../lib/constants';
 import type { DriverStackParamList, DriverTabParamList } from './types';
 
@@ -133,6 +134,14 @@ export const DriverNavigator: React.FC = () => {
                 component={DriverJobDetailScreen}
                 options={{
                     title: 'Job Details',
+                }}
+            />
+            <Stack.Screen
+                name="JobSheet"
+                component={JobSheetScreen}
+                options={{
+                    headerShown: false,
+                    title: 'Job details',
                 }}
             />
             <Stack.Screen

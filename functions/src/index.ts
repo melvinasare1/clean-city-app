@@ -366,6 +366,8 @@ export {
   cancelAcceptedJob,
   clampDriverPriority,
   completeJob,
+  confirmPickup,
   declineJobOffer,
   expireJobOffer,
+  markArrived,
 } from "./job-offers";

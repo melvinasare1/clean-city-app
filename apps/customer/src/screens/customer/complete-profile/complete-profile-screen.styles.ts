@@ -112,6 +112,33 @@ export const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     lineHeight: 18,
   },
+  pickupRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: VARS.xsmall,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: VARS.xsmall,
+    paddingVertical: VARS.xsmall,
+    paddingHorizontal: VARS.small,
+    minHeight: 56,
+  },
+  pickupRowIcon: {
+    width: 32,
+    alignItems: 'center',
+  },
+  pickupRowCopy: {
+    flex: 1,
+  },
+  pickupRowAddress: {
+    fontSize: 16,
+    color: COLORS.text,
+  },
+  pickupRowPlaceholder: {
+    fontSize: 16,
+    color: COLORS.textSecondary,
+  },
   referralCard: {
     backgroundColor: GREEN_LIGHT,
     borderRadius: VARS.medium,
@@ -195,46 +222,5 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: COLORS.white,
-  },
-  areaModalOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: VARS.medium,
-  },
-  areaModal: {
-    width: '100%',
-    maxHeight: '80%',
-    backgroundColor: COLORS.white,
-    borderRadius: VARS.small,
-    padding: VARS.medium,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: VARS.small,
-    color: COLORS.text,
-  },
-  areaOption: {
-    paddingVertical: VARS.xsmall,
-  },
-  areaOptionText: {
-    fontSize: 16,
-    color: COLORS.text,
-  },
-  modalCancel: {
-    marginTop: VARS.small,
-    paddingVertical: VARS.xsmall,
-    alignItems: 'center',
-  },
-  modalCancelText: {
-    fontSize: 16,
-    color: COLORS.error,
-    fontWeight: '600',
   },
 });
