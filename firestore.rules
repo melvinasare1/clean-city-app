@@ -8,10 +8,35 @@ service cloud.firestore {
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
-    function isAdmin() {
+    function webAdminPath() {
+      return /databases/$(database)/documents/admins/$(request.auth.uid);
+    }
+    function legacyWebAdminPath() {
+      return /databases/$(database)/documents/admin_accounts/$(request.auth.uid);
+    }
+    function profilePath() {
+      return /databases/$(database)/documents/profiles/$(request.auth.uid);
+    }
+    function approvedWebAdmin(path) {
       return isSignedIn()
-        && exists(/databases/$(database)/documents/profiles/$(request.auth.uid))
-        && get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.role == 'admin';
+        && exists(path)
+        && get(path).data.isApproved == true
+        && get(path).data.role in ['admin', 'assistant'];
+    }
+    // Approved portal account in `admins` (or legacy `admin_accounts`), or staff on profiles.
+    function isStaff() {
+      return approvedWebAdmin(webAdminPath())
+        || approvedWebAdmin(legacyWebAdminPath())
+        || (isSignedIn()
+          && exists(profilePath())
+          && get(profilePath()).data.role in ['admin', 'assistant']);
+    }
+    function isAdmin() {
+      return (approvedWebAdmin(webAdminPath()) && get(webAdminPath()).data.role == 'admin')
+        || (approvedWebAdmin(legacyWebAdminPath()) && get(legacyWebAdminPath()).data.role == 'admin')
+        || (isSignedIn()
+          && exists(profilePath())
+          && get(profilePath()).data.role == 'admin');
     }
     function driverPath() {
       return /databases/$(database)/documents/drivers/$(request.auth.uid);
@@ -61,6 +86,7 @@ service cloud.firestore {
 
     // Profiles — customers and admins only (never drivers)
     match /profiles/{userId} {
+      allow get, list: if isStaff();
       allow read: if isOwner(userId);
       allow create: if isOwner(userId)
         && request.resource.data.role != 'driver';
@@ -80,6 +106,7 @@ service cloud.firestore {
 
     // Drivers — own doc only; approval via admin
     match /drivers/{userId} {
+      allow get, list: if isStaff();
       allow read: if isOwner(userId);
       allow create: if isOwner(userId)
         && request.resource.data.uid == userId
@@ -111,8 +138,10 @@ service cloud.firestore {
     // Split allow statements so list queries can prove one complete condition
     // (OR + get() inside a single allow is rejected for collection queries).
     match /bookings/{bookingId} {
+      allow get, list: if isStaff();
       allow get, list: if isSignedIn() && resource.data.userId == request.auth.uid;
       allow get, list: if isSignedIn() && resource.data.driverId == request.auth.uid;
+      allow update: if isStaff();
       allow update: if isSignedIn()
         && resource.data.userId == request.auth.uid;
       allow delete: if isSignedIn()
@@ -123,8 +152,10 @@ service cloud.firestore {
 
     // Subscriptions — users can read and manage their own
     match /subscriptions/{subscriptionId} {
+      allow get, list: if isStaff();
       allow read, update: if isSignedIn()
         && resource.data.userId == request.auth.uid;
+      allow update: if isStaff();
       allow create: if isSignedIn()
         && request.resource.data.userId == request.auth.uid;
       allow delete: if false;
@@ -140,11 +171,45 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Jobs — assigned drivers may read only. Status transitions go through
-    // Cloud Functions / Admin SDK API routes, not client writes.
+    // Jobs — staff can list and assign; assigned drivers can read their own.
+    // List rules are split (no OR with get()) so collection queries succeed.
     match /jobs/{jobId} {
+      allow get, list: if isStaff();
       allow get, list: if isSignedIn() && resource.data.assignedTo == request.auth.uid;
-      allow create, update, delete: if false;
+      allow update: if isStaff();
+      allow create, delete: if false;
+    }
+
+    match /customers/{userId} {
+      allow get, list: if isStaff();
+      allow get: if isOwner(userId);
+    }
+
+    match /admins/{userId} {
+      allow get: if isOwner(userId);
+      allow get, list: if isStaff();
+      allow create: if isOwner(userId)
+        && request.resource.data.uid == userId
+        && request.resource.data.isApproved == false;
+      allow update: if isAdmin();
+      allow delete: if false;
+    }
+
+    match /payments/{paymentId} {
+      allow get, list, update: if isStaff();
+    }
+
+    match /costs/{costId} {
+      allow get, list, create, update: if isStaff();
+      allow delete: if isAdmin();
+    }
+
+    match /early_access_signups/{signupId} {
+      allow get, list: if isStaff();
+    }
+
+    match /free-pickup/{signupId} {
+      allow get, list: if isStaff();
     }
 
     // Driver shift sessions — queryable online-time history (not RTDB presence).
