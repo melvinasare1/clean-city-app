@@ -187,6 +187,34 @@ export const BookPickupScreen: React.FC<BookPickupScreenProps> = ({
             </View>
           </View>
 
+          {pricing.activeTier !== 'standard' && (
+            <View style={styles.banner}>
+              <View style={styles.bannerIcon}>
+                <Ionicons
+                  name={
+                    pricing.activeTier === 'low'
+                      ? 'trending-down-outline'
+                      : 'trending-up-outline'
+                  }
+                  size={18}
+                  color={COLORS.primary}
+                />
+              </View>
+              <View style={styles.bannerCopy}>
+                <AppText style={styles.bannerTitle}>
+                  {pricing.activeTier === 'low'
+                    ? 'Low demand pricing'
+                    : 'High demand pricing'}
+                </AppText>
+                <AppText style={styles.bannerBody}>
+                  {pricing.activeTier === 'low'
+                    ? 'Prices are temporarily reduced — a great time to book.'
+                    : 'Prices are temporarily higher due to high demand.'}
+                </AppText>
+              </View>
+            </View>
+          )}
+
           {pricingLoading ? (
             <ActivityIndicator
               color={COLORS.primary}

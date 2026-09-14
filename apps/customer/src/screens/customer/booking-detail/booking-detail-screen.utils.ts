@@ -10,6 +10,7 @@ import {
   formatPrice,
   formatSubscriptionDate,
   getBinSummary,
+  getNextOccurrenceIso,
   getSubscriptionCollectionDayLabel,
 } from "../my-bookings/my-bookings-screen.utils";
 
@@ -88,7 +89,10 @@ export function getNextPickupIsoForSubscription(
 
 export function getNextPickupIsoForBooking(booking: Booking): string | null {
   if (booking.status === "cancelled" || booking.status === "completed") return null;
-  return booking.date;
+  if (booking.type === "subscription") {
+    return getNextOccurrenceIso(booking.date, booking.recurrence?.intervalWeeks);
+  }
+  return booking.date || null;
 }
 
 /** Card / detail title for subscription cadence */
@@ -188,6 +192,22 @@ export function formatCollectionBannerDate(iso: string): string {
     day: "numeric",
     month: "short",
   });
+}
+
+/** e.g. "Mon, 22 Sep 2026" for the detail collection row */
+export function formatDetailCollectionDate(iso: string): string {
+  const date = new Date(`${iso}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return iso;
+  return date.toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+export function formatGhsAmount(value: number): string {
+  return `GHS ${value.toFixed(2)}`;
 }
 
 function startOfDayLocal(d: Date): Date {

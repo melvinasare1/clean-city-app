@@ -46,7 +46,7 @@ interface BookingsContextValue extends BookingsState {
 
 const BookingsContext = createContext<BookingsContextValue | undefined>(undefined);
 
-const BOOKINGS_LIMIT = 20;
+const BOOKINGS_LIMIT = 200;
 
 export const BookingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, setState] = useState<BookingsState>({

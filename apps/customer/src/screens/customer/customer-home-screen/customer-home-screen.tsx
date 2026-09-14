@@ -278,13 +278,13 @@ export const CustomerHomeScreen: React.FC<CustomerHomeScreenProps> = ({
 
             <TouchableOpacity
               style={styles.actionRow}
-              onPress={() => navigation.navigate('PricingPlans')}
+              onPress={() => navigation.navigate('Store')}
               activeOpacity={0.75}
             >
               <View style={[styles.actionIconCircle, styles.actionIconAmber]}>
-                <Ionicons name="document-text-outline" size={20} color={COLORS.amberDark} />
+                <Ionicons name="bag-handle-outline" size={20} color={COLORS.amberDark} />
               </View>
-              <AppText style={styles.actionLabel}>View pricing & plans</AppText>
+              <AppText style={styles.actionLabel}>View Our Store</AppText>
               <Ionicons
                 name="chevron-forward"
                 size={20}

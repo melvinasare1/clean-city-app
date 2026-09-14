@@ -1,532 +1,239 @@
 import { StyleSheet } from "react-native";
-import { COLORS, VARS } from "@/lib/constants";
-import { MY_BOOKINGS_DASHBOARD_TITLE_COLOR, MY_BOOKINGS_PAGE_BG } from "./my-bookings-screen.utils";
+import { colors, radius, spacing, typography } from "@platform/shared-theme";
 
-export const SCREEN_PADDING_H = 16;
+export const SCREEN_PADDING_H = spacing.md;
+
+const awaitingBg = "#FFF6E5";
+const awaitingText = "#C47A12";
+const cancelledBg = "#FDECEA";
+const segmentTrack = "#EEF1F4";
 
 export const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: colors.surfaceWhite,
+  },
   scrollRoot: {
     flex: 1,
-    backgroundColor: MY_BOOKINGS_PAGE_BG,
+    backgroundColor: colors.surfaceWhite,
   },
   scrollInner: {
     paddingHorizontal: SCREEN_PADDING_H,
-    paddingTop: 16,
-    paddingBottom: VARS.large,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xl,
   },
   pageHeaderBlock: {
-    marginBottom: 20,
+    marginBottom: spacing.lg,
   },
-  dashboardTitle: {
-    fontSize: 26,
+  pageTitle: {
+    fontSize: 28,
     fontWeight: "800",
-    color: MY_BOOKINGS_DASHBOARD_TITLE_COLOR,
+    color: colors.brandGreen,
     letterSpacing: -0.4,
-    lineHeight: 32,
-    marginBottom: 8,
+    lineHeight: 34,
+    marginBottom: spacing.xs,
   },
-  dashboardSubtitle: {
+  pageSubtitle: {
+    ...typography.body,
     fontSize: 14,
     lineHeight: 21,
-    color: COLORS.textSecondary,
-    fontWeight: "400",
-    flexShrink: 1,
+    color: colors.inkSecondary,
+  },
+  segmentTrack: {
+    flexDirection: "row",
+    backgroundColor: segmentTrack,
+    borderRadius: radius.pill,
+    padding: 4,
+    marginBottom: spacing.xl,
+  },
+  segmentTab: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: radius.pill,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  segmentTabActive: {
+    backgroundColor: colors.brandGreen,
+  },
+  segmentTabLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.inkSecondary,
+  },
+  segmentTabLabelActive: {
+    color: colors.surfaceWhite,
   },
   sectionBlock: {
-    marginTop: 26,
-  },
-  sectionBlockFirst: {
-    marginTop: 8,
+    marginBottom: spacing.xl,
   },
   sectionHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
-  sectionCapsLabel: {
-    fontSize: 11,
+  sectionTitle: {
+    fontSize: 16,
     fontWeight: "800",
-    color: COLORS.textSecondary,
-    letterSpacing: 1.2,
-    marginBottom: 12,
+    color: colors.inkPrimary,
   },
-  sectionCapsLabelInline: {
-    flex: 1,
-    marginBottom: 0,
-    marginRight: 8,
-  },
-  schedulePill: {
-    backgroundColor: COLORS.primary,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 22,
-  },
-  schedulePillText: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: COLORS.white,
-    letterSpacing: 0.2,
-  },
-  headerOptionsButton: {
-    marginRight: VARS.small,
-    paddingHorizontal: 4,
-    paddingVertical: 4,
-  },
-  headerOptionsDots: {
+  viewAllRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
     gap: 2,
   },
-  headerDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: COLORS.white,
-  },
-  profileBanner: {
-    backgroundColor: COLORS.white,
-    paddingVertical: VARS.medium,
-    paddingHorizontal: SCREEN_PADDING_H,
-    borderRadius: VARS.small,
-    borderWidth: 1,
-    borderColor: "#E0E0E0",
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-    marginBottom: VARS.small,
-  },
-  bannerTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    marginBottom: VARS.xsmall,
-    color: COLORS.primary,
-  },
-  bannerSubtitle: {
+  viewAllText: {
     fontSize: 14,
-    color: COLORS.textSecondary,
-    lineHeight: 20,
+    fontWeight: "600",
+    color: colors.brandGreen,
   },
   card: {
-    backgroundColor: COLORS.white,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    borderRadius: VARS.small,
-    marginBottom: 12,
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
+    backgroundColor: colors.surfaceWhite,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderRadius: radius.card,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: "#EEF1F4",
+    shadowColor: colors.shadow,
+    shadowOpacity: 1,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
+    elevation: 1,
   },
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: VARS.xsmall,
-  },
-  cardDate: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.text,
-  },
-  bookingCardTitleRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 2,
-  },
-  bookingListStatusBadge: {
-    paddingVertical: 3,
-    paddingHorizontal: 8,
-    borderRadius: 10,
-    flexShrink: 0,
-  },
-  bookingListStatusText: {
-    fontSize: 10,
-    fontWeight: "800",
-    letterSpacing: 0.6,
-  },
-  bookingCardMetaRow: {
+  cardTouchable: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    marginTop: 8,
   },
-  bookingCardMetaIcon: {
-    fontSize: 14,
-    lineHeight: 18,
-  },
-  cardPrice: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.text,
-    marginBottom: 4,
-  },
-  cardNote: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-  },
-  cardWindow: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.text,
-    marginBottom: 4,
-  },
-  cardLocation: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    marginBottom: 4,
-  },
-  cardSummary: {
-    fontSize: 14,
-    color: COLORS.text,
-    marginBottom: 2,
-  },
-  cardTotal: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: COLORS.primary,
-  },
-  placeholderCard: {
-    backgroundColor: "#F0F4F8",
-    padding: VARS.medium,
-    borderRadius: VARS.small,
-    marginTop: VARS.medium,
-  },
-  placeholderText: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    textAlign: "center",
-  },
-  loadingState: {
-    alignItems: "center",
-    paddingVertical: VARS.large,
-  },
-  loadingText: {
-    marginTop: VARS.xsmall,
-    color: COLORS.textSecondary,
-  },
-  errorState: {
-    backgroundColor: "#FFEBEE",
-    paddingVertical: VARS.medium,
-    paddingHorizontal: SCREEN_PADDING_H,
-    borderRadius: VARS.small,
-    gap: VARS.xsmall,
-  },
-  errorText: {
-    color: COLORS.error,
-    fontSize: 14,
-  },
-  retryButton: {
-    alignSelf: "flex-start",
-    paddingHorizontal: VARS.small,
-    paddingVertical: 6,
-    backgroundColor: COLORS.primary,
-    borderRadius: VARS.xsmall,
-  },
-  retryButtonText: {
-    color: COLORS.white,
-    fontWeight: "600",
-  },
-  emptyState: {
-    backgroundColor: "#E8F5E9",
-    paddingVertical: VARS.medium,
-    paddingHorizontal: SCREEN_PADDING_H,
-    borderRadius: VARS.small,
-    alignItems: "center",
-    gap: VARS.xsmall,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: COLORS.text,
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    textAlign: "center",
-    color: COLORS.textSecondary,
-  },
-  emptyAction: {
-    marginTop: VARS.xsmall,
-    paddingHorizontal: VARS.medium,
-    paddingVertical: 8,
-    backgroundColor: COLORS.primary,
-    borderRadius: VARS.xsmall,
-  },
-  emptyActionText: {
-    color: COLORS.white,
-    fontWeight: "600",
-  },
-  statusRow: {
-    marginTop: VARS.xsmall,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    alignItems: "center",
-    gap: 8,
-  },
-  paymentStatusContainer: {
-    marginTop: VARS.xsmall,
-    alignItems: "flex-start",
-  },
-  paymentStatusBadge: {
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 20,
-  },
-  paymentStatusText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: COLORS.white,
-  },
-  paymentActionsRow: {
-    marginTop: VARS.small,
-    flexDirection: "row",
-    gap: 8,
-  },
-  retryPaymentButton: {
-    flex: 1,
-    backgroundColor: COLORS.primary,
-    paddingVertical: 10,
-    paddingHorizontal: VARS.medium,
-    borderRadius: VARS.xsmall,
+  typeIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: colors.brandGreenSoft,
     alignItems: "center",
     justifyContent: "center",
+    marginRight: 12,
   },
-  retryPaymentButtonWithVerify: {
-    flex: 1,
-  },
-  retryPaymentButtonText: {
-    color: COLORS.white,
-    fontWeight: "600",
-    fontSize: 14,
-  },
-  verifyPaymentButton: {
-    flex: 1,
-    backgroundColor: "transparent",
-    borderWidth: 1,
-    borderColor: COLORS.primary,
-    paddingVertical: 10,
-    paddingHorizontal: VARS.medium,
-    borderRadius: VARS.xsmall,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  verifyPaymentButtonText: {
-    color: COLORS.primary,
-    fontWeight: "600",
-    fontSize: 14,
-  },
-  deleteIconButton: {
-    padding: 4,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  deleteIcon: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: COLORS.error,
-  },
-  subscriptionCard: {
-    backgroundColor: COLORS.white,
-    paddingVertical: 18,
-    paddingHorizontal: SCREEN_PADDING_H,
-    borderRadius: VARS.small,
-    marginBottom: VARS.small,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  },
-  subscriptionCardHeader: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: COLORS.text,
-    marginBottom: VARS.xsmall,
-  },
-  detailRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 6,
-  },
-  detailLabel: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-  },
-  detailValue: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: COLORS.text,
-  },
-  subscriptionStatusBadge: {
-    alignSelf: "flex-start",
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 20,
-    marginTop: VARS.xsmall,
-  },
-  subscriptionLoadingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: VARS.xsmall,
-    paddingVertical: VARS.small,
-  },
-  subscriptionLoadingText: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-  },
-  subscriptionEmptyCard: {
-    backgroundColor: "#E8F5E9",
-    paddingVertical: VARS.medium,
-    paddingHorizontal: SCREEN_PADDING_H,
-    borderRadius: VARS.small,
-    alignItems: "center",
-    gap: VARS.xsmall,
-  },
-  subscriptionEmptyTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.text,
-    textAlign: "center",
-  },
-  subscriptionEmptySubtitle: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    textAlign: "center",
-  },
-  subscriptionEmptyCta: {
-    marginTop: VARS.xsmall,
-    paddingHorizontal: VARS.medium,
-    paddingVertical: 10,
-    backgroundColor: COLORS.primary,
-    borderRadius: VARS.xsmall,
-  },
-  subscriptionEmptyCtaText: {
-    color: COLORS.white,
-    fontWeight: "600",
-    fontSize: 14,
-  },
-  paymentBannerOverdue: {
-    backgroundColor: "#FFF3E0",
-    paddingVertical: VARS.xsmall,
-    paddingHorizontal: VARS.small,
-    borderRadius: VARS.xsmall,
-    marginTop: VARS.xsmall,
-    borderLeftWidth: 4,
-    borderLeftColor: COLORS.accent,
-  },
-  paymentBannerInitiated: {
-    backgroundColor: "#FFF8E1",
-    paddingVertical: VARS.xsmall,
-    paddingHorizontal: VARS.small,
-    borderRadius: VARS.xsmall,
-    marginTop: VARS.xsmall,
-    borderLeftWidth: 4,
-    borderLeftColor: COLORS.accent,
-  },
-  paymentBannerPaid: {
-    backgroundColor: "#E8F5E9",
-    paddingVertical: VARS.xsmall,
-    paddingHorizontal: VARS.small,
-    borderRadius: VARS.xsmall,
-    marginTop: VARS.xsmall,
-  },
-  paymentBannerFailed: {
-    backgroundColor: "#FFEBEE",
-    paddingVertical: VARS.xsmall,
-    paddingHorizontal: VARS.small,
-    borderRadius: VARS.xsmall,
-    marginTop: VARS.xsmall,
-    borderLeftWidth: 4,
-    borderLeftColor: COLORS.error,
-  },
-  paymentBannerText: {
-    fontSize: 13,
-    color: COLORS.text,
-    fontWeight: "500",
-  },
-  subscriptionActionRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: VARS.small,
-    marginTop: VARS.small,
-  },
-  completePaymentButton: {
-    flex: 1,
-    backgroundColor: COLORS.primary,
-    paddingVertical: 10,
-    paddingHorizontal: VARS.medium,
-    borderRadius: VARS.xsmall,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  completePaymentButtonText: {
-    color: COLORS.white,
-    fontWeight: "600",
-    fontSize: 14,
-  },
-  cancelSubscriptionButton: {
-    marginTop: VARS.small,
-    paddingVertical: 10,
-    paddingHorizontal: VARS.medium,
-    borderRadius: VARS.xsmall,
-    borderWidth: 1,
-    borderColor: COLORS.error,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cancelSubscriptionButtonText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: COLORS.error,
-  },
-  bookingCardTouchable: {
-    flexDirection: "row",
-    alignItems: "center",
-    minHeight: 56,
-  },
-  bookingCardMain: {
+  cardMain: {
     flex: 1,
     minWidth: 0,
   },
-  bookingCardType: {
-    flexShrink: 1,
-    fontSize: 16,
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+    marginBottom: 6,
+  },
+  cardTitle: {
+    flex: 1,
+    fontSize: 15,
     fontWeight: "700",
-    color: COLORS.text,
-    letterSpacing: -0.15,
-    lineHeight: 22,
+    color: colors.inkPrimary,
   },
-  bookingCardTitleMuted: {
-    color: "#616161",
+  pill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+    flexShrink: 0,
   },
-  oneTimeStatusCaps: {
+  pillPaid: {
+    backgroundColor: colors.brandGreenSoft,
+  },
+  pillAwaiting: {
+    backgroundColor: awaitingBg,
+  },
+  pillCancelled: {
+    backgroundColor: cancelledBg,
+  },
+  pillText: {
     fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 0.7,
-    marginTop: 6,
+    fontWeight: "700",
   },
-  bookingCardNext: {
-    flexShrink: 1,
+  pillTextPaid: {
+    color: colors.brandGreen,
+  },
+  pillTextAwaiting: {
+    color: awaitingText,
+  },
+  pillTextCancelled: {
+    color: colors.signalRed,
+  },
+  dateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  dateText: {
     fontSize: 13,
-    lineHeight: 18,
-    color: COLORS.textSecondary,
     fontWeight: "500",
+    color: colors.inkSecondary,
   },
-  bookingCardChevron: {
-    fontSize: 22,
-    fontWeight: "300",
-    color: "#9E9E9E",
-    marginLeft: 4,
-    alignSelf: "center",
+  emptyCard: {
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.sm,
   },
-  bookingCardMuted: {
-    opacity: 0.65,
+  emptyText: {
+    ...typography.body,
+    textAlign: "center",
+  },
+  loadingState: {
+    paddingVertical: spacing.xl,
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  loadingText: {
+    ...typography.body,
+  },
+  errorState: {
+    paddingVertical: spacing.lg,
+    alignItems: "center",
+  },
+  errorText: {
+    ...typography.body,
+    color: colors.signalRed,
+    textAlign: "center",
+    marginBottom: spacing.md,
+  },
+  retryButton: {
+    backgroundColor: colors.brandGreen,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: radius.pill,
+  },
+  retryButtonText: {
+    ...typography.button,
+    color: colors.surfaceWhite,
+    fontSize: 14,
+  },
+  listHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: spacing.md,
+    minHeight: 44,
+  },
+  listHeaderBack: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  listHeaderTitle: {
+    flex: 1,
+    textAlign: "center",
+    fontSize: 18,
+    fontWeight: "700",
+    color: colors.inkPrimary,
+  },
+  listHeaderSpacer: {
+    width: 40,
+  },
+  listBody: {
+    flex: 1,
+    paddingHorizontal: SCREEN_PADDING_H,
+  },
+  listScrollInner: {
+    paddingBottom: spacing.xl,
   },
 });

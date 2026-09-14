@@ -493,3 +493,22 @@ export const deleteBooking = async (bookingId: string): Promise<void> => {
   }
 };
 
+/** Mark a paid (or unpaid) booking cancelled. Does not refund Paystack. */
+export const cancelCustomerBooking = async (bookingId: string): Promise<void> => {
+  const booking = await getBookingById(bookingId);
+  if (!booking) {
+    throw new Error("Booking not found");
+  }
+  if (booking.status === "cancelled") {
+    return;
+  }
+  if (booking.status === "completed") {
+    throw new Error("Completed bookings cannot be cancelled");
+  }
+  await setDocAtPath(
+    [BOOKINGS_COLLECTION, bookingId],
+    { status: "cancelled" },
+    { merge: true, addTimestamps: true }
+  );
+};
+

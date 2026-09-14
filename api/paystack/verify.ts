@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getBookingById } from "./bookings";
+import { getStoreOrderById } from "./orders";
 import { createJobForOneTimeBooking, toDate } from "./subscription-helpers";
 import type { JobAddressSnapshot, JobItemSnapshot } from "./payment-and-job-types";
 import { getFirestore, FieldValue } from "../lib/firebase-admin";
@@ -283,7 +284,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Resolve bookingId: from request body, Paystack metadata, or our payments doc (fallback for MoMo when Paystack doesn't echo metadata)
     let resolvedBookingId: string | undefined =
       bookingId || (paystackData.metadata?.bookingId as string | undefined);
-    if (isPaid && !resolvedBookingId && reference) {
+    let resolvedOrderId: string | undefined =
+      (paystackData.metadata?.orderId as string | undefined) || undefined;
+    if (isPaid && reference && (!resolvedBookingId || !resolvedOrderId)) {
       try {
         const firestore = getFirestore();
         const paymentSnap = await firestore.collection(PAYMENTS_COLLECTION).doc(reference).get();
@@ -294,9 +297,45 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             resolvedBookingId = fromPayment.trim();
             console.log(`[Verify] Resolved bookingId from payments doc: ${resolvedBookingId}`);
           }
+          const fromOrder = paymentData?.orderId;
+          if (typeof fromOrder === "string" && fromOrder.trim()) {
+            resolvedOrderId = fromOrder.trim();
+            console.log(`[Verify] Resolved orderId from payments doc: ${resolvedOrderId}`);
+          }
         }
       } catch (lookupErr) {
         console.error("[Verify] Failed to resolve bookingId from payments doc:", lookupErr);
+      }
+    }
+
+    if (isPaid && resolvedOrderId) {
+      try {
+        const firestore = getFirestore();
+        const order = await getStoreOrderById(resolvedOrderId);
+        if (order) {
+          const paidRef =
+            typeof paystackData.reference === "string" && paystackData.reference.trim() !== ""
+              ? paystackData.reference.trim()
+              : typeof reference === "string"
+                ? reference.trim()
+                : "";
+          await firestore
+            .collection("orders")
+            .doc(resolvedOrderId)
+            .set(
+              {
+                status: "paid",
+                payment: {
+                  status: "paid",
+                  ...(paidRef ? { reference: paidRef } : {}),
+                  paidAt: FieldValue.serverTimestamp(),
+                },
+              },
+              { merge: true }
+            );
+        }
+      } catch (err) {
+        console.error("[Verify] Failed to mark store order paid:", err);
       }
     }
 
@@ -403,6 +442,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       : {};
     if (resolvedBookingId) {
       metadata.bookingId = resolvedBookingId;
+      if (paystackData.metadata?.userId) metadata.userId = paystackData.metadata.userId;
+    }
+    if (resolvedOrderId) {
+      metadata.orderId = resolvedOrderId;
       if (paystackData.metadata?.userId) metadata.userId = paystackData.metadata.userId;
     }
     return res.status(200).json({

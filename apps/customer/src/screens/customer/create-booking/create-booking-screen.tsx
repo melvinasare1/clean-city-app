@@ -840,6 +840,8 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
               accessibilityState={{ disabled: true }}
               accessibilityLabel="Card, coming soon"
             >
+              {/* FOLLOW-UP: When Stripe goes live, enable Card here AND on CartScreen
+                  (store checkout). Both currently show Card as disabled "Coming soon". */}
               <View style={styles.paymentCardHeader}>
                 <View style={styles.paymentIconWrap}>
                   <Ionicons

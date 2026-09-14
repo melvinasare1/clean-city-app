@@ -1,4 +1,4 @@
-import type { BinCatalogEntry, BinPriceKey, BinPricingEntry, PricingConfig } from '@/types/pricing';
+import type { BinCatalogEntry, BinPriceKey, BinPricingEntry, PricingConfig, PricingTier } from '@/types/pricing';
 
 export const PRICING_CONFIG_COLLECTION = 'config';
 export const PRICING_CONFIG_DOC_ID = 'pricing';
@@ -36,6 +36,11 @@ const DEFAULT_BIN_PRICES: Record<BinPriceKey, number> = {
   wheelieBin: 35,
 };
 
+export const DEFAULT_LOW_MULTIPLIER = 0.85;
+export const DEFAULT_SURGE_MULTIPLIER = 1.3;
+
+export const PRICING_TIERS: PricingTier[] = ['low', 'standard', 'surge'];
+
 export const DEFAULT_PRICING_CONFIG: PricingConfig = {
   currency: 'GHS',
   bins: BIN_KEYS.reduce(
@@ -45,6 +50,9 @@ export const DEFAULT_PRICING_CONFIG: PricingConfig = {
     },
     {} as Record<BinPriceKey, BinPricingEntry>
   ),
+  activeTier: 'standard',
+  lowMultiplier: DEFAULT_LOW_MULTIPLIER,
+  surgeMultiplier: DEFAULT_SURGE_MULTIPLIER,
 };
 
 function parsePositiveNumber(value: unknown): number | null {
@@ -56,6 +64,24 @@ function parsePositiveNumber(value: unknown): number | null {
     if (Number.isFinite(parsed) && parsed >= 0) return parsed;
   }
   return null;
+}
+
+function parsePricingTier(value: unknown, fallback: PricingTier): PricingTier {
+  return typeof value === 'string' && (PRICING_TIERS as string[]).includes(value)
+    ? (value as PricingTier)
+    : fallback;
+}
+
+/** Rejects anything that isn't strictly below 1.0 — a bad doc must never make "low" pricier than standard. */
+function parseLowMultiplier(value: unknown, fallback: number): number {
+  const parsed = parsePositiveNumber(value);
+  return parsed != null && parsed > 0 && parsed < 1.0 ? parsed : fallback;
+}
+
+/** Rejects anything that isn't strictly above 1.0 — a bad doc must never make "surge" cheaper than standard. */
+function parseSurgeMultiplier(value: unknown, fallback: number): number {
+  const parsed = parsePositiveNumber(value);
+  return parsed != null && parsed > 1.0 ? parsed : fallback;
 }
 
 function parseBinEntry(
@@ -106,15 +132,40 @@ export function normalizePricingConfig(
     }
   }
 
-  return { currency, bins };
+  const activeTier = parsePricingTier(data.activeTier, DEFAULT_PRICING_CONFIG.activeTier);
+  const lowMultiplier = parseLowMultiplier(data.lowMultiplier, DEFAULT_PRICING_CONFIG.lowMultiplier);
+  const surgeMultiplier = parseSurgeMultiplier(data.surgeMultiplier, DEFAULT_PRICING_CONFIG.surgeMultiplier);
+
+  return { currency, bins, activeTier, lowMultiplier, surgeMultiplier };
 }
 
 export function getEnabledBinCatalog(config: PricingConfig): BinCatalogEntry[] {
   return BIN_CATALOG.filter((bin) => config.bins[bin.key]?.enabled !== false);
 }
 
+/**
+ * Single funnel for demand-tier pricing math: standard is always 1x,
+ * low/surge apply the config's multiplier. Every customer-facing price
+ * and every booking-priced amount must go through this — never duplicate
+ * the multiplier math at a call site.
+ */
+export function getEffectivePrice(
+  basePrice: number,
+  activeTier: PricingTier,
+  config: Pick<PricingConfig, 'lowMultiplier' | 'surgeMultiplier'>
+): number {
+  const multiplier =
+    activeTier === 'low'
+      ? config.lowMultiplier
+      : activeTier === 'surge'
+        ? config.surgeMultiplier
+        : 1.0;
+  return basePrice * multiplier;
+}
+
 export function getUnitPrice(config: PricingConfig, key: BinPriceKey): number {
-  return config.bins[key]?.unitPrice ?? DEFAULT_PRICING_CONFIG.bins[key].unitPrice;
+  const basePrice = config.bins[key]?.unitPrice ?? DEFAULT_PRICING_CONFIG.bins[key].unitPrice;
+  return getEffectivePrice(basePrice, config.activeTier, config);
 }
 
 /** @deprecated Use `usePricing()` or `DEFAULT_PRICING_CONFIG` — kept for backward compatibility. */

@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import admin from "firebase-admin";
 import { getBookingById, getSubscriptionById, getUserEmail } from "./bookings";
+import { getStoreOrderById } from "./orders";
 import type { CollectionFrequency } from "./subscription-types";
 import { getBillingPeriodEnd, toDate } from "./subscription-helpers";
 
@@ -19,7 +20,8 @@ function createPaymentDocument(
     userId: string;
     subscriptionId?: string;
     bookingId?: string;
-    type: "subscription" | "one_time";
+    orderId?: string;
+    type: "subscription" | "one_time" | "store_order";
     amount: number;
     reference: string;
     billingPeriodStart?: Date;
@@ -46,6 +48,7 @@ function createPaymentDocument(
   };
   if (params.subscriptionId) doc.subscriptionId = params.subscriptionId;
   if (params.bookingId) doc.bookingId = params.bookingId;
+  if (params.orderId) doc.orderId = params.orderId;
   if (params.billingPeriodStart)
     doc.billingPeriodStart = admin.firestore.Timestamp.fromDate(params.billingPeriodStart);
   if (params.billingPeriodEnd)
@@ -76,8 +79,9 @@ export type PaymentType = "one_time" | "subscription_initial" | "subscription_re
 interface InitializeRequest {
   /** Required. Determines which flow to run. */
   paymentType: PaymentType;
-  /** Required when paymentType === "one_time" */
+  /** Required when paymentType === "one_time" (bookings XOR store orders) */
   bookingId?: string;
+  orderId?: string;
   /** Required when paymentType === "subscription_renewal" */
   subscriptionId?: string;
   /** Required when paymentType === "subscription_initial" */
@@ -123,7 +127,7 @@ function getNextBillingDate(billingDay: number): Date {
 /**
  * POST /api/paystack/initialize
  * Unified endpoint. Required body: paymentType: "one_time" | "subscription_initial" | "subscription_renewal".
- * - one_time: require bookingId → create payment doc (type: one_time), metadata.type + metadata.bookingId, initialize Paystack (channels: ["mobile_money"]).
+ * - one_time: require bookingId XOR orderId → create payment doc, initialize Paystack (channels: ["mobile_money"]).
  * - subscription_initial: create subscription doc, create payment doc (type: subscription), metadata.type + metadata.subscriptionId, initialize Paystack (channels: ["mobile_money"]).
  * - subscription_renewal: require subscriptionId → create payment doc (type: subscription), set subscription status = "payment_due", metadata.type + metadata.subscriptionId, initialize Paystack (channels: ["mobile_money"]).
  * Returns: { ok: true, authorizationUrl, reference, subscriptionId? }
@@ -153,10 +157,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (paymentType === "one_time") {
-      if (!body.bookingId) {
-        return res.status(400).json({ ok: false, error: "bookingId is required when paymentType is one_time" });
+      const hasBooking = Boolean(body.bookingId);
+      const hasOrder = Boolean(body.orderId);
+      if (hasBooking === hasOrder) {
+        return res.status(400).json({
+          ok: false,
+          error: "Provide exactly one of bookingId or orderId when paymentType is one_time",
+        });
       }
-      return await handleBookingPayment(req, res, body.bookingId);
+      if (body.orderId) {
+        return await handleStoreOrderPayment(req, res, body.orderId);
+      }
+      return await handleBookingPayment(req, res, body.bookingId as string);
     }
 
     if (paymentType === "subscription_initial") {
@@ -683,6 +695,132 @@ async function handleBookingPayment(
       console.error("Failed to create payment document:", e);
     }
   }
+  return res.status(201).json({
+    ok: true,
+    authorizationUrl: authData.authorization_url,
+    reference,
+  });
+}
+
+async function handleStoreOrderPayment(
+  _req: VercelRequest,
+  res: VercelResponse,
+  orderId: string
+) {
+  const order = await getStoreOrderById(orderId);
+  if (!order) {
+    return res.status(404).json({
+      ok: false,
+      error: "Order not found",
+    });
+  }
+
+  if (order.payment?.status === "paid") {
+    return res.status(400).json({
+      ok: false,
+      error: "Order is already paid",
+    });
+  }
+
+  const email = await getUserEmail(order.userId, {
+    id: order.id,
+    userId: order.userId,
+    userEmail: order.userEmail,
+    totalPrice: order.total,
+    payment: { status: order.payment?.status ?? "unpaid" },
+  });
+  if (!email) {
+    return res.status(400).json({
+      ok: false,
+      error: "User email not found. Please ensure the user has an email address in their profile.",
+      details: "Email is required by Paystack to process payments.",
+    });
+  }
+
+  const amount = Number(order.total) || 0;
+  if (amount <= 0) {
+    return res.status(400).json({
+      ok: false,
+      error: "Order total must be greater than zero",
+    });
+  }
+
+  const metadata: Record<string, string> = {
+    type: "store_order",
+    orderId,
+    userId: order.userId,
+  };
+  const amountInPesewas = Math.round(amount * 100);
+
+  const paystackResponse = await fetch(
+    `${PAYSTACK_BASE_URL}/transaction/initialize`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email,
+        amount: amountInPesewas,
+        metadata,
+        callback_url: `${CLIENT_APP_URL}/payment/success`,
+        channels: ["mobile_money"],
+      }),
+    }
+  );
+
+  const text = await paystackResponse.text();
+  let data: any;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    return res.status(500).json({
+      ok: false,
+      error: "Invalid response from payment provider",
+      details: text.slice(0, 200),
+    });
+  }
+
+  if (!paystackResponse.ok || !data.status) {
+    return res.status(paystackResponse.status || 500).json({
+      ok: false,
+      error: "Failed to initialize transaction",
+      details: data.message || "Unknown error",
+    });
+  }
+
+  const authData = data.data;
+  const reference = authData.reference;
+  if (admin.apps.length && reference) {
+    try {
+      const itemsSnapshot: PaymentItemSnapshot[] | undefined = Array.isArray(order.items)
+        ? (order.items as any[])
+            .map((i: any) => ({
+              type: String(i?.name ?? i?.productId ?? ""),
+              quantity: Number(i?.quantity) || 0,
+              unitPrice: Number(i?.unitPrice) || 0,
+              totalPrice: Number(i?.totalPrice) || 0,
+            }))
+            .filter((i) => i.type)
+        : undefined;
+      await createPaymentDocument(admin.firestore(), {
+        id: reference,
+        userId: order.userId,
+        orderId,
+        type: "store_order",
+        amount,
+        reference,
+        email: email ?? order.userEmail ?? undefined,
+        items: itemsSnapshot?.length ? itemsSnapshot : undefined,
+        location:
+          order.deliveryAddress != null ? String(order.deliveryAddress) : undefined,
+      });
+    } catch (e) {
+      console.error("Failed to create payment document for store order:", e);
+    }
+  }
+
   return res.status(201).json({
     ok: true,
     authorizationUrl: authData.authorization_url,

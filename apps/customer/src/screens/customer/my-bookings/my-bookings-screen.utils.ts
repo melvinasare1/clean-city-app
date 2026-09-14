@@ -266,3 +266,135 @@ export function getMyBookingsPickupSubline(
   }
   return null;
 }
+
+export type BookingsTypeFilter = "all" | "subscription" | "one_off";
+export type BookingsListKind = "upcoming" | "past";
+export type BookingListPillKind = "paid" | "awaiting_payment" | "cancelled";
+
+function startOfDay(d: Date): Date {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+function parseLocalDate(iso: string): Date {
+  return new Date(`${iso}T12:00:00`);
+}
+
+function toIsoDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+export function todayIsoDate(): string {
+  return toIsoDate(startOfDay(new Date()));
+}
+
+/** Pickup cadence on a subscription booking: 1 → weekly, 2 → biweekly, else monthly (28 days). */
+export function intervalWeeksToStepDays(intervalWeeks?: number): number {
+  if (intervalWeeks === 1) return 7;
+  if (intervalWeeks === 2) return 14;
+  return 28;
+}
+
+/**
+ * Advance a fixed first-collection date until today or later.
+ * Subscription booking `date` is a creation-time snapshot and is not updated per cycle.
+ */
+export function getNextOccurrenceIso(
+  anchorIso: string,
+  intervalWeeks?: number
+): string | null {
+  if (!anchorIso) return null;
+  const cursorStart = startOfDay(parseLocalDate(anchorIso));
+  if (Number.isNaN(cursorStart.getTime())) return null;
+  const today = startOfDay(new Date());
+  const step = intervalWeeksToStepDays(intervalWeeks);
+  let cursor = cursorStart;
+  let guard = 0;
+  while (cursor < today && guard < 520) {
+    cursor = startOfDay(new Date(cursor.getTime() + step * 24 * 60 * 60 * 1000));
+    guard += 1;
+  }
+  return toIsoDate(cursor);
+}
+
+/** Date shown/sorted on the list. Subscriptions use the next occurrence, not the stored first date. */
+export function getBookingListDateIso(booking: Booking): string {
+  const stored = booking.date ?? "";
+  if (booking.status === "cancelled" || booking.status === "completed") {
+    return stored;
+  }
+  if (booking.type === "subscription") {
+    return getNextOccurrenceIso(stored, booking.recurrence?.intervalWeeks) ?? stored;
+  }
+  return stored;
+}
+
+export function isUpcomingBooking(booking: Booking, todayIso: string): boolean {
+  if (booking.status === "cancelled" || booking.status === "completed") {
+    return false;
+  }
+  const iso = getBookingListDateIso(booking);
+  return Boolean(iso) && iso >= todayIso;
+}
+
+export function isPastBooking(booking: Booking, todayIso: string): boolean {
+  return !isUpcomingBooking(booking, todayIso);
+}
+
+export function filterBookingsByType(
+  bookings: Booking[],
+  typeFilter: BookingsTypeFilter
+): Booking[] {
+  if (typeFilter === "all") return bookings;
+  return bookings.filter((b) => b.type === typeFilter);
+}
+
+export function sortBookingsSoonestFirst(bookings: Booking[]): Booking[] {
+  return [...bookings].sort((a, b) => {
+    const byDate = getBookingListDateIso(a).localeCompare(getBookingListDateIso(b));
+    if (byDate !== 0) return byDate;
+    return (b.id ?? "").localeCompare(a.id ?? "");
+  });
+}
+
+export function sortBookingsLatestFirst(bookings: Booking[]): Booking[] {
+  return [...bookings].sort((a, b) => {
+    const byDate = getBookingListDateIso(b).localeCompare(getBookingListDateIso(a));
+    if (byDate !== 0) return byDate;
+    return (b.id ?? "").localeCompare(a.id ?? "");
+  });
+}
+
+export function getBookingListTitle(booking: Booking): string {
+  if (booking.type !== "subscription") return "One-off Collection";
+  const w = booking.recurrence?.intervalWeeks;
+  if (w === 1) return "Weekly Subscription";
+  if (w === 2) return "Every Other Week Subscription";
+  if (w === 4) return "Monthly Subscription";
+  return "Subscription";
+}
+
+export function getBookingListPill(booking: Booking): BookingListPillKind {
+  if (booking.status === "cancelled") return "cancelled";
+  if (booking.payment?.status === "paid") return "paid";
+  return "awaiting_payment";
+}
+
+export function getBookingListPillLabel(kind: BookingListPillKind): string {
+  switch (kind) {
+    case "paid":
+      return "Paid";
+    case "awaiting_payment":
+      return "Awaiting Payment";
+    case "cancelled":
+      return "Cancelled";
+    default: {
+      const _e: never = kind;
+      return String(_e);
+    }
+  }
+}

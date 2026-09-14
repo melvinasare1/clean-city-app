@@ -33,9 +33,15 @@ export type CustomerStackParamList = {
     totalPrice: number;
   };
   PricingPlans: undefined;
+  Store: undefined;
+  Cart: undefined;
   BookingDetail: {
     kind: 'subscription' | 'booking';
     id: string;
+  };
+  BookingsList: {
+    listKind: 'upcoming' | 'past';
+    typeFilter: 'all' | 'subscription' | 'one_off';
   };
   CompleteProfile:
     | {
@@ -71,4 +77,5 @@ export type OnboardingStackParamList = {
 export type AdminStackParamList = {
   AdminPush: undefined;
   AdminJobs: undefined;
+  AdminPricing: undefined;
 };

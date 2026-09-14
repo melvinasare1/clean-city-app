@@ -176,6 +176,9 @@ export default async function handler(
                 ...(metadata?.bookingId != null && metadata.bookingId !== ''
                   ? { bookingId: String(metadata.bookingId) }
                   : {}),
+                ...(metadata?.orderId != null && metadata.orderId !== ''
+                  ? { orderId: String(metadata.orderId) }
+                  : {}),
                 ...(metadata?.userId != null && metadata.userId !== ''
                   ? { userId: String(metadata.userId) }
                   : {}),
@@ -193,7 +196,30 @@ export default async function handler(
             const paymentType = metadata?.type;
 
             if (status === 'success') {
-              if (paymentType === 'one_time') {
+              if (paymentType === 'store_order') {
+                const orderId = metadata?.orderId;
+                if (orderId) {
+                  try {
+                    await firestore
+                      .collection('orders')
+                      .doc(orderId)
+                      .set(
+                        {
+                          status: 'paid',
+                          payment: {
+                            status: 'paid',
+                            reference,
+                            paidAt: FieldValue.serverTimestamp(),
+                          },
+                        },
+                        { merge: true }
+                      );
+                    console.log(`Store order ${orderId} marked as paid`);
+                  } catch (err) {
+                    console.error(`Failed to update store order ${orderId}:`, err);
+                  }
+                }
+              } else if (paymentType === 'one_time') {
                 const bookingId = metadata?.bookingId;
                 if (bookingId) {
                   try {

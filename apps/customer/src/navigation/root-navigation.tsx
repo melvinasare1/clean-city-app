@@ -4,6 +4,8 @@ import { useAuth } from '../hooks/useAuth';
 import { AuthNavigator } from './auth-navigation';
 import { CustomerNavigator } from './customer-navigation';
 import { AdminNavigator } from './admin-navigation';
+import { ProductsProvider } from '@/contexts/products-context';
+import { CartProvider } from '@/contexts/cart-context';
 import { COLORS } from '../lib/constants';
 import { trackEvent } from '@/services/analytics';
 import { isAdmin } from '@/lib/admin';
@@ -53,7 +55,13 @@ export const RootNavigator: React.FC = () => {
         return <WrongAppScreen expectedLabel="customer" />;
     }
 
-    return <CustomerNavigator />;
+    return (
+        <ProductsProvider>
+            <CartProvider>
+                <CustomerNavigator />
+            </CartProvider>
+        </ProductsProvider>
+    );
 };
 
 const styles = StyleSheet.create({

@@ -24,6 +24,7 @@ export type PaymentType = "one_time" | "subscription_initial" | "subscription_re
 /** Request for POST /api/paystack/initialize. paymentType is required; other fields depend on type. */
 export type InitializePaymentRequest =
   | { paymentType: "one_time"; bookingId: string }
+  | { paymentType: "one_time"; orderId: string }
   | { paymentType: "subscription_renewal"; subscriptionId: string }
   | (CreateSubscriptionRequest & { paymentType: "subscription_initial" });
 

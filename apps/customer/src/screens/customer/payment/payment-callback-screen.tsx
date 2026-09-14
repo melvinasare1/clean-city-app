@@ -8,6 +8,7 @@ import { COLORS } from "@/lib/constants";
 import { trackEvent } from "@/services/analytics";
 import { useAuth } from "@/hooks/useAuth";
 import { handleBookingPaymentSuccess } from "@/services/booking-service";
+import { markStoreOrderAsPaid } from "@/services/order-service";
 
 type Props = NativeStackScreenProps<CustomerStackParamList, "PaymentCallback">;
 
@@ -46,15 +47,18 @@ export const PaymentCallbackScreen: React.FC<Props> = ({
           // Booking is successfully paid at this point.
           // Update booking payment status and trigger referral reward logic.
           const bookingId = (verifyResult.metadata as any)?.bookingId;
+          const orderId = (verifyResult.metadata as any)?.orderId;
           const referredUserId =
             (verifyResult.metadata as any)?.userId ?? user?.id ?? null;
-          
+
           if (bookingId) {
             await handleBookingPaymentSuccess(
               bookingId,
               referredUserId,
               verifyResult.reference
             );
+          } else if (orderId) {
+            await markStoreOrderAsPaid(orderId, verifyResult.reference);
           }
 
           await trackEvent("payment_completed", {
@@ -156,9 +160,15 @@ export const PaymentCallbackScreen: React.FC<Props> = ({
       <AppText style={{ marginBottom: 24 }}>Status: {result.status}</AppText>
 
       <AppButton
-        title="Back to bookings"
+        title={
+          result.metadata && (result.metadata as { orderId?: string }).orderId
+            ? "Back to store"
+            : "Back to bookings"
+        }
         onPress={() =>
-          navigation.navigate("CustomerTabs", { screen: "MyBookings" })
+          result.metadata && (result.metadata as { orderId?: string }).orderId
+            ? navigation.navigate("Store")
+            : navigation.navigate("CustomerTabs", { screen: "MyBookings" })
         }
       />
     </View>

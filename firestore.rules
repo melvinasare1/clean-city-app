@@ -20,15 +20,43 @@ service cloud.firestore {
       return isSignedIn() && exists(driverPath());
     }
 
+    // Structural guard for config/pricing: low tier must always undercut
+    // standard, surge must always exceed it. Applied everywhere a write to
+    // that doc could land (including the admin catch-all below), since
+    // Firestore combines overlapping match blocks with OR — a rule added
+    // only to the specific /config/pricing block would otherwise be
+    // bypassed by the broader admin rule.
+    function isValidPricingTier(tier) {
+      return tier == 'low' || tier == 'standard' || tier == 'surge';
+    }
+    function isValidPricingWrite(data) {
+      return isValidPricingTier(data.activeTier)
+        && data.lowMultiplier is number && data.lowMultiplier > 0 && data.lowMultiplier < 1.0
+        && data.surgeMultiplier is number && data.surgeMultiplier > 1.0;
+    }
+    function isPricingDoc(pathSegments) {
+      return pathSegments[0] == 'config' && pathSegments[1] == 'pricing';
+    }
+
     // Admin can do everything (web admin dashboard)
     match /{document=**} {
-      allow read, write: if isAdmin();
+      allow read: if isAdmin();
+      allow create, update: if isAdmin()
+        && (!isPricingDoc(document) || isValidPricingWrite(request.resource.data));
+      allow delete: if isAdmin();
     }
 
     // Public config
     match /config/pricing {
       allow read: if true;
-      allow write: if isAdmin();
+      allow create, update: if isAdmin() && isValidPricingWrite(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    // Store catalog — public read; admin writes (also covered by the catch-all).
+    match /products/{productId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
     }
 
     // Profiles — customers and admins only (never drivers)
@@ -65,6 +93,17 @@ service cloud.firestore {
               && request.resource.data.diff(resource.data).affectedKeys()
                 .hasOnly(['expoPushToken', 'pushTokenUpdatedAt', 'updatedAt', 'name', 'phone', 'photoURL', 'notificationsEnabled']))
         );
+      allow delete: if false;
+    }
+
+    // Store orders (physical goods) — customers own their docs.
+    // Separate from bookings: waste-collection jobs must not reuse this schema.
+    match /orders/{orderId} {
+      allow get, list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn()
+        && resource.data.userId == request.auth.uid;
       allow delete: if false;
     }
 

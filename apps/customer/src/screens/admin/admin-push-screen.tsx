@@ -351,6 +351,12 @@ export const AdminPushScreen: React.FC = () => {
           variant="secondary"
           buttonStyle={styles.debugButton}
         />
+        <AppButton
+          title="Pricing tier"
+          onPress={() => navigation.navigate('AdminPricing')}
+          variant="secondary"
+          buttonStyle={styles.debugButton}
+        />
       </View>
       {/* Debug Section */}
       <View style={styles.section}>

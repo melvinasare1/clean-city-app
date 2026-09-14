@@ -22,7 +22,7 @@ export const HelpScreen: React.FC = () => {
           <AppText style={styles.heading}>Help is on the way</AppText>
           <AppText style={styles.body}>
             Support articles and FAQs will live here soon. For now, you can
-            still reach us from Profile or from the options menu on Bookings.
+            still reach us from Profile.
           </AppText>
         </View>
       </View>

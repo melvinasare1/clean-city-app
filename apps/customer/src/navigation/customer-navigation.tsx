@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { CustomerHomeScreen } from '../screens/customer/customer-home-screen/customer-home-screen';
 import { BookPickupScreen } from '../screens/customer/book-pickup-screen';
 import { MyBookingsScreen } from '../screens/customer/my-bookings/my-bookings-screen';
+import { BookingListScreen } from '../screens/customer/booking-list-screen';
 import { BookingDetailScreen } from '../screens/customer/booking-detail/booking-detail-screen';
 import { CompleteProfileScreen } from '../screens/customer/complete-profile/complete-profile-screen';
 import { SetPickupLocationScreen } from '../screens/customer/set-pickup-location-screen';
@@ -18,6 +19,8 @@ import { RecyclingGuidesScreen } from '../screens/customer/recycling-guides/recy
 import { CustomerProfileScreen } from '../screens/customer/customer-profile-screen';
 import { HelpScreen } from '../screens/customer/help-screen';
 import { PricingPlansScreen } from '../screens/customer/pricing-plans-screen';
+import { StoreScreen } from '../screens/customer/store-screen';
+import { CartScreen } from '../screens/customer/cart-screen';
 import { PaymentMethodsScreen } from '../screens/customer/payment-methods-screen';
 import { COLORS } from '../lib/constants';
 
@@ -81,7 +84,7 @@ const CustomerTabs = () => (
                         color={color}
                     />
                 ),
-                headerTitleAlign: 'center',
+                headerShown: false,
             }}
         />
         <Tab.Screen
@@ -151,7 +154,12 @@ export const CustomerNavigator: React.FC = () => {
             <Stack.Screen
                 name="BookingDetail"
                 component={BookingDetailScreen}
-                options={{ title: 'Booking Details', headerTitleAlign: 'center' }}
+                options={{ headerShown: false, title: 'Booking Details' }}
+            />
+            <Stack.Screen
+                name="BookingsList"
+                component={BookingListScreen}
+                options={{ headerShown: false, title: 'Bookings' }}
             />
             <Stack.Screen
                 name="CompleteProfile"
@@ -192,6 +200,16 @@ export const CustomerNavigator: React.FC = () => {
               name="PricingPlans"
               component={PricingPlansScreen}
               options={{ title: 'Pricing & Plans' }}
+            />
+            <Stack.Screen
+              name="Store"
+              component={StoreScreen}
+              options={{ headerShown: false, title: 'Store' }}
+            />
+            <Stack.Screen
+              name="Cart"
+              component={CartScreen}
+              options={{ headerShown: false, title: 'Cart' }}
             />
             <Stack.Screen
               name="PaymentMethods"

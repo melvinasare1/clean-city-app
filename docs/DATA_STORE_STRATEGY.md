@@ -21,6 +21,8 @@ Do **not** write continuous GPS or heartbeat presence to Firestore. Do **not** m
 | **subscriptions** | Plans, collection cadence, billing state. | Structured, query-heavy, low-frequency writes. |
 | **drivers** | Driver identity, approval, contact, push tokens (`drivers/{uid}`). | Structured, query-heavy, low-frequency writes. |
 | **payments** | Paystack references, amounts, verification. | Durable, structured records that may need future querying/export; low write volume makes them effectively free regardless of store. |
+| **products** | Store catalog (bins, liners). | Structured catalog; admin writes, public reads. |
+| **orders** | Physical-goods store checkouts (cart items, delivery address, MoMo payment). **Not** bookings/jobs. | Structured, query by `userId`; do not reuse the booking schema. |
 | **early_access_signups** | Waitlist / early-access signups. | Durable, structured records that may need future querying/export; low write volume makes them effectively free regardless of store. |
 | **free-pickup** | Referral / complimentary pickup records. | Durable, structured records that may need future querying/export; low write volume makes them effectively free regardless of store. |
 
@@ -123,5 +125,6 @@ Default is deny. `/locations/{driverId}` is **not** part of this architecture; u
 | Driver GPS → `/driverLocations` | **Not in this pass** |
 | Mirror → `/activeTripLocation` while `in_progress` | **Not in this pass** |
 | Customer listener on `/activeTripLocation/{bookingId}` | **Not in this pass** |
+| Stripe Card checkout on Schedule Pickup **and** Cart | **Follow-up** — both screens currently show Card as disabled “Coming soon”. Enable them together when Stripe goes live. |
 
 Booking assign/accept/decline, driver profiles, and payments stay on Firestore regardless of later RTDB writers.

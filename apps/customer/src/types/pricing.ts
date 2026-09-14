@@ -5,9 +5,14 @@ export type BinPricingEntry = {
   enabled: boolean;
 };
 
+export type PricingTier = 'low' | 'standard' | 'surge';
+
 export type PricingConfig = {
   currency: string;
   bins: Record<BinPriceKey, BinPricingEntry>;
+  activeTier: PricingTier;
+  lowMultiplier: number;
+  surgeMultiplier: number;
 };
 
 export type BinCatalogEntry = {
