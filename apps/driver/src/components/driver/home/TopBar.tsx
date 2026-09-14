@@ -6,6 +6,7 @@ import { StatusPill } from './StatusPill';
 
 type Props = {
   isOnline: boolean;
+  isSharingLocation?: boolean;
   onToggleOnline: () => void;
   onMenuPress?: () => void;
   onNotificationsPress?: () => void;
@@ -17,6 +18,7 @@ type Props = {
 
 export function TopBar({
   isOnline,
+  isSharingLocation,
   onToggleOnline,
   onMenuPress,
   onNotificationsPress,
@@ -53,7 +55,12 @@ export function TopBar({
         />
       ) : null}
 
-      <StatusPill isOnline={isOnline} onPress={onToggleOnline} disabled={toggleDisabled} />
+      <StatusPill
+        isOnline={isOnline}
+        isSharingLocation={isSharingLocation}
+        onPress={onToggleOnline}
+        disabled={toggleDisabled}
+      />
 
       {showPriority ? (
         <View

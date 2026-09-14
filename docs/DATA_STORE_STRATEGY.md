@@ -122,7 +122,7 @@ Default is deny. `/locations/{driverId}` is **not** part of this architecture; u
 | --- | --- |
 | This architecture + RTDB rules | Done (this pass) |
 | Driver `/presence` + `onDisconnect` | Exists in the driver app; keep aligned with `/presence/{driverId}` |
-| Driver GPS → `/driverLocations` | **Not in this pass** |
+| Driver GPS → `/driverLocations` | Driver app: TaskManager `startLocationUpdatesAsync` while online |
 | Mirror → `/activeTripLocation` while `in_progress` | **Not in this pass** |
 | Customer listener on `/activeTripLocation/{bookingId}` | **Not in this pass** |
 | Stripe Card checkout on Schedule Pickup **and** Cart | **Follow-up** — both screens currently show Card as disabled “Coming soon”. Enable them together when Stripe goes live. |

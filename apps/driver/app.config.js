@@ -19,7 +19,12 @@ module.exports = {
           "Clean City needs access to your local network to load the app from your development computer.",
         NSBonjourServices: ["_expo._tcp"],
         NSLocationWhenInUseUsageDescription:
-          "Clean City uses your location to show you on the map and match nearby jobs while you are online.",
+          "Clean City uses your location while you use the app to show you on the map and match you with nearby jobs.",
+        NSLocationAlwaysAndWhenInUseUsageDescription:
+          "Clean City Driver uses your location in the background only while you are online so dispatch can see nearby available drivers and assign jobs. Location sharing stops when you go offline.",
+        NSLocationAlwaysUsageDescription:
+          "Clean City Driver uses your location in the background only while you are online so dispatch can see nearby available drivers and assign jobs. Location sharing stops when you go offline.",
+        UIBackgroundModes: ["location"],
       },
     },
     updates: {

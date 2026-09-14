@@ -14,6 +14,7 @@ import { DriverProfileScreen } from '../screens/driver/driver-profile-screen/dri
 import { ComingSoonScreen } from '../screens/driver/coming-soon-screen/coming-soon-screen';
 import { SettingsScreen } from '../screens/driver/settings-screen/settings-screen';
 import { JobSheetScreen } from '../screens/driver/job-sheet-screen/job-sheet-screen';
+import { BackgroundLocationConsentScreen } from '../screens/driver/background-location-consent-screen';
 import { COLORS } from '../lib/constants';
 import type { DriverStackParamList, DriverTabParamList } from './types';
 
@@ -180,6 +181,15 @@ export const DriverNavigator: React.FC = () => {
                 name="Payouts"
                 component={ComingSoonScreen}
                 options={{ title: 'Payouts' }}
+            />
+            <Stack.Screen
+                name="BackgroundLocationConsent"
+                component={BackgroundLocationConsentScreen}
+                options={{
+                    title: 'Location sharing',
+                    headerStyle: { backgroundColor: colors.surfaceWhite },
+                    headerTintColor: colors.inkPrimary,
+                }}
             />
         </Stack.Navigator>
     );

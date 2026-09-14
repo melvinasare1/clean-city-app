@@ -31,7 +31,7 @@ import { registerDriverAccount } from '@/services/driver-api';
 import { isProfileComplete, toMillis } from '@/lib/referral-utils';
 import { type DriverAccountStatus, normalizeDriverStatus } from '@/lib/driver-account';
 import { endOpenDriverShiftSessions } from '@/lib/driver-shift-session';
-import { stopDriverPresence } from '@/lib/driver-realtime';
+import { setDriverOffline } from '@/hooks/useDriverPresence';
 
 export type AppUserRole = 'customer' | 'driver' | 'admin';
 
@@ -491,7 +491,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 console.error('Failed to close shift session on logout:', err);
             }
             try {
-                await stopDriverPresence(currentUser.uid);
+                await setDriverOffline(currentUser.uid);
             } catch (err) {
                 console.error('Failed to clear presence on logout:', err);
             }

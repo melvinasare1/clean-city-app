@@ -5,17 +5,25 @@ import { colors, radius, typography } from '@platform/shared-theme';
 
 type Props = {
   isOnline: boolean;
+  isSharingLocation?: boolean;
   onPress: () => void;
   disabled?: boolean;
 };
 
-export function StatusPill({ isOnline, onPress, disabled }: Props) {
+export function StatusPill({ isOnline, isSharingLocation, onPress, disabled }: Props) {
+  const sharing = isOnline && isSharingLocation;
   return (
     <Pressable
       onPress={onPress}
       disabled={disabled}
       accessibilityRole="button"
-      accessibilityLabel={isOnline ? 'Go offline' : 'Go online'}
+      accessibilityLabel={
+        isOnline
+          ? sharing
+            ? 'Go offline, location sharing is active'
+            : 'Go offline'
+          : 'Go online'
+      }
       style={[
         styles.pill,
         { backgroundColor: isOnline ? colors.brandGreen : colors.inkCharcoal },
@@ -29,6 +37,12 @@ export function StatusPill({ isOnline, onPress, disabled }: Props) {
         ]}
       />
       <Text style={styles.label}>{isOnline ? 'Online' : 'Offline'}</Text>
+      {sharing ? (
+        <View style={styles.sharing} accessibilityElementsHidden>
+          <Feather name="map-pin" size={13} color="#fff" />
+          <Text style={styles.sharingLabel}>Sharing</Text>
+        </View>
+      ) : null}
       <Feather name="chevron-down" size={16} color="#fff" />
     </Pressable>
   );
@@ -53,6 +67,21 @@ const styles = StyleSheet.create({
   },
   label: {
     ...typography.button,
+    color: '#fff',
+  },
+  sharing: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginLeft: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+  },
+  sharingLabel: {
+    ...typography.button,
+    fontSize: 11,
     color: '#fff',
   },
 });

@@ -1,4 +1,12 @@
-import { collection, onSnapshot, type Unsubscribe } from 'firebase/firestore';
+import {
+  collection,
+  doc,
+  onSnapshot,
+  serverTimestamp,
+  setDoc,
+  writeBatch,
+  type Unsubscribe,
+} from 'firebase/firestore';
 import { db } from '@platform/shared-firebase';
 import {
   normalizeStoreProduct,
@@ -7,6 +15,48 @@ import {
   sortStoreProducts,
 } from '@/lib/products';
 import type { StoreProduct } from '@/types/product';
+
+function productWritePayload(product: StoreProduct, extra?: Record<string, unknown>) {
+  return {
+    name: product.name,
+    description: product.description,
+    price: product.price,
+    imageUrl: product.imageUrl,
+    category: product.category,
+    enabled: product.enabled,
+    sortOrder: product.sortOrder,
+    pricePlaceholder: product.pricePlaceholder,
+    updatedAt: serverTimestamp(),
+    ...extra,
+  };
+}
+
+export async function saveStoreProduct(
+  product: StoreProduct,
+  updatedBy?: string | null
+): Promise<void> {
+  await setDoc(
+    doc(db, PRODUCTS_COLLECTION, product.id),
+    productWritePayload(
+      product,
+      updatedBy ? { updatedBy } : undefined
+    ),
+    { merge: true }
+  );
+}
+
+export async function seedPlaceholderProductsToFirestore(): Promise<number> {
+  const batch = writeBatch(db);
+  for (const product of PLACEHOLDER_PRODUCTS) {
+    batch.set(
+      doc(db, PRODUCTS_COLLECTION, product.id),
+      productWritePayload(product, { seededBy: 'admin-store-screen' }),
+      { merge: true }
+    );
+  }
+  await batch.commit();
+  return PLACEHOLDER_PRODUCTS.length;
+}
 
 export function subscribeToStoreProducts(
   onUpdate: (products: StoreProduct[], fromFirestore: boolean) => void,

@@ -48,7 +48,11 @@ export const RootNavigator: React.FC = () => {
     }
 
     if (isAdmin(user)) {
-        return <AdminNavigator />;
+        return (
+            <ProductsProvider>
+                <AdminNavigator />
+            </ProductsProvider>
+        );
     }
 
     if (user.role === 'driver') {

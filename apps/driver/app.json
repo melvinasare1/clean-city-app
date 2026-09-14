@@ -22,7 +22,10 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "UIDeviceFamily": [1, 2],
-        "NSLocationWhenInUseUsageDescription": "Clean City uses your location to show you on the map and match nearby jobs while you are online.",
+        "NSLocationWhenInUseUsageDescription": "Clean City uses your location while you use the app to show you on the map and match you with nearby jobs.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Clean City Driver uses your location in the background only while you are online so dispatch can see nearby available drivers and assign jobs. Location sharing stops when you go offline.",
+        "NSLocationAlwaysUsageDescription": "Clean City Driver uses your location in the background only while you are online so dispatch can see nearby available drivers and assign jobs. Location sharing stops when you go offline.",
+        "UIBackgroundModes": ["location"],
         "NSPhotoLibraryUsageDescription": "Clean City uses your photos so you can update your driver profile picture.",
         "LSApplicationQueriesSchemes": ["comgooglemaps"]
       }
@@ -36,7 +39,10 @@
       "googleServicesFile": "./firebase/google-services.json",
       "permissions": [
         "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION"
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION"
       ]
     },
     "web": {
@@ -85,7 +91,12 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Clean City uses your location to show you on the map and match nearby jobs while you are online."
+          "locationWhenInUsePermission": "Clean City uses your location while you use the app to show you on the map and match you with nearby jobs.",
+          "locationAlwaysAndWhenInUsePermission": "Clean City Driver uses your location in the background only while you are online so dispatch can see nearby available drivers and assign jobs. Location sharing stops when you go offline.",
+          "locationAlwaysPermission": "Clean City Driver uses your location in the background only while you are online so dispatch can see nearby available drivers and assign jobs. Location sharing stops when you go offline.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
         }
       ],
       [

@@ -43,6 +43,7 @@
     "expo-notifications": "~0.32.17",
     "expo-splash-screen": "~31.0.13",
     "expo-status-bar": "~3.0.9",
+    "expo-task-manager": "~14.0.9",
     "expo-updates": "~29.0.17",
     "expo-web-browser": "~15.0.11",
     "firebase": "^12.7.0",

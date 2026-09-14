@@ -26,6 +26,7 @@ export type DriverStackParamList = {
   PhotoCheck: undefined;
   Settings: undefined;
   Payouts: undefined;
+  BackgroundLocationConsent: undefined;
 };
 
 export type CustomerTabParamList = {

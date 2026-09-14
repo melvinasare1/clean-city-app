@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
-import { CompositeNavigationProp } from '@react-navigation/native';
+import { CompositeNavigationProp, useFocusEffect } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,6 +20,10 @@ import { useAssignedJobOffer } from '@/hooks/useAssignedJobOffer';
 import { useDriverPriority } from '@/hooks/useDriverPriority';
 import { startJob } from '@/services/driver-api';
 import { openNavigation } from '@/lib/open-navigation';
+import {
+  consumeResumeOnlineAfterConsent,
+  hasAcknowledgedBackgroundLocation,
+} from '@/lib/driver-background-location';
 import type { DriverStackParamList, DriverTabParamList } from '@/navigation/types';
 
 type DriverHomeScreenProps = {
@@ -61,7 +65,7 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
 
   const driverId = user?.id ?? '';
   const driverName = firstNameFromUser(user?.name, user?.email);
-  const { isOnline, goOnline, goOffline } = useDriverPresence(driverId);
+  const { isOnline, isSharingLocation, goOnline, goOffline } = useDriverPresence(driverId);
   const priority = useDriverPriority(driverId);
 
   const handleToggleOnline = useCallback(() => {
@@ -83,9 +87,13 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
           await goOffline();
           await trackEvent('driver_end_shift', { screen: 'driver_home' });
         } else {
-          const started = await goOnline();
-          if (started) {
-            await trackEvent('driver_start_shift', { screen: 'driver_home' });
+          if (await hasAcknowledgedBackgroundLocation()) {
+            const started = await goOnline();
+            if (started) {
+              await trackEvent('driver_start_shift', { screen: 'driver_home' });
+            }
+          } else {
+            navigation.navigate('BackgroundLocationConsent');
           }
         }
       } catch (e) {
@@ -105,7 +113,28 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
     }
 
     void applyToggle();
-  }, [activeTrip, driverId, goOffline, goOnline, isApproved, isOnline, showPendingAlert, toggleLoading]);
+  }, [activeTrip, driverId, goOffline, goOnline, isApproved, isOnline, navigation, showPendingAlert, toggleLoading]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!driverId || !isApproved || isOnline) return;
+      if (!consumeResumeOnlineAfterConsent()) return;
+      void (async () => {
+        setToggleLoading(true);
+        try {
+          const started = await goOnline();
+          if (started) {
+            await trackEvent('driver_start_shift', { screen: 'driver_home' });
+          }
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : 'Could not update your online status';
+          Alert.alert('Error', msg);
+        } finally {
+          setToggleLoading(false);
+        }
+      })();
+    }, [driverId, goOnline, isApproved, isOnline])
+  );
 
   const handleAccept = useCallback(async () => {
     if (!offer) return;
@@ -231,6 +260,7 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
 
       <TopBar
         isOnline={isOnline}
+        isSharingLocation={isSharingLocation}
         onToggleOnline={() => {
           void handleToggleOnline();
         }}

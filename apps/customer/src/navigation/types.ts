@@ -78,4 +78,5 @@ export type AdminStackParamList = {
   AdminPush: undefined;
   AdminJobs: undefined;
   AdminPricing: undefined;
+  AdminStore: undefined;
 };
