@@ -2,6 +2,7 @@
  * Admin panel API client. All writes go through backend; no direct Firestore.
  */
 import { getApiBaseUrl } from "@/lib/apiBase";
+import { getAuthHeaders } from "@/lib/auth-headers";
 
 const getBase = () => getApiBaseUrl();
 
@@ -44,7 +45,7 @@ export async function getDrivers(options?: { all?: boolean }): Promise<AdminDriv
 
   const fetchDrivers = async (path: string): Promise<Response> => {
     try {
-      return await fetch(`${base}${path}`);
+      return await fetch(`${base}${path}`, { headers: await getAuthHeaders() });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Network error";
       throw new Error(`Cannot reach API: ${msg}. Check EXPO_PUBLIC_API_URL and network.`);
@@ -87,7 +88,9 @@ export async function getJobsList(params: {
   if (params.assignmentStatus) search.set("assignmentStatus", params.assignmentStatus);
   if (params.driverId) search.set("driverId", params.driverId);
   if (params.windowId) search.set("windowId", params.windowId);
-  const res = await fetch(`${base}/api/jobs/list?${search.toString()}`);
+  const res = await fetch(`${base}/api/jobs/list?${search.toString()}`, {
+    headers: await getAuthHeaders(),
+  });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(err.error || err.details || "Failed to fetch jobs");
@@ -101,13 +104,12 @@ export async function getJobsList(params: {
 export async function assignJob(params: {
   jobId: string;
   driverId: string;
-  adminId: string;
 }): Promise<AdminJob> {
   const base = getBase();
   const res = await fetch(`${base}/api/jobs/assign`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(params),
+    headers: await getAuthHeaders(),
+    body: JSON.stringify({ jobId: params.jobId, driverId: params.driverId }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));

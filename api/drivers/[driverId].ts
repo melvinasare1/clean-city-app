@@ -6,6 +6,12 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getFirestore } from "../lib/firebase-admin";
 import { getDriverDoc, getDriverDisplayName } from "../lib/collections";
+import {
+  requireAuthenticatedUser,
+  requireStaff,
+  sendAuthFailure,
+  sendPublicError,
+} from "../lib/request-auth";
 
 export default async function handler(
   req: VercelRequest,
@@ -20,15 +26,26 @@ export default async function handler(
     (req as unknown as { params?: { driverId?: string } }).params?.driverId?.trim();
 
   if (!driverId) {
-    return res.status(400).json({ error: "Missing or invalid driverId" });
+    return sendPublicError(res, 400, "Missing or invalid driverId");
   }
 
   try {
+    const staff = await requireStaff(req, "dispatch");
+    if (!staff.ok) {
+      const self = await requireAuthenticatedUser(req);
+      if (!self.ok) {
+        return sendAuthFailure(res, self);
+      }
+      if (self.uid !== driverId) {
+        return sendPublicError(res, 403, "Not authorized");
+      }
+    }
+
     const firestore = getFirestore();
     const result = await getDriverDoc(firestore, driverId);
 
     if (!result.exists) {
-      return res.status(404).json({ error: "Driver not found" });
+      return sendPublicError(res, 404, "Driver not found");
     }
 
     const { data } = result;
@@ -45,12 +62,9 @@ export default async function handler(
   } catch (initErr) {
     const msg = initErr instanceof Error ? initErr.message : "Service error";
     if (String(msg).toLowerCase().includes("not initialized")) {
-      return res.status(503).json({
-        error: "Service unavailable",
-        details: "Backend cannot connect to database. Check FIREBASE_SERVICE_ACCOUNT_JSON.",
-      });
+      return sendPublicError(res, 503, "Service unavailable");
     }
     console.error("[GET /api/drivers/:driverId] Error:", initErr);
-    return res.status(500).json({ error: "Internal server error", details: msg });
+    return sendPublicError(res, 500, "Internal server error");
   }
 }

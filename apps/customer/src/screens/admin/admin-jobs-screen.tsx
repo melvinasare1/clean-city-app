@@ -11,7 +11,7 @@ import {
   Linking,
 } from 'react-native';
 import { useAuth } from '@/hooks/useAuth';
-import { isAdmin } from '@/lib/admin';
+import { isStaff } from '@/lib/admin';
 import { getApiBaseUrl } from '@/lib/apiBase';
 import { COLORS } from '@/lib/constants';
 import { AppText, AppButton, AppTextInput } from '@/components';
@@ -105,7 +105,7 @@ export const AdminJobsScreen: React.FC = () => {
   }, [date, filterAssignmentStatus, filterDriverId, filterWindowId]);
 
   useEffect(() => {
-    if (isAdmin(user)) {
+    if (isStaff(user)) {
       loadDrivers();
     }
   }, [user, loadDrivers]);
@@ -152,7 +152,6 @@ export const AdminJobsScreen: React.FC = () => {
       const updated = await assignJob({
         jobId: assignModalJob.id,
         driverId: selectedDriverId,
-        adminId: user.id,
       });
       setJobs((prev) =>
         prev.map((j) => (j.id === updated.id ? updated : j))
@@ -175,7 +174,7 @@ export const AdminJobsScreen: React.FC = () => {
     return d ? d.name : driverId;
   };
 
-  if (!isAdmin(user)) {
+  if (!isStaff(user)) {
     return (
       <View style={styles.container}>
         <AppText style={styles.errorText}>Admin access required</AppText>

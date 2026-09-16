@@ -1,13 +1,14 @@
 /**
  * POST /api/jobs/assign
- * Body: { jobId: string, driverId: string, adminId: string }
- * Assigns or reassigns a job to a driver. Returns updated job.
- * Validates driver exists in drivers collection with status approved.
+ * Body: { jobId: string, driverId: string }
+ * Assigns or reassigns a job to a driver. Caller identity comes from the
+ * Firebase ID token; assignedBy is the authenticated staff UID.
  */
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getFirestore } from "../lib/firebase-admin";
 import { getDriverDoc } from "../lib/collections";
 import { parsePickupCoordinates } from "../lib/geocode-address";
+import { requireStaff, sendAuthFailure, sendPublicError } from "../lib/request-auth";
 
 const JOBS_COLLECTION = "jobs";
 
@@ -20,19 +21,20 @@ export default async function handler(
   }
 
   try {
+    const staff = await requireStaff(req, "dispatch");
+    if (!staff.ok) {
+      return sendAuthFailure(res, staff);
+    }
+
     const body = typeof req.body === "object" && req.body !== null ? req.body : {};
     const jobId = typeof body.jobId === "string" ? body.jobId.trim() : null;
     const driverId = typeof body.driverId === "string" ? body.driverId.trim() : null;
-    const adminId = typeof body.adminId === "string" ? body.adminId.trim() : null;
 
     if (!jobId) {
-      return res.status(400).json({ error: "Missing required field: jobId" });
+      return sendPublicError(res, 400, "Missing required field: jobId");
     }
     if (!driverId) {
-      return res.status(400).json({ error: "Missing required field: driverId" });
-    }
-    if (!adminId) {
-      return res.status(400).json({ error: "Missing required field: adminId" });
+      return sendPublicError(res, 400, "Missing required field: driverId");
     }
 
     const firestore = getFirestore();
@@ -40,29 +42,27 @@ export default async function handler(
     const jobSnap = await jobRef.get();
 
     if (!jobSnap.exists) {
-      return res.status(404).json({ error: "Job not found" });
+      return sendPublicError(res, 404, "Job not found");
     }
 
     const driver = await getDriverDoc(firestore, driverId);
     if (!driver.exists) {
-      return res.status(404).json({ error: "Driver not found" });
+      return sendPublicError(res, 404, "Driver not found");
     }
     if (!driver.isApproved) {
-      return res.status(400).json({
-        error: "Job cannot be assigned to a driver who is not approved.",
-      });
+      return sendPublicError(res, 400, "Job cannot be assigned to a driver who is not approved.");
     }
 
     const jobData = jobSnap.data();
     if (jobData?.jobStatus === "completed") {
-      return res.status(400).json({
-        error: "Cannot assign or reassign a completed job.",
-      });
+      return sendPublicError(res, 400, "Cannot assign or reassign a completed job.");
     }
     if (jobData?.jobStatus === "missed") {
-      return res.status(400).json({
-        error: "Cannot assign or reassign a missed job until it is explicitly rescheduled.",
-      });
+      return sendPublicError(
+        res,
+        400,
+        "Cannot assign or reassign a missed job until it is explicitly rescheduled."
+      );
     }
     const currentStatus = jobData?.assignmentStatus ?? "unassigned";
     const assignmentStatus =
@@ -72,7 +72,7 @@ export default async function handler(
     await jobRef.update({
       assignedTo: driverId,
       assignedAt: now,
-      assignedBy: adminId,
+      assignedBy: staff.uid,
       assignmentStatus,
       updatedAt: now,
     });
@@ -103,7 +103,6 @@ export default async function handler(
     });
   } catch (error: unknown) {
     console.error("[POST /api/jobs/assign] Error:", error);
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return res.status(500).json({ error: "Internal server error", details: message });
+    return sendPublicError(res, 500, "Internal server error");
   }
 }

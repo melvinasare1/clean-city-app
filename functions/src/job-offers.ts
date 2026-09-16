@@ -44,6 +44,19 @@ const CANCEL_REASON_CODES = new Set([
   "OTHER",
 ]);
 
+function assertApprovedDriver(data: Record<string, unknown> | undefined): void {
+  if (!data) {
+    throw new HttpsError("permission-denied", "Not authorized");
+  }
+  if (data.status === "suspended") {
+    throw new HttpsError("permission-denied", "Driver account is suspended");
+  }
+  const approved = data.status === "approved" || data.isActive === true;
+  if (!approved) {
+    throw new HttpsError("permission-denied", "Driver account is pending approval");
+  }
+}
+
 function getProjectId(): string {
   if (process.env.GCLOUD_PROJECT) return process.env.GCLOUD_PROJECT;
   if (process.env.GCP_PROJECT) return process.env.GCP_PROJECT;
@@ -452,6 +465,7 @@ export const completeJob = onCall({ region: REGION }, async (request) => {
 
     const driverRef = db.doc(`drivers/${uid}`);
     const driverSnap = await tx.get(driverRef);
+    assertApprovedDriver(driverSnap.data());
     const driverName =
       typeof driverSnap.data()?.name === "string" ? (driverSnap.data()?.name as string) : null;
 
@@ -541,6 +555,7 @@ export const markJobMissed = onCall({ region: REGION }, async (request) => {
 
     const driverRef = db.doc(`drivers/${uid}`);
     const driverSnap = await tx.get(driverRef);
+    assertApprovedDriver(driverSnap.data());
     const driverName =
       typeof driverSnap.data()?.name === "string" ? (driverSnap.data()?.name as string) : null;
 
@@ -608,6 +623,8 @@ export const markArrived = onCall({ region: REGION }, async (request) => {
     }
     const job = snap.data() || {};
     assertAssignedInProgress(job, uid);
+    const driverSnap = await tx.get(db.doc(`drivers/${uid}`));
+    assertApprovedDriver(driverSnap.data());
     if (job.arrivedAt) {
       return;
     }

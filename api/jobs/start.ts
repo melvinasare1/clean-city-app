@@ -1,13 +1,16 @@
 /**
  * POST /api/jobs/start
- * Body: { jobId: string, driverId: string }
- * Update job: jobStatus = "in_progress", startedAt = now, startedBy = driverId.
- * Validates driver exists in drivers collection and is approved; only allowed if
- * assignedTo === driverId and assignmentStatus === "accepted".
+ * Body: { jobId: string }
+ * Caller must be the authenticated assigned driver.
  */
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getFirestore } from "../lib/firebase-admin";
-import { getDriverDoc } from "../lib/collections";
+import {
+  requireApprovedDriver,
+  requireAssignedJob,
+  sendAuthFailure,
+  sendPublicError,
+} from "../lib/request-auth";
 
 const JOBS_COLLECTION = "jobs";
 
@@ -20,56 +23,48 @@ export default async function handler(
   }
 
   try {
+    const actor = await requireApprovedDriver(req);
+    if (!actor.ok) {
+      return sendAuthFailure(res, actor);
+    }
+    const uid = actor.uid;
+
     const body = typeof req.body === "object" && req.body !== null ? req.body : {};
     const jobId = typeof body.jobId === "string" ? body.jobId.trim() : null;
-    const driverId = typeof body.driverId === "string" ? body.driverId.trim() : null;
 
     if (!jobId) {
-      return res.status(400).json({ error: "Missing required field: jobId" });
-    }
-    if (!driverId) {
-      return res.status(400).json({ error: "Missing required field: driverId" });
+      return sendPublicError(res, 400, "Missing required field: jobId");
     }
 
     const firestore = getFirestore();
-    const driver = await getDriverDoc(firestore, driverId);
-    if (!driver.exists) {
-      return res.status(404).json({ error: "Driver not found" });
-    }
-    if (!driver.isApproved) {
-      return res.status(400).json({ error: "Cannot start job: driver is not approved." });
-    }
-
     const jobRef = firestore.collection(JOBS_COLLECTION).doc(jobId);
     const snapshot = await jobRef.get();
 
     if (!snapshot.exists) {
-      return res.status(404).json({ error: "Job not found" });
+      return sendPublicError(res, 404, "Job not found");
     }
 
     const data = snapshot.data();
-    const assignedTo = data?.assignedTo;
-    if (assignedTo !== driverId) {
-      return res.status(403).json({
-        error: "Not allowed to start this job. It is assigned to another driver.",
-      });
+    const assigned = requireAssignedJob(data, uid);
+    if (!assigned.ok) {
+      return sendAuthFailure(res, assigned);
     }
     if (data?.assignmentStatus !== "accepted") {
-      return res.status(400).json({
-        error: "Job must be accepted before it can be started.",
-      });
+      return sendPublicError(res, 400, "Job must be accepted before it can be started.");
     }
-    if (data?.jobStatus === "missed" || data?.jobStatus === "completed" || data?.jobStatus === "cancelled") {
-      return res.status(400).json({
-        error: `Cannot start a ${data.jobStatus} job.`,
-      });
+    if (
+      data?.jobStatus === "missed" ||
+      data?.jobStatus === "completed" ||
+      data?.jobStatus === "cancelled"
+    ) {
+      return sendPublicError(res, 400, `Cannot start a ${data.jobStatus} job.`);
     }
 
     const now = firestore.Timestamp.now();
     await jobRef.update({
       jobStatus: "in_progress",
       startedAt: now,
-      startedBy: driverId,
+      startedBy: uid,
       updatedAt: now,
     });
 
@@ -79,11 +74,10 @@ export default async function handler(
       id: jobRef.id,
       jobStatus: "in_progress",
       startedAt: u?.startedAt?.toDate?.()?.toISOString() ?? new Date().toISOString(),
-      startedBy: driverId,
+      startedBy: uid,
     });
   } catch (error: unknown) {
     console.error("[POST /api/jobs/start] Error:", error);
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return res.status(500).json({ error: "Internal server error", details: message });
+    return sendPublicError(res, 500, "Internal server error");
   }
 }

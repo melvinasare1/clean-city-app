@@ -27,3 +27,4 @@ backend/.env
 ios/
 android/
 .env*.local
+api/.test-out/

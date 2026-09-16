@@ -5,6 +5,12 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getFirestore } from "../lib/firebase-admin";
 import { parsePickupCoordinates } from "../lib/geocode-address";
+import {
+  requireApprovedDriver,
+  requireAssignedJob,
+  sendAuthFailure,
+  sendPublicError,
+} from "../lib/request-auth";
 
 const JOBS_COLLECTION = "jobs";
 
@@ -17,26 +23,28 @@ export default async function handler(
   }
 
   try {
+    const actor = await requireApprovedDriver(req);
+    if (!actor.ok) {
+      return sendAuthFailure(res, actor);
+    }
+
     const jobId = typeof req.query.jobId === "string" ? req.query.jobId.trim() : null;
-    const driverId = typeof req.query.driverId === "string" ? req.query.driverId.trim() : null;
 
     if (!jobId) {
-      return res.status(400).json({ error: "Missing required query: jobId" });
-    }
-    if (!driverId) {
-      return res.status(400).json({ error: "Missing required query: driverId" });
+      return sendPublicError(res, 400, "Missing required query: jobId");
     }
 
     const firestore = getFirestore();
     const doc = await firestore.collection(JOBS_COLLECTION).doc(jobId).get();
 
     if (!doc.exists) {
-      return res.status(404).json({ error: "Job not found" });
+      return sendPublicError(res, 404, "Job not found");
     }
 
     const d = doc.data()!;
-    if (d.assignedTo !== driverId) {
-      return res.status(403).json({ error: "Not allowed to view this job." });
+    const assigned = requireAssignedJob(d, actor.uid);
+    if (!assigned.ok) {
+      return sendAuthFailure(res, assigned);
     }
 
     const scheduledDate = d.scheduledDate?.toDate?.();
@@ -60,7 +68,6 @@ export default async function handler(
     });
   } catch (error: unknown) {
     console.error("[GET /api/jobs/single] Error:", error);
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return res.status(500).json({ error: "Internal server error", details: message });
+    return sendPublicError(res, 500, "Internal server error");
   }
 }

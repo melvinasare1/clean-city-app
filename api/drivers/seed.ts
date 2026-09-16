@@ -5,6 +5,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getFirestore } from "../lib/firebase-admin";
 import { DRIVERS_COLLECTION } from "../lib/collections";
+import { requireStaff, sendAuthFailure, sendPublicError } from "../lib/request-auth";
 
 export default async function handler(
   req: VercelRequest,
@@ -15,6 +16,11 @@ export default async function handler(
   }
 
   try {
+    const staff = await requireStaff(req, "admin_only");
+    if (!staff.ok) {
+      return sendAuthFailure(res, staff);
+    }
+
     const firestore = getFirestore();
 
     const driversSnap = await firestore.collection(DRIVERS_COLLECTION).limit(1).get();
@@ -31,7 +37,7 @@ export default async function handler(
     const name = typeof body.name === "string" ? body.name.trim() : "Founder Driver";
 
     if (!founderId) {
-      return res.status(400).json({ error: "Missing required field: driverId (uid of founder driver)" });
+      return sendPublicError(res, 400, "Missing required field: driverId (uid of founder driver)");
     }
 
     const now = firestore.Timestamp.now();
@@ -63,12 +69,9 @@ export default async function handler(
   } catch (initErr) {
     const msg = initErr instanceof Error ? initErr.message : "Service error";
     if (String(msg).toLowerCase().includes("not initialized")) {
-      return res.status(503).json({
-        error: "Service unavailable",
-        details: "Backend cannot connect to database. Check FIREBASE_SERVICE_ACCOUNT_JSON.",
-      });
+      return sendPublicError(res, 503, "Service unavailable");
     }
     console.error("[POST /api/drivers/seed] Error:", initErr);
-    return res.status(500).json({ error: "Internal server error", details: msg });
+    return sendPublicError(res, 500, "Internal server error");
   }
 }

@@ -7,6 +7,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getFirestore, admin } from "../lib/firebase-admin";
 import { parsePickupCoordinates } from "../lib/geocode-address";
 import { serializeCompletionOutcome } from "../lib/job-outcome";
+import { requireStaff, sendAuthFailure, sendPublicError } from "../lib/request-auth";
 
 const JOBS_COLLECTION = "jobs";
 
@@ -48,6 +49,11 @@ export default async function handler(
   }
 
   try {
+    const staff = await requireStaff(req, "dispatch");
+    if (!staff.ok) {
+      return sendAuthFailure(res, staff);
+    }
+
     const date = typeof req.query.date === "string" ? req.query.date.trim() : null;
     const assignmentStatus =
       typeof req.query.assignmentStatus === "string" ? req.query.assignmentStatus.trim() : null;
@@ -55,16 +61,20 @@ export default async function handler(
     const windowId = typeof req.query.windowId === "string" ? req.query.windowId.trim() : null;
 
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-      return res.status(400).json({
-        error: "Query param date (YYYY-MM-DD) is required for date-based queries.",
-      });
+      return sendPublicError(
+        res,
+        400,
+        "Query param date (YYYY-MM-DD) is required for date-based queries."
+      );
     }
 
     const validStatuses = ["unassigned", "assigned", "accepted", "reassigned"];
     if (assignmentStatus && !validStatuses.includes(assignmentStatus)) {
-      return res.status(400).json({
-        error: "Invalid assignmentStatus. Use one of: unassigned, assigned, accepted, reassigned",
-      });
+      return sendPublicError(
+        res,
+        400,
+        "Invalid assignmentStatus. Use one of: unassigned, assigned, accepted, reassigned"
+      );
     }
 
     const firestore = getFirestore();
@@ -95,7 +105,6 @@ export default async function handler(
     return res.status(200).json(jobs);
   } catch (error: unknown) {
     console.error("[GET /api/jobs/list] Error:", error);
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return res.status(500).json({ error: "Internal server error", details: message });
+    return sendPublicError(res, 500, "Internal server error");
   }
 }

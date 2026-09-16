@@ -6,7 +6,7 @@
  */
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getFirestore } from "../lib/firebase-admin";
-import { getDriverDoc } from "../lib/collections";
+import { requireApprovedDriver, sendAuthFailure, sendPublicError } from "../lib/request-auth";
 
 const DRIVER_SHIFTS_COLLECTION = "driverShifts";
 
@@ -24,21 +24,13 @@ export default async function handler(
   }
 
   try {
-    const body = typeof req.body === "object" && req.body !== null ? req.body : {};
-    const driverId = typeof body.driverId === "string" ? body.driverId.trim() : null;
-
-    if (!driverId) {
-      return res.status(400).json({ error: "Missing required field: driverId" });
+    const actor = await requireApprovedDriver(req);
+    if (!actor.ok) {
+      return sendAuthFailure(res, actor);
     }
+    const driverId = actor.uid;
 
     const firestore = getFirestore();
-    const driver = await getDriverDoc(firestore, driverId);
-    if (!driver.exists) {
-      return res.status(404).json({ error: "Driver not found" });
-    }
-    if (!driver.isApproved) {
-      return res.status(400).json({ error: "Cannot start shift: driver is not approved." });
-    }
     const date = todayUtcYYYYMMDD();
     const docId = `${driverId}_${date}`;
     const ref = firestore.collection(DRIVER_SHIFTS_COLLECTION).doc(docId);
@@ -84,7 +76,6 @@ export default async function handler(
     });
   } catch (error: unknown) {
     console.error("[POST /api/drivers/start-shift] Error:", error);
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return res.status(500).json({ error: "Internal server error", details: message });
+    return sendPublicError(res, 500, "Internal server error");
   }
 }

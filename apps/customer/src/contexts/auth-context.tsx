@@ -34,9 +34,13 @@ import {
     resolveProfileAddress,
     type PickupCoordinates,
 } from '@/lib/profile-location';
-import { type DriverAccountStatus, normalizeDriverStatus } from '@/lib/driver-account';
+import { staffAccessFromAdminDoc } from '@/lib/staff-access';
+import {
+    normalizeDriverStatus,
+    type DriverAccountStatus,
+} from '@/lib/driver-account';
 
-export type AppUserRole = 'customer' | 'driver' | 'admin';
+export type AppUserRole = 'customer' | 'driver' | 'admin' | 'assistant';
 
 export interface DriverSignupDetails {
     name?: string;
@@ -47,6 +51,7 @@ export interface AppUser {
     id: string;
     email: string;
     role: AppUserRole | null;
+    staffRole?: 'admin' | 'assistant' | null;
     name?: string;
     phone?: string;
     address?: string;
@@ -262,6 +267,22 @@ const fetchUserProfile = async (firebaseUser: FirebaseUser | null): Promise<AppU
         };
     }
 
+    const staffSnap = await getDoc(doc(db, 'admins', firebaseUser.uid));
+    const legacyStaffSnap = staffSnap.exists()
+        ? staffSnap
+        : await getDoc(doc(db, 'admin_accounts', firebaseUser.uid));
+    const staffAccess = staffAccessFromAdminDoc(
+        legacyStaffSnap.exists() ? (legacyStaffSnap.data() as Record<string, unknown>) : null
+    );
+    if (staffAccess.allowed) {
+        return {
+            id: firebaseUser.uid,
+            email: firebaseUser.email ?? '',
+            role: staffAccess.role,
+            staffRole: staffAccess.role,
+        };
+    }
+
     await createProfileIfMissing(firebaseUser);
 
     const docRef = doc(db, 'profiles', firebaseUser.uid);
@@ -273,7 +294,7 @@ const fetchUserProfile = async (firebaseUser: FirebaseUser | null): Promise<AppU
 
     let data = snap.data() as ProfileData | undefined;
 
-    if (data?.role === 'driver') {
+    if (data?.role === 'driver' || data?.role === 'admin' || data?.role === 'assistant') {
         return mapProfile(firebaseUser, { ...data, role: 'customer' });
     }
 

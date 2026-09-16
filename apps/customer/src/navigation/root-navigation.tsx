@@ -8,7 +8,7 @@ import { ProductsProvider } from '@/contexts/products-context';
 import { CartProvider } from '@/contexts/cart-context';
 import { COLORS } from '../lib/constants';
 import { trackEvent } from '@/services/analytics';
-import { isAdmin } from '@/lib/admin';
+import { isAdmin, isStaff } from '@/lib/admin';
 import { WrongAppScreen } from '@/screens/wrong-app-screen';
 
 export const RootNavigator: React.FC = () => {
@@ -23,8 +23,8 @@ export const RootNavigator: React.FC = () => {
         let initialScreen: string;
         if (!user) {
             initialScreen = 'login';
-        } else if (isAdmin(user)) {
-            initialScreen = 'admin_push';
+        } else if (isStaff(user)) {
+            initialScreen = isAdmin(user) ? 'admin_push' : 'admin_jobs';
         } else if (user.role === 'driver') {
             initialScreen = 'wrong_app';
         } else {
@@ -47,7 +47,7 @@ export const RootNavigator: React.FC = () => {
         return <AuthNavigator />;
     }
 
-    if (isAdmin(user)) {
+    if (isStaff(user)) {
         return (
             <ProductsProvider>
                 <AdminNavigator />

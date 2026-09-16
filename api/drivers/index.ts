@@ -6,6 +6,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getFirestore } from "../lib/firebase-admin";
 import { DRIVERS_COLLECTION, toAdminDriverSummary } from "../lib/collections";
+import { requireStaff, sendAuthFailure, sendPublicError } from "../lib/request-auth";
 
 export default async function handler(
   req: VercelRequest,
@@ -16,16 +17,18 @@ export default async function handler(
   }
 
   try {
+    const staff = await requireStaff(req, "dispatch");
+    if (!staff.ok) {
+      return sendAuthFailure(res, staff);
+    }
+
     let firestore;
     try {
       firestore = getFirestore();
     } catch (initErr) {
       const msg = initErr instanceof Error ? initErr.message : "Firebase not initialized";
       console.error("[GET /api/drivers] Firebase:", msg);
-      return res.status(503).json({
-        error: "Service unavailable",
-        details: "Backend cannot connect to database. Check FIREBASE_SERVICE_ACCOUNT_JSON.",
-      });
+      return sendPublicError(res, 503, "Service unavailable");
     }
 
     const driversSnap = await firestore.collection(DRIVERS_COLLECTION).get();
@@ -37,6 +40,6 @@ export default async function handler(
   } catch (error: unknown) {
     console.error("[GET /api/drivers] Error:", error);
     const message = error instanceof Error ? error.message : "Unknown error";
-    return res.status(500).json({ error: "Internal server error", details: message });
+    return res.status(500).json({ error: "Internal server error" });
   }
 }

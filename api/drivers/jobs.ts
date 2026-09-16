@@ -6,6 +6,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getFirestore } from "../lib/firebase-admin";
 import { parsePickupCoordinates } from "../lib/geocode-address";
+import { requireApprovedDriver, sendAuthFailure, sendPublicError } from "../lib/request-auth";
 
 const JOBS_COLLECTION = "jobs";
 
@@ -18,19 +19,19 @@ export default async function handler(
   }
 
   try {
-    const driverId = typeof req.query.driverId === "string" ? req.query.driverId.trim() : null;
+    const actor = await requireApprovedDriver(req);
+    if (!actor.ok) {
+      return sendAuthFailure(res, actor);
+    }
     const date = typeof req.query.date === "string" ? req.query.date.trim() : null;
 
-    if (!driverId) {
-      return res.status(400).json({ error: "Missing required query: driverId" });
-    }
     if (!date) {
-      return res.status(400).json({ error: "Missing required query: date (YYYY-MM-DD)" });
+      return sendPublicError(res, 400, "Missing required query: date (YYYY-MM-DD)");
     }
 
     const dateMatch = /^\d{4}-\d{2}-\d{2}$/.exec(date);
     if (!dateMatch) {
-      return res.status(400).json({ error: "Invalid date format. Use YYYY-MM-DD" });
+      return sendPublicError(res, 400, "Invalid date format. Use YYYY-MM-DD");
     }
 
     const firestore = getFirestore();
@@ -41,7 +42,7 @@ export default async function handler(
 
     const snapshot = await firestore
       .collection(JOBS_COLLECTION)
-      .where("assignedTo", "==", driverId)
+      .where("assignedTo", "==", actor.uid)
       .where("scheduledDate", ">=", startTs)
       .where("scheduledDate", "<=", endTs)
       .orderBy("scheduledDate", "asc")
@@ -65,7 +66,6 @@ export default async function handler(
     return res.status(200).json(jobs);
   } catch (error: unknown) {
     console.error("[GET /api/drivers/jobs] Error:", error);
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return res.status(500).json({ error: "Internal server error", details: message });
+    return sendPublicError(res, 500, "Internal server error");
   }
 }

@@ -5,12 +5,18 @@ import { AdminJobsScreen } from '../screens/admin/admin-jobs-screen';
 import { AdminStoreScreen } from '../screens/admin/admin-store-screen';
 import { COLORS } from '../lib/constants';
 import { AdminStackParamList } from './types';
+import { useAuth } from '@/hooks/useAuth';
+import { isAdmin } from '@/lib/admin';
 
 const Stack = createNativeStackNavigator<AdminStackParamList>();
 
 export const AdminNavigator: React.FC = () => {
+  const { user } = useAuth();
+  const initialRouteName = isAdmin(user) ? 'AdminPush' : 'AdminJobs';
+
   return (
     <Stack.Navigator
+      initialRouteName={initialRouteName}
       screenOptions={{
         headerStyle: {
           backgroundColor: COLORS.primary,
@@ -39,4 +45,3 @@ export const AdminNavigator: React.FC = () => {
     </Stack.Navigator>
   );
 };
-

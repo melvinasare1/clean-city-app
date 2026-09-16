@@ -1,39 +1,28 @@
 /**
- * Admin helper functions
- * Checks if a user has admin privileges
+ * Staff privilege is determined only from admins/{uid}.
+ * profiles.role is never an authority source.
  */
 
-import type { AppUser, AppUserRole } from '@/contexts/auth-context';
+import type { AppUser } from '@/contexts/auth-context';
+import { staffAccessFromAdminDoc, type StaffRole } from '@/lib/staff-access';
 
-/**
- * Check if a user is an admin
- * Option A: checks if user.role === "admin"
- * 
- * @param user - User object from auth context
- * @returns true if user is admin, false otherwise
- */
+export { staffAccessFromAdminDoc };
+export type { StaffRole };
+
+/** True only for an approved admin on admins/{uid}. */
 export const isAdmin = (user: AppUser | null): boolean => {
-  if (!user) {
-    return false;
-  }
-  return user.role === 'admin';
+  return user?.staffRole === 'admin';
 };
 
-/**
- * Require admin access - throws error if user is not admin
- * Use this to block navigation/rendering if not admin
- * 
- * @param user - User object from auth context
- * @throws Error if user is not admin
- */
+/** Approved admin or assistant from admins/{uid}. */
+export const isStaff = (user: AppUser | null): boolean => {
+  return user?.staffRole === 'admin' || user?.staffRole === 'assistant';
+};
+
 export const requireAdmin = (user: AppUser | null): void => {
   if (!isAdmin(user)) {
     throw new Error('Admin access required');
   }
 };
 
-/**
- * Get admin role constant
- */
-export const ADMIN_ROLE: AppUserRole = 'admin';
-
+export const ADMIN_ROLE: StaffRole = 'admin';

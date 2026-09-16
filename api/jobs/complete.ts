@@ -1,14 +1,17 @@
 /**
  * POST /api/jobs/complete
- * Body: { jobId: string, driverId: string }
- * Update job: jobStatus = "completed", completedAt = now, completedBy = driverId.
- * Increment totalJobsCompleted on today's driverShift.
- * Validates driver exists in drivers collection and is approved. Not allowed if paymentStatus !== "paid" or assignedTo !== driverId.
+ * Body: { jobId: string }
+ * Caller must be the authenticated assigned driver.
  */
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getFirestore } from "../lib/firebase-admin";
-import { getDriverDoc } from "../lib/collections";
 import { canCompleteJob } from "../lib/job-outcome";
+import {
+  requireApprovedDriver,
+  requireAssignedJob,
+  sendAuthFailure,
+  sendPublicError,
+} from "../lib/request-auth";
 
 const JOBS_COLLECTION = "jobs";
 const DRIVER_SHIFTS_COLLECTION = "driverShifts";
@@ -29,54 +32,45 @@ export default async function handler(
   }
 
   try {
+    const actor = await requireApprovedDriver(req);
+    if (!actor.ok) {
+      return sendAuthFailure(res, actor);
+    }
+    const uid = actor.uid;
+
     const body = typeof req.body === "object" && req.body !== null ? req.body : {};
     const jobId = typeof body.jobId === "string" ? body.jobId.trim() : null;
-    const driverId = typeof body.driverId === "string" ? body.driverId.trim() : null;
 
     if (!jobId) {
-      return res.status(400).json({ error: "Missing required field: jobId" });
-    }
-    if (!driverId) {
-      return res.status(400).json({ error: "Missing required field: driverId" });
+      return sendPublicError(res, 400, "Missing required field: jobId");
     }
 
     const firestore = getFirestore();
-    const driver = await getDriverDoc(firestore, driverId);
-    if (!driver.exists) {
-      return res.status(404).json({ error: "Driver not found" });
-    }
-    if (!driver.isApproved) {
-      return res.status(400).json({ error: "Cannot complete job: driver is not approved." });
-    }
-
     const jobRef = firestore.collection(JOBS_COLLECTION).doc(jobId);
     const snapshot = await jobRef.get();
 
     if (!snapshot.exists) {
-      return res.status(404).json({ error: "Job not found" });
+      return sendPublicError(res, 404, "Job not found");
     }
 
     const data = snapshot.data();
     if (data?.paymentStatus !== "paid") {
-      return res.status(400).json({
-        error: "Cannot complete job. Payment status must be 'paid'.",
-      });
+      return sendPublicError(res, 400, "Cannot complete job. Payment status must be 'paid'.");
     }
-    if (data?.assignedTo !== driverId) {
-      return res.status(403).json({
-        error: "Not allowed to complete this job. It is assigned to another driver.",
-      });
+    const assigned = requireAssignedJob(data, uid);
+    if (!assigned.ok) {
+      return sendAuthFailure(res, assigned);
     }
     const completable = canCompleteJob(data?.jobStatus);
     if (!completable.ok) {
-      return res.status(400).json({ error: completable.message });
+      return sendPublicError(res, 400, completable.message);
     }
 
     const now = firestore.Timestamp.now();
     const date = todayUtcYYYYMMDD();
-    const shiftId = `${driverId}_${date}`;
+    const shiftId = `${uid}_${date}`;
     const shiftRef = firestore.collection(DRIVER_SHIFTS_COLLECTION).doc(shiftId);
-    const driverRef = firestore.collection("drivers").doc(driverId);
+    const driverRef = firestore.collection("drivers").doc(uid);
 
     await firestore.runTransaction(async (tx) => {
       const driverSnap = await tx.get(driverRef);
@@ -86,7 +80,7 @@ export default async function handler(
       tx.update(jobRef, {
         jobStatus: "completed",
         completedAt: now,
-        completedBy: driverId,
+        completedBy: uid,
         updatedAt: now,
       });
       tx.set(
@@ -112,7 +106,7 @@ export default async function handler(
           firestore.collection("bookings").doc(bookingId),
           {
             status: "completed",
-            driverId,
+            driverId: uid,
             driverName,
             completedAt: now,
             updatedAt: now,
@@ -151,11 +145,10 @@ export default async function handler(
       id: jobRef.id,
       jobStatus: "completed",
       completedAt: u?.completedAt?.toDate?.()?.toISOString() ?? new Date().toISOString(),
-      completedBy: driverId,
+      completedBy: uid,
     });
   } catch (error: unknown) {
     console.error("[POST /api/jobs/complete] Error:", error);
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return res.status(500).json({ error: "Internal server error", details: message });
+    return sendPublicError(res, 500, "Internal server error");
   }
 }

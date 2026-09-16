@@ -6,6 +6,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { db } from "@platform/shared-firebase";
 import { setDocAtPath } from "@/lib/utils";
 import { getApiBaseUrl } from "@/lib/apiBase";
+import { getAuthHeaders } from "@/lib/auth-headers";
 import {
   type DriverAccountStatus,
   isDriverApprovedStatus,
@@ -120,8 +121,10 @@ export async function getJobSingle(
   driverId: string
 ): Promise<DriverJob & { addressSnapshot?: { addressLine1: string; area: string; phoneNumber: string } }> {
   const base = getBase();
-  const params = new URLSearchParams({ jobId, driverId });
-  const res = await fetch(`${base}/api/jobs/single?${params}`);
+  const params = new URLSearchParams({ jobId });
+  const res = await fetch(`${base}/api/jobs/single?${params}`, {
+    headers: await getAuthHeaders(),
+  });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(err.error || err.details || "Failed to fetch job");
@@ -137,8 +140,10 @@ export async function getDriverJobs(
   date: string
 ): Promise<DriverJob[]> {
   const base = getBase();
-  const params = new URLSearchParams({ driverId, date });
-  const res = await fetch(`${base}/api/drivers/jobs?${params}`);
+  const params = new URLSearchParams({ date });
+  const res = await fetch(`${base}/api/drivers/jobs?${params}`, {
+    headers: await getAuthHeaders(),
+  });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(err.error || err.details || "Failed to fetch jobs");
@@ -153,8 +158,8 @@ export async function startShift(driverId: string): Promise<DriverShift> {
   const base = getBase();
   const res = await fetch(`${base}/api/drivers/start-shift`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ driverId }),
+    headers: await getAuthHeaders(),
+    body: JSON.stringify({}),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
@@ -170,8 +175,8 @@ export async function endShift(driverId: string): Promise<DriverShift> {
   const base = getBase();
   const res = await fetch(`${base}/api/drivers/end-shift`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ driverId }),
+    headers: await getAuthHeaders(),
+    body: JSON.stringify({}),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
@@ -190,8 +195,8 @@ export async function startJob(
   const base = getBase();
   const res = await fetch(`${base}/api/jobs/start`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ jobId, driverId }),
+    headers: await getAuthHeaders(),
+    body: JSON.stringify({ jobId }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
@@ -210,8 +215,8 @@ export async function completeJob(
   const base = getBase();
   const res = await fetch(`${base}/api/jobs/complete`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ jobId, driverId }),
+    headers: await getAuthHeaders(),
+    body: JSON.stringify({ jobId }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));

@@ -14,29 +14,20 @@ service cloud.firestore {
     function legacyWebAdminPath() {
       return /databases/$(database)/documents/admin_accounts/$(request.auth.uid);
     }
-    function profilePath() {
-      return /databases/$(database)/documents/profiles/$(request.auth.uid);
-    }
     function approvedWebAdmin(path) {
       return isSignedIn()
         && exists(path)
         && get(path).data.isApproved == true
         && get(path).data.role in ['admin', 'assistant'];
     }
-    // Approved portal account in `admins` (or legacy `admin_accounts`), or staff on profiles.
+    // Approved portal account in `admins` (or legacy `admin_accounts`).
     function isStaff() {
       return approvedWebAdmin(webAdminPath())
-        || approvedWebAdmin(legacyWebAdminPath())
-        || (isSignedIn()
-          && exists(profilePath())
-          && get(profilePath()).data.role in ['admin', 'assistant']);
+        || approvedWebAdmin(legacyWebAdminPath());
     }
     function isAdmin() {
       return (approvedWebAdmin(webAdminPath()) && get(webAdminPath()).data.role == 'admin')
-        || (approvedWebAdmin(legacyWebAdminPath()) && get(legacyWebAdminPath()).data.role == 'admin')
-        || (isSignedIn()
-          && exists(profilePath())
-          && get(profilePath()).data.role == 'admin');
+        || (approvedWebAdmin(legacyWebAdminPath()) && get(legacyWebAdminPath()).data.role == 'admin');
     }
     function driverPath() {
       return /databases/$(database)/documents/drivers/$(request.auth.uid);
@@ -84,14 +75,16 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
-    // Profiles — customers and admins only (never drivers)
+    // Profiles — customers only. Privilege fields cannot be self-assigned.
     match /profiles/{userId} {
       allow get, list: if isStaff();
       allow read: if isOwner(userId);
       allow create: if isOwner(userId)
-        && request.resource.data.role != 'driver';
+        && request.resource.data.role == 'customer';
       allow update: if isOwner(userId)
-        && request.resource.data.role != 'driver';
+        && request.resource.data.role == 'customer'
+        && !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['role', 'isApproved', 'status', 'staffRole', 'permissions']);
       allow delete: if false;
     }
 
