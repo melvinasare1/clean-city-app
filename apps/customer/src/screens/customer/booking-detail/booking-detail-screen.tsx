@@ -196,11 +196,14 @@ export const BookingDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         );
         return;
       }
-      if (booking.payment.authorizationUrl) {
-        await Linking.openURL(booking.payment.authorizationUrl);
-      } else {
-        const { authorizationUrl } = await initiatePaymentForBooking(booking.id);
+      if (booking.payment.source === "stripe" || !booking.payment.authorizationUrl) {
+        const { authorizationUrl } = await initiatePaymentForBooking(
+          booking.id,
+          booking.payment.source === "stripe" ? "stripe" : "paystack"
+        );
         await Linking.openURL(authorizationUrl);
+      } else {
+        await Linking.openURL(booking.payment.authorizationUrl);
       }
       Alert.alert(
         "Complete payment",
@@ -414,7 +417,15 @@ export const BookingDetailScreen: React.FC<Props> = ({ navigation, route }) => {
             </View>
             <View style={styles.paymentLine}>
               <AppText style={styles.paymentLineLabel}>Payment method</AppText>
-              <AppText style={styles.paymentLineValue}>Mobile Money</AppText>
+              <AppText style={styles.paymentLineValue}>
+                {booking?.payment?.source === "stripe"
+                  ? "Card / Stripe"
+                  : booking?.payment?.source === "admin"
+                    ? "Admin"
+                    : booking?.payment?.source === "free"
+                      ? "Free"
+                      : "Mobile Money / Paystack"}
+              </AppText>
             </View>
             {amountValue ? (
               <View style={styles.paymentLine}>

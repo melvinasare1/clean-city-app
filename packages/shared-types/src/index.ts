@@ -66,6 +66,11 @@ export type BookingPayment = {
   initiatedAt?: Timestamp;
   paidAt?: Timestamp;
   referenceHistory?: string[];
+  jobId?: string;
+  source?: "paystack" | "stripe" | "admin" | "free";
+  fulfillmentStatus?: "pending" | "fulfilled" | "failed";
+  stripeCheckoutSessionId?: string;
+  stripePaymentIntentId?: string;
 };
 
 export type BookingBinItem = {

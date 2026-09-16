@@ -12,11 +12,11 @@ export const PaymentMethodsScreen: React.FC = () => {
         <View style={styles.iconCircle}>
           <Ionicons name="phone-portrait-outline" size={28} color={COLORS.primary} />
         </View>
-        <AppText style={styles.heading}>Mobile Money</AppText>
+        <AppText style={styles.heading}>How you can pay</AppText>
         <AppText style={styles.body}>
-          You pay via Mobile Money (MoMo) at checkout. CleanCity does not store
-          cards or other payment methods on file. When you book a pickup, Paystack
-          collects payment through your Mobile Money wallet.
+          One-time pickups can be paid with Mobile Money through Paystack, or by
+          card through Stripe. CleanCity does not store your card or Mobile Money
+          details. Subscriptions currently use Mobile Money / Paystack only.
         </AppText>
       </View>
     </ScreenContainer>

@@ -691,6 +691,16 @@ async function handleBookingPayment(
         items: itemsSnapshot?.length ? itemsSnapshot : undefined,
         location: (booking as any).location != null ? String((booking as any).location) : undefined,
       });
+      await admin.firestore().collection("bookings").doc(bookingId).set(
+        {
+          payment: {
+            status: "initiated",
+            reference,
+            fulfillmentStatus: "pending",
+          },
+        },
+        { merge: true }
+      );
     } catch (e) {
       console.error("Failed to create payment document:", e);
     }

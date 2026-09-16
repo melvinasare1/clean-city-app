@@ -170,6 +170,9 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
   );
   const [isSaving, setIsSaving] = useState(false);
   const [bookingType, setBookingType] = useState<BookingType>('one_off');
+  const [paymentProvider, setPaymentProvider] = useState<'paystack' | 'stripe'>(
+    'paystack'
+  );
   const [intervalWeeks, setIntervalWeeks] = useState<number>(1);
   const collectionFrequency: 'weekly' | 'biweekly' | 'monthly' =
     intervalWeeks === 1 ? 'weekly' : intervalWeeks === 2 ? 'biweekly' : 'monthly';
@@ -232,6 +235,10 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
   useEffect(() => {
     trackEvent('checkout_viewed', { screen: 'checkout' });
   }, []);
+
+  useEffect(() => {
+    if (isSubscription) setPaymentProvider('paystack');
+  }, [isSubscription]);
 
   const handleHelp = () => {
     navigation.navigate('CustomerTabs', { screen: 'CustomerHelp' });
@@ -474,17 +481,20 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
         return;
       }
 
-      const { authorizationUrl } = await initiatePaymentForBooking(bookingId);
+      const { authorizationUrl } = await initiatePaymentForBooking(
+        bookingId,
+        paymentProvider
+      );
 
       await trackEvent('payment_started', {
         screen: 'checkout',
         amount: Number(totalPrice),
         currency: 'GHS',
-        provider: 'paystack',
+        provider: paymentProvider,
       });
       await trackEvent('payment_provider_opened', {
         screen: 'checkout',
-        provider: 'paystack',
+        provider: paymentProvider,
       });
 
       await Linking.openURL(authorizationUrl);
@@ -806,54 +816,96 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
             </TouchableOpacity>
           </View>
 
-          <AppText style={styles.sectionLabel}>Payment method</AppText>
+          <AppText style={styles.sectionLabel}>Pay with</AppText>
           <View style={styles.paymentRow}>
-            <View
-              style={[styles.paymentCard, styles.paymentCardSelected]}
+            <TouchableOpacity
+              style={[
+                styles.paymentCard,
+                paymentProvider === 'paystack' && styles.paymentCardSelected,
+              ]}
+              onPress={() => setPaymentProvider('paystack')}
               accessibilityRole="radio"
-              accessibilityState={{ selected: true }}
-              accessibilityLabel="Mobile Money"
+              accessibilityState={{ selected: paymentProvider === 'paystack' }}
+              accessibilityLabel="Mobile Money / Paystack"
             >
               <View style={styles.paymentCardHeader}>
                 <View style={styles.paymentIconWrap}>
                   <Ionicons name="phone-portrait-outline" size={18} color={COLORS.primary} />
                 </View>
-                <View style={[styles.paymentRadio, styles.paymentRadioSelected]}>
-                  <Ionicons name="checkmark" size={12} color={COLORS.white} />
+                <View
+                  style={[
+                    styles.paymentRadio,
+                    paymentProvider === 'paystack' && styles.paymentRadioSelected,
+                  ]}
+                >
+                  {paymentProvider === 'paystack' ? (
+                    <Ionicons name="checkmark" size={12} color={COLORS.white} />
+                  ) : null}
                 </View>
               </View>
-              <AppText style={styles.paymentTitle}>Mobile Money</AppText>
+              <AppText style={styles.paymentTitle}>Mobile Money / Paystack</AppText>
               <AppText style={styles.paymentSubtitle}>
                 Pay with MTN, Telecel or AirtelTigo.
               </AppText>
-            </View>
+            </TouchableOpacity>
 
-            <View
-              style={[styles.paymentCard, styles.paymentCardDisabled]}
-              accessibilityRole="radio"
-              accessibilityState={{ disabled: true }}
-              accessibilityLabel="Card, coming soon"
-            >
-              {/* FOLLOW-UP: When Stripe goes live, enable Card here AND on CartScreen
-                  (store checkout). Both currently show Card as disabled "Coming soon". */}
-              <View style={styles.paymentCardHeader}>
-                <View style={styles.paymentIconWrap}>
-                  <Ionicons
-                    name="card-outline"
-                    size={18}
-                    color={COLORS.textSecondary}
-                  />
+            {isSubscription ? (
+              <View
+                style={[styles.paymentCard, styles.paymentCardDisabled]}
+                accessibilityRole="radio"
+                accessibilityState={{ disabled: true }}
+                accessibilityLabel="Card / Stripe, not available for subscriptions"
+              >
+                <View style={styles.paymentCardHeader}>
+                  <View style={styles.paymentIconWrap}>
+                    <Ionicons
+                      name="card-outline"
+                      size={18}
+                      color={COLORS.textSecondary}
+                    />
+                  </View>
+                  <View style={styles.paymentRadio} />
                 </View>
-                <View style={styles.paymentRadio} />
+                <AppText style={styles.paymentTitle}>Card / Stripe</AppText>
+                <AppText style={styles.paymentSubtitle}>
+                  Visa, Mastercard or other cards
+                </AppText>
+                <View style={styles.comingSoon}>
+                  <AppText style={styles.comingSoonText}>Subscriptions soon</AppText>
+                </View>
               </View>
-              <AppText style={styles.paymentTitle}>Card</AppText>
-              <AppText style={styles.paymentSubtitle}>
-                Visa, Mastercard or other cards
-              </AppText>
-              <View style={styles.comingSoon}>
-                <AppText style={styles.comingSoonText}>Coming soon</AppText>
-              </View>
-            </View>
+            ) : (
+              <TouchableOpacity
+                style={[
+                  styles.paymentCard,
+                  paymentProvider === 'stripe' && styles.paymentCardSelected,
+                ]}
+                onPress={() => setPaymentProvider('stripe')}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: paymentProvider === 'stripe' }}
+                accessibilityLabel="Card / Stripe"
+              >
+                <View style={styles.paymentCardHeader}>
+                  <View style={styles.paymentIconWrap}>
+                    <Ionicons name="card-outline" size={18} color={COLORS.primary} />
+                  </View>
+                  <View
+                    style={[
+                      styles.paymentRadio,
+                      paymentProvider === 'stripe' && styles.paymentRadioSelected,
+                    ]}
+                  >
+                    {paymentProvider === 'stripe' ? (
+                      <Ionicons name="checkmark" size={12} color={COLORS.white} />
+                    ) : null}
+                  </View>
+                </View>
+                <AppText style={styles.paymentTitle}>Card / Stripe</AppText>
+                <AppText style={styles.paymentSubtitle}>
+                  Visa, Mastercard or other cards
+                </AppText>
+              </TouchableOpacity>
+            )}
           </View>
         </ResponsiveContent>
       </ScrollView>

@@ -22,7 +22,7 @@ import type {
 import { BOOKINGS_COLLECTION } from "@/lib/constants";
 import { setDocAtPath, PROFILES_COLLECTION } from "@/lib/utils";
 import { rewardReferralIfEligible } from "@/services/referralService";
-import { initializePayment, verifyPayment, verifyBookingPaymentWithBackend } from "@/services/payments";
+import { initializePayment, initializeStripeCheckout, verifyPayment, verifyBookingPaymentWithBackend, verifyStripeBookingPayment } from "@/services/payments";
 
 type CreateBookingParams = {
   userId: string;
@@ -167,7 +167,8 @@ export const getBookingById = async (bookingId: string): Promise<Booking | null>
  * not a locally-generated reference. This ensures verification always succeeds.
  */
 export const initiatePaymentForBooking = async (
-  bookingId: string
+  bookingId: string,
+  provider: "paystack" | "stripe" = "paystack"
 ): Promise<{ authorizationUrl: string; reference: string }> => {
   console.log("=".repeat(60));
   console.log("[Payment Init] 🚀 Starting payment initialization");
@@ -200,10 +201,13 @@ export const initiatePaymentForBooking = async (
 
   let paymentInit;
   try {
-    paymentInit = await initializePayment({
-      paymentType: "one_time",
-      bookingId: bookingIdStr,
-    });
+    paymentInit =
+      provider === "stripe"
+        ? await initializeStripeCheckout({ bookingId: bookingIdStr })
+        : await initializePayment({
+            paymentType: "one_time",
+            bookingId: bookingIdStr,
+          });
   } catch (error: any) {
     console.error("[Payment Init] ❌ Backend initialize failed:", error.message);
     throw new Error(`Failed to initialize payment: ${error.message}`);
@@ -251,6 +255,7 @@ export const initiatePaymentForBooking = async (
     // Build payment update object - only include referenceHistory if it has entries
     const paymentUpdate: any = {
       status: "initiated",
+      source: provider,
       reference: backendReference, // ⭐ Store the backend reference, NOT a local one
       authorizationUrl: authorizationUrl,
       amount: booking.totalPrice,
@@ -349,8 +354,10 @@ export const verifyBookingPayment = async (
     }
 
     try {
-      // Verify payment with separate backend (only needs bookingId)
-      const verifyResult = await verifyBookingPaymentWithBackend(bookingId);
+      const verifyResult =
+        booking.payment.source === "stripe"
+          ? await verifyStripeBookingPayment(bookingId)
+          : await verifyBookingPaymentWithBackend(bookingId);
       
       console.log(`[Verify Booking] Backend response - ok: ${verifyResult.ok}, paid: ${verifyResult.paid}`);
       

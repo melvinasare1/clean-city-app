@@ -128,3 +128,28 @@ export async function assignJob(params: {
   }
   return res.json();
 }
+
+/**
+ * POST /api/bookings/mark-paid
+ * Admin-only: mark a booking paid and create/reuse the operational job.
+ * Separate from the customer Paystack webhook path.
+ */
+export async function markBookingPaid(bookingId: string): Promise<{
+  ok: boolean;
+  bookingId: string;
+  jobId: string;
+  created: boolean;
+  alreadyFulfilled: boolean;
+}> {
+  const base = getBase();
+  const res = await fetch(`${base}/api/bookings/mark-paid`, {
+    method: "POST",
+    headers: await getAuthHeaders(),
+    body: JSON.stringify({ bookingId }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(body.error || body.details || "Failed to mark booking paid");
+  }
+  return body;
+}

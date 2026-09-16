@@ -27,9 +27,18 @@ export interface PaymentDocument {
 
   status: PaymentStatus;
 
-  paymentMethod: "momo";
+  paymentMethod: "momo" | "card";
 
   paystackStatus?: string;
+  stripeStatus?: string;
+  stripeCheckoutSessionId?: string;
+  stripePaymentIntentId?: string;
+
+  jobId?: string;
+  source?: "paystack" | "stripe" | "admin" | "free";
+  fulfillmentStatus?: "pending" | "fulfilled" | "failed";
+  lastWebhookEvent?: string;
+  webhookProcessed?: boolean;
 
   billingPeriodStart?: FirebaseTimestamp;
   billingPeriodEnd?: FirebaseTimestamp;
@@ -158,6 +167,8 @@ export interface JobDocument {
 
   /** Snapshot from Paystack/booking payment. Currently always "momo". */
   paymentMethod?: "momo" | string;
+  /** Paystack transaction reference when the job was created from a verified payment. */
+  paymentReference?: string;
   /** Customer-attached pickup photo. Not captured anywhere today. */
   photoUrl?: string | null;
 

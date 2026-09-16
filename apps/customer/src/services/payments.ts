@@ -30,6 +30,39 @@ export type {
   VerifyPaymentResponse,
 } from "@/types/payments.types";
 
+export async function initializeStripeCheckout(body: {
+  bookingId: string;
+  amount?: number;
+}): Promise<InitializePaymentResponse> {
+  const API_BASE_URL = getApiBaseUrl();
+  const url = `${API_BASE_URL}/api/stripe/initialize`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  const text = await response.text();
+  let json: any;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    throw new Error(`Stripe init returned non-JSON: ${text.slice(0, 120)}`);
+  }
+  if (!response.ok || json?.ok === false) {
+    throw new Error(json?.error || `Stripe init failed (status ${response.status})`);
+  }
+  if (!json.authorizationUrl || !json.reference) {
+    throw new Error("Stripe did not return a checkout URL");
+  }
+  return {
+    ok: true,
+    authorizationUrl: json.authorizationUrl,
+    reference: json.reference,
+  };
+}
+
 /**
  * Calls your backend: POST /api/paystack/initialize
  * Sends body with required paymentType and type-specific fields (e.g. one_time + bookingId).
@@ -234,6 +267,32 @@ export async function confirmFreeBooking(bookingId: string): Promise<{ ok: boole
     throw new Error(json?.error ?? "Failed to confirm free booking");
   }
   return json;
+}
+
+export async function verifyStripeBookingPayment(
+  bookingId: string
+): Promise<VerifyBookingPaymentResponse> {
+  const id = bookingId != null && bookingId !== "" ? String(bookingId).trim() : "";
+  if (!id) {
+    throw new Error("bookingId is required to verify payment");
+  }
+  const base = getApiBaseUrl().replace(/\/+$/, "");
+  const res = await fetch(`${base}/api/stripe/verify`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ bookingId: id }),
+  });
+  const text = await res.text();
+  let json: any;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    throw new Error(`Stripe verify returned non-JSON (status ${res.status}): ${text.slice(0, 120)}`);
+  }
+  if (!res.ok || json?.ok === false) {
+    throw new Error(json?.error || json?.message || `Stripe verify failed (status ${res.status})`);
+  }
+  return json as VerifyBookingPaymentResponse;
 }
 
 /**

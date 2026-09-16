@@ -93,6 +93,15 @@ describe("Admin API", () => {
     });
     assert.equal(adminOnly.status, 200);
   });
+
+  it("5b. Approved assistant cannot use admin-only mark-paid", () => {
+    const markPaid = authorizeStaffApi({
+      uid: "asst-1",
+      staffDoc: { role: "assistant", isApproved: true },
+      action: "admin_only",
+    });
+    assert.equal(markPaid.status, 403);
+  });
 });
 
 describe("Driver API", () => {

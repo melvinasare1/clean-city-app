@@ -13,6 +13,7 @@ import {
   addressQueryFromJob,
   geocodeAddressToPickup,
 } from "../lib/geocode-address";
+import { oneTimeJobDocId } from "../lib/payment-integrity";
 
 const PAYSTACK_BASE_URL = "https://api.paystack.co";
 const SUBSCRIPTIONS_COLLECTION = "subscriptions";
@@ -233,6 +234,109 @@ async function loadCustomerProfile(
   };
 }
 
+function isAlreadyExistsError(err: unknown): boolean {
+  const code = (err as { code?: unknown } | null)?.code;
+  return code === 6 || code === "already-exists";
+}
+
+export async function findJobIdForBooking(
+  firestore: Firestore,
+  bookingId: string
+): Promise<string | null> {
+  const deterministicRef = firestore.collection(JOBS_COLLECTION).doc(oneTimeJobDocId(bookingId));
+  const deterministicSnap = await deterministicRef.get();
+  if (deterministicSnap.exists) return deterministicRef.id;
+
+  const existing = await firestore
+    .collection(JOBS_COLLECTION)
+    .where("bookingId", "==", bookingId)
+    .limit(1)
+    .get();
+  if (existing.empty) return null;
+  return existing.docs[0].id;
+}
+
+/**
+ * Idempotent: one booking → one jobs doc (`one_time_{bookingId}` or a pre-existing random id).
+ */
+export async function ensureJobForOneTimeBooking(
+  firestore: Firestore,
+  params: {
+    bookingId: string;
+    userId: string;
+    scheduledDate: Date;
+    items: JobItemSnapshot[];
+    location: string;
+    addressSnapshot: JobAddressSnapshot;
+    windowId: string;
+    windowLabel: string;
+    paymentReference?: string;
+    paymentMethod?: string;
+    Timestamp: typeof import("firebase-admin").firestore.Timestamp;
+  }
+): Promise<{ jobId: string; created: boolean }> {
+  const existingId = await findJobIdForBooking(firestore, params.bookingId);
+  if (existingId) {
+    return { jobId: existingId, created: false };
+  }
+
+  const {
+    bookingId,
+    userId,
+    scheduledDate,
+    items,
+    location,
+    addressSnapshot,
+    windowId,
+    windowLabel,
+    paymentReference,
+    paymentMethod,
+    Timestamp,
+  } = params;
+  const docRef = firestore.collection(JOBS_COLLECTION).doc(oneTimeJobDocId(bookingId));
+  const now = new Date();
+  const nowTs = Timestamp.fromDate(now);
+  const profile = await loadCustomerProfile(firestore, userId);
+  const normalizedAddress = {
+    addressLine1: addressSnapshot.addressLine1 ?? "",
+    area: addressSnapshot.area ?? "",
+    phoneNumber: trimString(addressSnapshot.phoneNumber) || profile.phone,
+  };
+  const pickup = await geocodeAddressToPickup(
+    addressQueryFromJob({ location, addressSnapshot: normalizedAddress })
+  );
+  const payload: Record<string, unknown> = {
+    id: docRef.id,
+    type: "one_time",
+    bookingId,
+    userId,
+    customerName: profile.name,
+    scheduledDate: Timestamp.fromDate(scheduledDate),
+    paymentStatus: "paid",
+    jobStatus: "scheduled",
+    assignmentStatus: "unassigned",
+    items: items ?? [],
+    location: location ?? "",
+    addressSnapshot: normalizedAddress,
+    ...(pickup ? { pickup } : {}),
+    windowId: windowId ?? "",
+    windowLabel: windowLabel ?? "",
+    paymentMethod: paymentMethod || "momo",
+    ...(paymentReference ? { paymentReference } : {}),
+    createdAt: nowTs,
+    updatedAt: nowTs,
+  };
+  try {
+    await docRef.create(payload);
+    return { jobId: docRef.id, created: true };
+  } catch (err) {
+    if (isAlreadyExistsError(err)) {
+      return { jobId: docRef.id, created: false };
+    }
+    throw err;
+  }
+}
+
 /**
  * Create one job in the top-level "jobs" collection for a one-time booking after successful payment.
  * Snapshots items, location, and address at creation; job is self-contained.
@@ -251,50 +355,7 @@ export async function createJobForOneTimeBooking(
     Timestamp: typeof import("firebase-admin").firestore.Timestamp;
   }
 ): Promise<void> {
-  const {
-    bookingId,
-    userId,
-    scheduledDate,
-    items,
-    location,
-    addressSnapshot,
-    windowId,
-    windowLabel,
-    Timestamp,
-  } = params;
-  const jobsRef = firestore.collection(JOBS_COLLECTION);
-  const docRef = jobsRef.doc();
-  const now = new Date();
-  const nowTs = Timestamp.fromDate(now);
-  const profile = await loadCustomerProfile(firestore, userId);
-  const normalizedAddress = {
-    addressLine1: addressSnapshot.addressLine1 ?? "",
-    area: addressSnapshot.area ?? "",
-    phoneNumber: trimString(addressSnapshot.phoneNumber) || profile.phone,
-  };
-  const pickup = await geocodeAddressToPickup(
-    addressQueryFromJob({ location, addressSnapshot: normalizedAddress })
-  );
-  await docRef.set({
-    id: docRef.id,
-    type: "one_time",
-    bookingId,
-    userId,
-    customerName: profile.name,
-    scheduledDate: Timestamp.fromDate(scheduledDate),
-    paymentStatus: "paid",
-    jobStatus: "scheduled",
-    assignmentStatus: "unassigned",
-    items: items ?? [],
-    location: location ?? "",
-    addressSnapshot: normalizedAddress,
-    ...(pickup ? { pickup } : {}),
-    windowId: windowId ?? "",
-    windowLabel: windowLabel ?? "",
-    paymentMethod: "momo",
-    createdAt: nowTs,
-    updatedAt: nowTs,
-  });
+  await ensureJobForOneTimeBooking(firestore, params);
 }
 
 /**
