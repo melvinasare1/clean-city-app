@@ -1,11 +1,11 @@
-import assert from "assert";
-import { describe, it } from "node:test";
-import {
+const assert = require("assert");
+const { describe, it } = require("node:test");
+const {
   bookingStatusForMissedJob,
   canCompleteJob,
   canMarkJobMissed,
   parseMissedPickupInput,
-} from "./job-outcome";
+} = require("../lib/job-outcome");
 
 describe("successful completion guards", () => {
   it("allows completing an in-progress job", () => {
@@ -15,9 +15,7 @@ describe("successful completion guards", () => {
   it("does not allow completing a missed job", () => {
     const result = canCompleteJob("missed");
     assert.equal(result.ok, false);
-    if (!result.ok) {
-      assert.match(result.message, /missed/i);
-    }
+    assert.match(result.message, /missed/i);
   });
 });
 

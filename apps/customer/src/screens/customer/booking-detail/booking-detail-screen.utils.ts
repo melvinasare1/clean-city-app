@@ -66,7 +66,7 @@ export function getNextPickupIsoForSubscription(
         (b.subscriptionId != null && String(b.subscriptionId) === sub.id) ||
         (sub.bookingId != null && b.id === sub.bookingId)
     )
-    .filter((b) => b.status !== "cancelled")
+    .filter((b) => b.status !== "cancelled" && b.status !== "missed")
     .map((b) => b.date)
     .sort();
 
@@ -88,7 +88,7 @@ export function getNextPickupIsoForSubscription(
 }
 
 export function getNextPickupIsoForBooking(booking: Booking): string | null {
-  if (booking.status === "cancelled" || booking.status === "completed") return null;
+  if (booking.status === "cancelled" || booking.status === "completed" || booking.status === "missed") return null;
   if (booking.type === "subscription") {
     return getNextOccurrenceIso(booking.date, booking.recurrence?.intervalWeeks);
   }

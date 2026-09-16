@@ -105,7 +105,7 @@ export const JobSheetScreen: React.FC<Props> = ({ navigation, route }) => {
     location: job?.location ?? job?.address,
   });
   const photoUrl = job?.photoUrl?.trim() || null;
-  const canConfirm = Boolean(pickupPhotoUrl) && !busy && !uploadingPhoto;
+  const canConfirm = Boolean(pickupPhotoUrl) && !busy && !uploadingPhoto && job?.jobStatus === 'in_progress';
 
   const handleTakePhoto = useCallback(async () => {
     const picker = await loadImagePicker();

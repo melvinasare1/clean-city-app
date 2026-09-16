@@ -22,7 +22,6 @@ import {
   type AdminDriver,
   type AdminJob,
   type AssignmentStatus,
-  type AdminJobCompletionOutcome,
 } from '@/services/admin-api';
 import { MISSED_REASON_LABELS, type MissedReasonCode } from '@platform/shared-types';
 
@@ -235,7 +234,7 @@ export const AdminJobsScreen: React.FC = () => {
             const canAssign =
               job.paymentStatus === 'paid' && job.jobStatus !== 'completed' && !isMissed;
             const isCompleted = job.jobStatus === 'completed';
-            const outcome: AdminJobCompletionOutcome | null = job.completionOutcome;
+            const outcome = job.completionOutcome ?? null;
             return (
               <View key={job.id} style={[styles.card, isMissed && styles.missedCard]}>
                 {isMissed ? (

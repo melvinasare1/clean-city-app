@@ -544,11 +544,12 @@ export const markJobMissed = onCall({ region: REGION }, async (request) => {
     const driverName =
       typeof driverSnap.data()?.name === "string" ? (driverSnap.data()?.name as string) : null;
 
+    const recordedAt = Timestamp.now();
     const completionOutcome = {
       type: "missed" as const,
       reason: parsed.reason,
       note: parsed.note,
-      recordedAt: FieldValue.serverTimestamp(),
+      recordedAt,
       recordedBy: uid,
       photoUrl: parsed.photoUrl,
     };
@@ -556,7 +557,7 @@ export const markJobMissed = onCall({ region: REGION }, async (request) => {
     const historyRef = historyRefFor(jobRef, job);
     if (historyRef) {
       tx.update(historyRef, {
-        endedAt: FieldValue.serverTimestamp(),
+        endedAt: recordedAt,
         outcome: "missed",
         completionOutcome,
       });
@@ -565,7 +566,7 @@ export const markJobMissed = onCall({ region: REGION }, async (request) => {
     tx.update(jobRef, {
       jobStatus: "missed",
       completionOutcome,
-      updatedAt: FieldValue.serverTimestamp(),
+      updatedAt: recordedAt,
     });
 
     const bookingId = typeof job.bookingId === "string" ? job.bookingId : null;
@@ -575,7 +576,7 @@ export const markJobMissed = onCall({ region: REGION }, async (request) => {
         driverId: uid,
         driverName,
         completionOutcome,
-        updatedAt: FieldValue.serverTimestamp(),
+        updatedAt: recordedAt,
       });
     }
   });

@@ -334,6 +334,7 @@ export const BookingDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                   pill === "paid" && styles.pillPaid,
                   pill === "awaiting_payment" && styles.pillAwaiting,
                   pill === "cancelled" && styles.pillCancelled,
+                  pill === "missed" && styles.pillCancelled,
                 ]}
               >
                 <AppText
@@ -342,6 +343,7 @@ export const BookingDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                     pill === "paid" && styles.pillTextPaid,
                     pill === "awaiting_payment" && styles.pillTextAwaiting,
                     pill === "cancelled" && styles.pillTextCancelled,
+                    pill === "missed" && styles.pillTextCancelled,
                   ]}
                 >
                   {getBookingListPillLabel(pill)}

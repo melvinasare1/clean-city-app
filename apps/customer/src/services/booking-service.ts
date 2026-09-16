@@ -153,6 +153,7 @@ export const getBookingById = async (bookingId: string): Promise<Booking | null>
     type: (data.type ?? "one_off") as BookingType,
     recurrence: data.recurrence as BookingRecurrence | undefined,
     payment: data.payment ?? { status: "unpaid" },
+    completionOutcome: data.completionOutcome ?? null,
   };
 };
 
