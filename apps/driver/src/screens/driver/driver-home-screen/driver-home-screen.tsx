@@ -83,7 +83,10 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
 
   const driverId = user?.id ?? '';
   const driverName = firstNameFromUser(user?.name, user?.email);
-  const { isOnline, isSharingLocation, goOnline, goOffline } = useDriverPresence(driverId);
+  const { isOnline, isSharingLocation, goOnline, goOffline } = useDriverPresence(
+    driverId,
+    Boolean(activeTrip)
+  );
   const priority = useDriverPriority(driverId);
   const today = useMemo(() => new Date(), []);
   const { totalEarnings: todaysEarnings } = useDriverEarnings(driverId, today);

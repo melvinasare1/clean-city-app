@@ -54,7 +54,10 @@ export async function setDriverOffline(driverId: string): Promise<void> {
  * Driver RTDB presence for `/presence/{driverId}`.
  * UI `isOnline` is always the live database value, not local-only state.
  */
-export function useDriverPresence(driverId: string): {
+export function useDriverPresence(
+  driverId: string,
+  hasActiveTrip: boolean = false
+): {
   isOnline: boolean;
   isSharingLocation: boolean;
   goOnline: () => Promise<boolean>;
@@ -157,6 +160,24 @@ export function useDriverPresence(driverId: string): {
     }
     return true;
   }, [driverId, refreshSharing]);
+
+  // wantOnlineRef resets to false on every fresh mount (e.g. the OS suspending/killing
+  // the app during a long idle period, then the driver reopening it). Nothing else
+  // remembers "this driver still has a job and should stay online" across that gap —
+  // without this, a driver idle mid-job silently drops to offline and stays there.
+  const autoReconnectingRef = useRef(false);
+  useEffect(() => {
+    if (!driverId || !hasActiveTrip || isOnline || autoReconnectingRef.current) return;
+    wantOnlineRef.current = true;
+    autoReconnectingRef.current = true;
+    void goOnline()
+      .catch((error) => {
+        console.error('[useDriverPresence] auto-reconnect for active trip failed', error);
+      })
+      .finally(() => {
+        autoReconnectingRef.current = false;
+      });
+  }, [driverId, hasActiveTrip, isOnline, goOnline]);
 
   const goOffline = useCallback(async () => {
     if (!driverId) return;
