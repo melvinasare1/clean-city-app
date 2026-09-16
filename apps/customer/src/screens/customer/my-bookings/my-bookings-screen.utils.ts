@@ -26,6 +26,8 @@ export function getStatusColor(status: Booking["status"]): string {
       return COLORS.accent;
     case "completed":
       return COLORS.success;
+    case "missed":
+      return COLORS.error;
     case "cancelled":
     default:
       return COLORS.error;
@@ -201,6 +203,8 @@ export function getOneTimeListStatusDisplay(unified: UnifiedDetailStatus): {
       return { text: "CANCELLED", color: "#616161" };
     case "completed":
       return { text: "COMPLETED", color: "#2E7D32" };
+    case "missed":
+      return { text: "MISSED PICKUP", color: "#C62828" };
     default: {
       const _e: never = unified;
       return { text: String(_e), color: COLORS.textSecondary };
@@ -211,7 +215,7 @@ export function getOneTimeListStatusDisplay(unified: UnifiedDetailStatus): {
 /** Second line: date only for open bookings; "Ended: …" when cancelled. */
 export function getOneTimeListDateLine(booking: Booking, unified: UnifiedDetailStatus): string {
   const dateStr = booking.date ? formatDate(booking.date) : "—";
-  if (unified === "cancelled") {
+  if (unified === "cancelled" || unified === "missed") {
     return `Ended: ${dateStr}`;
   }
   return dateStr;
@@ -269,7 +273,7 @@ export function getMyBookingsPickupSubline(
 
 export type BookingsTypeFilter = "all" | "subscription" | "one_off";
 export type BookingsListKind = "upcoming" | "past";
-export type BookingListPillKind = "paid" | "awaiting_payment" | "cancelled";
+export type BookingListPillKind = "paid" | "awaiting_payment" | "cancelled" | "missed";
 
 function startOfDay(d: Date): Date {
   const x = new Date(d);
@@ -324,7 +328,7 @@ export function getNextOccurrenceIso(
 /** Date shown/sorted on the list. Subscriptions use the next occurrence, not the stored first date. */
 export function getBookingListDateIso(booking: Booking): string {
   const stored = booking.date ?? "";
-  if (booking.status === "cancelled" || booking.status === "completed") {
+  if (booking.status === "cancelled" || booking.status === "completed" || booking.status === "missed") {
     return stored;
   }
   if (booking.type === "subscription") {
@@ -334,7 +338,7 @@ export function getBookingListDateIso(booking: Booking): string {
 }
 
 export function isUpcomingBooking(booking: Booking, todayIso: string): boolean {
-  if (booking.status === "cancelled" || booking.status === "completed") {
+  if (booking.status === "cancelled" || booking.status === "completed" || booking.status === "missed") {
     return false;
   }
   const iso = getBookingListDateIso(booking);
@@ -380,6 +384,7 @@ export function getBookingListTitle(booking: Booking): string {
 
 export function getBookingListPill(booking: Booking): BookingListPillKind {
   if (booking.status === "cancelled") return "cancelled";
+  if (booking.status === "missed") return "missed";
   if (booking.payment?.status === "paid") return "paid";
   return "awaiting_payment";
 }
@@ -392,6 +397,8 @@ export function getBookingListPillLabel(kind: BookingListPillKind): string {
       return "Awaiting Payment";
     case "cancelled":
       return "Cancelled";
+    case "missed":
+      return "Missed pickup";
     default: {
       const _e: never = kind;
       return String(_e);
