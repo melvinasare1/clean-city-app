@@ -9,25 +9,25 @@
       }
     },
     "presence": {
-      ".read": "auth != null && (auth.token.admin === true || auth.token.role === 'admin' || root.child('admins').child(auth.uid).val() === true)",
+      ".read": "auth != null && (auth.token.admin === true || auth.token.role === 'admin' || auth.token.role === 'assistant' || root.child('admins').child(auth.uid).val() === true)",
       "$uid": {
-        ".read": "auth != null && (auth.uid === $uid || auth.token.admin === true || auth.token.role === 'admin' || root.child('admins').child(auth.uid).val() === true)",
+        ".read": "auth != null && (auth.uid === $uid || auth.token.admin === true || auth.token.role === 'admin' || auth.token.role === 'assistant' || root.child('admins').child(auth.uid).val() === true)",
         ".write": "auth != null && auth.uid === $uid",
         ".validate": "newData.hasChildren(['online', 'lastSeen']) && newData.child('online').isBoolean()"
       }
     },
     "driverLocations": {
-      ".read": "auth != null && (auth.token.admin === true || auth.token.role === 'admin' || root.child('admins').child(auth.uid).val() === true)",
+      ".read": "auth != null && (auth.token.admin === true || auth.token.role === 'admin' || auth.token.role === 'assistant' || root.child('admins').child(auth.uid).val() === true)",
       "$uid": {
-        ".read": "auth != null && (auth.uid === $uid || auth.token.admin === true || auth.token.role === 'admin' || root.child('admins').child(auth.uid).val() === true)",
+        ".read": "auth != null && (auth.uid === $uid || auth.token.admin === true || auth.token.role === 'admin' || auth.token.role === 'assistant' || root.child('admins').child(auth.uid).val() === true)",
         ".write": "auth != null && auth.uid === $uid",
         ".validate": "newData.hasChildren(['lat', 'lng']) && newData.child('lat').isNumber() && newData.child('lng').isNumber()"
       }
     },
     "activeTripLocation": {
-      ".read": "auth != null && (auth.token.admin === true || auth.token.role === 'admin' || root.child('admins').child(auth.uid).val() === true)",
+      ".read": "auth != null && (auth.token.admin === true || auth.token.role === 'admin' || auth.token.role === 'assistant' || root.child('admins').child(auth.uid).val() === true)",
       "$bookingId": {
-        ".read": "auth != null && (auth.token.admin === true || auth.token.role === 'admin' || root.child('admins').child(auth.uid).val() === true || data.child('userId').val() === auth.uid)",
+        ".read": "auth != null && (auth.token.admin === true || auth.token.role === 'admin' || auth.token.role === 'assistant' || root.child('admins').child(auth.uid).val() === true || data.child('userId').val() === auth.uid)",
         ".write": false
       }
     }

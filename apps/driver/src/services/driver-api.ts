@@ -205,6 +205,40 @@ export async function startJob(
 }
 
 /**
+ * POST /api/jobs/arrived
+ */
+export async function markJobArrived(
+  jobId: string,
+  driverId: string
+): Promise<{ id: string; ok: boolean; arrivedAt: string }> {
+  const base = getBase();
+  const res = await fetch(`${base}/api/jobs/arrived`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ jobId, driverId }),
+  });
+  if (res.ok) {
+    return res.json();
+  }
+
+  const err = await res.json().catch(() => ({ error: res.statusText }));
+  const message = String(err.error || err.details || "Failed to mark arrived");
+  const missingRoute =
+    res.status === 404 && message !== "Job not found" && message !== "Driver not found";
+
+  if (missingRoute) {
+    const { httpsCallable } = await import("firebase/functions");
+    const { functions } = await import("@platform/shared-firebase");
+    await httpsCallable<{ jobId: string }, { ok: boolean }>(functions, "markArrived")({
+      jobId,
+    });
+    return { id: jobId, ok: true, arrivedAt: new Date().toISOString() };
+  }
+
+  throw new Error(message);
+}
+
+/**
  * POST /api/jobs/complete
  */
 export async function completeJob(

@@ -16,10 +16,10 @@ import { DriverMap } from '@/components/driver/home/DriverMap';
 import { colors } from '@platform/shared-theme';
 import { trackEvent } from '@/services/analytics';
 import { BriefToast, useBriefToast } from '@/components/driver/BriefToast';
-import { useAssignedJobOffer } from '@/hooks/useAssignedJobOffer';
+import { useAssignedJobOffer, type ActiveTrip } from '@/hooks/useAssignedJobOffer';
 import { useDriverPriority } from '@/hooks/useDriverPriority';
 import { startJob } from '@/services/driver-api';
-import { openNavigation } from '@/lib/open-navigation';
+import { openNavigationTo } from '@/lib/open-navigation';
 import {
   consumeResumeOnlineAfterConsent,
   hasAcknowledgedBackgroundLocation,
@@ -45,6 +45,21 @@ function firstNameFromUser(name?: string, email?: string): string {
   if (fromName) return fromName;
   const fromEmail = email?.split('@')[0];
   return fromEmail || 'Driver';
+}
+
+function tripNavigationDestination(trip: ActiveTrip | null) {
+  if (!trip) return { lat: null, lng: null, address: null };
+  const address =
+    [trip.addressLine1, trip.area, trip.address, trip.location]
+      .map((part) => (typeof part === 'string' ? part.trim() : ''))
+      .filter(Boolean)
+      .filter((part, index, all) => all.indexOf(part) === index)
+      .join(', ') || null;
+  return {
+    lat: trip.pickup?.lat ?? null,
+    lng: trip.pickup?.lng ?? null,
+    address,
+  };
 }
 
 export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }) => {
@@ -168,10 +183,7 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
     setStarting(true);
     try {
       await startJob(activeTrip.id, driverId);
-      const pickup = activeTrip.pickup;
-      if (pickup) {
-        await openNavigation(pickup.lat, pickup.lng);
-      }
+      await openNavigationTo(tripNavigationDestination(activeTrip));
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Could not start this job';
       Alert.alert('Error', msg);
@@ -181,9 +193,7 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
   }, [activeTrip, driverId]);
 
   const handleNavigate = useCallback(() => {
-    const pickup = activeTrip?.pickup;
-    if (!pickup) return;
-    void openNavigation(pickup.lat, pickup.lng);
+    void openNavigationTo(tripNavigationDestination(activeTrip));
   }, [activeTrip]);
 
   const handleArrived = useCallback(async () => {

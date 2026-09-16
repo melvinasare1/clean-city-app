@@ -9,6 +9,7 @@ import {
   set,
 } from 'firebase/database';
 import { rtdb } from '@platform/shared-firebase';
+import { loadTaskManager } from './load-task-manager';
 
 export const DRIVER_LOCATION_TASK = 'clean-city-driver-location';
 
@@ -25,6 +26,10 @@ export const BACKGROUND_LOCATION_WHEN_IN_USE_MESSAGE =
 
 export function driverLocationNode(driverId: string) {
   return ref(rtdb, '/driverLocations/' + driverId);
+}
+
+function canUseBackgroundLocationTask(): boolean {
+  return Platform.OS !== 'web' && loadTaskManager() != null;
 }
 
 export async function hasAcknowledgedBackgroundLocation(): Promise<boolean> {
@@ -114,24 +119,30 @@ export async function startDriverBackgroundLocation(driverId: string): Promise<v
   await AsyncStorage.setItem(TRACKING_DRIVER_KEY, driverId);
   await registerLocationOnDisconnect(driverId);
 
-  const started = await Location.hasStartedLocationUpdatesAsync(DRIVER_LOCATION_TASK);
-  if (!started) {
-    await Location.startLocationUpdatesAsync(DRIVER_LOCATION_TASK, {
-      accuracy: Location.Accuracy.Balanced,
-      timeInterval: LOCATION_INTERVAL_MS,
-      distanceInterval: 0,
-      deferredUpdatesInterval: LOCATION_INTERVAL_MS,
-      pausesUpdatesAutomatically: false,
-      showsBackgroundLocationIndicator: true,
-      activityType: Location.ActivityType.AutomotiveNavigation,
-      foregroundService: {
-        notificationTitle: "CleanCity — tracking your location while you're online",
-        notificationBody:
-          'Dispatch can see your location so you can receive nearby jobs. Go offline to stop.',
-        notificationColor: '#1C5A3B',
-        killServiceOnDestroy: true,
-      },
-    });
+  if (canUseBackgroundLocationTask()) {
+    try {
+      const started = await Location.hasStartedLocationUpdatesAsync(DRIVER_LOCATION_TASK);
+      if (!started) {
+        await Location.startLocationUpdatesAsync(DRIVER_LOCATION_TASK, {
+          accuracy: Location.Accuracy.Balanced,
+          timeInterval: LOCATION_INTERVAL_MS,
+          distanceInterval: 0,
+          deferredUpdatesInterval: LOCATION_INTERVAL_MS,
+          pausesUpdatesAutomatically: false,
+          showsBackgroundLocationIndicator: true,
+          activityType: Location.ActivityType.AutomotiveNavigation,
+          foregroundService: {
+            notificationTitle: "CleanCity — tracking your location while you're online",
+            notificationBody:
+              'Dispatch can see your location so you can receive nearby jobs. Go offline to stop.',
+            notificationColor: '#1C5A3B',
+            killServiceOnDestroy: true,
+          },
+        });
+      }
+    } catch (error) {
+      console.warn('[driver-background-location] background updates unavailable', error);
+    }
   }
 
   try {
@@ -155,7 +166,7 @@ export async function startDriverBackgroundLocation(driverId: string): Promise<v
 export async function stopDriverBackgroundLocation(driverId: string): Promise<void> {
   const trackedId = driverId || (await getTrackedDriverId()) || '';
 
-  if (Platform.OS !== 'web') {
+  if (canUseBackgroundLocationTask()) {
     try {
       const started = await Location.hasStartedLocationUpdatesAsync(DRIVER_LOCATION_TASK);
       if (started) {
@@ -173,7 +184,7 @@ export async function stopDriverBackgroundLocation(driverId: string): Promise<vo
 }
 
 export async function isDriverBackgroundLocationActive(): Promise<boolean> {
-  if (Platform.OS === 'web') return false;
+  if (!canUseBackgroundLocationTask()) return false;
   try {
     return Location.hasStartedLocationUpdatesAsync(DRIVER_LOCATION_TASK);
   } catch {

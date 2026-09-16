@@ -27,7 +27,7 @@
         "NSLocationAlwaysUsageDescription": "Clean City Driver uses your location in the background only while you are online so dispatch can see nearby available drivers and assign jobs. Location sharing stops when you go offline.",
         "UIBackgroundModes": ["location"],
         "NSPhotoLibraryUsageDescription": "Clean City uses your photos so you can update your driver profile picture.",
-        "LSApplicationQueriesSchemes": ["comgooglemaps"]
+        "LSApplicationQueriesSchemes": ["comgooglemaps", "maps"]
       }
     },
     "android": {

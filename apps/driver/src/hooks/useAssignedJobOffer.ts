@@ -11,6 +11,7 @@ import {
 } from '@platform/shared-firebase';
 import type { Timestamp } from '@platform/shared-firebase';
 import { useDriverApproved } from '@/hooks/useDriverApproved';
+import { markJobArrived } from '@/services/driver-api';
 
 export type JobItem = {
   id?: string;
@@ -63,10 +64,6 @@ const cancelAcceptedJobFn = httpsCallable<{ jobId: string }, { ok: boolean }>(
   functions,
   'cancelAcceptedJob'
 );
-const markArrivedFn = httpsCallable<{ jobId: string }, { ok: boolean }>(
-  functions,
-  'markArrived'
-);
 const confirmPickupFn = httpsCallable<{ jobId: string }, { ok: boolean }>(
   functions,
   'confirmPickup'
@@ -107,9 +104,13 @@ function fareFromItems(items: JobDoc['items']): number | undefined {
   return Number.isFinite(sum) ? sum : undefined;
 }
 
-function parsePickup(value: JobDoc['pickup']): JobOffer['pickup'] {
-  const lat = typeof value?.lat === 'number' ? value.lat : Number(value?.lat);
-  const lng = typeof value?.lng === 'number' ? value.lng : Number(value?.lng);
+function parsePickup(value: JobDoc['pickup'] | Record<string, unknown> | undefined): JobOffer['pickup'] {
+  if (!value || typeof value !== 'object') return null;
+  const record = value as Record<string, unknown>;
+  const latRaw = record.lat ?? record.latitude;
+  const lngRaw = record.lng ?? record.longitude;
+  const lat = typeof latRaw === 'number' ? latRaw : Number(latRaw);
+  const lng = typeof lngRaw === 'number' ? lngRaw : Number(lngRaw);
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
   if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
   return { lat, lng };
@@ -253,7 +254,9 @@ export function useAssignedJobOffer() {
   }, []);
 
   const markArrived = useCallback(async (jobId: string) => {
-    await markArrivedFn({ jobId });
+    const uid = auth.currentUser?.uid;
+    if (!uid) throw new Error('Sign in required');
+    await markJobArrived(jobId, uid);
   }, []);
 
   const confirmPickup = useCallback(async (jobId: string) => {

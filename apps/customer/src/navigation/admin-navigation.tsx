@@ -2,7 +2,6 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AdminPushScreen } from '../screens/admin/admin-push-screen';
 import { AdminJobsScreen } from '../screens/admin/admin-jobs-screen';
-import { AdminPricingScreen } from '../screens/admin/admin-pricing-screen';
 import { AdminStoreScreen } from '../screens/admin/admin-store-screen';
 import { COLORS } from '../lib/constants';
 import { AdminStackParamList } from './types';
@@ -31,11 +30,6 @@ export const AdminNavigator: React.FC = () => {
         name="AdminJobs"
         component={AdminJobsScreen}
         options={{ title: 'Job Assignment' }}
-      />
-      <Stack.Screen
-        name="AdminPricing"
-        component={AdminPricingScreen}
-        options={{ title: 'Pricing Tier' }}
       />
       <Stack.Screen
         name="AdminStore"

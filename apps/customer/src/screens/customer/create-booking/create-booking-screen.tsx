@@ -57,14 +57,8 @@ function startOfDayLocal(d: Date): Date {
   return x;
 }
 
-function addDaysLocal(d: Date, n: number): Date {
-  const x = new Date(d);
-  x.setDate(x.getDate() + n);
-  return startOfDayLocal(x);
-}
-
 function earliestPickupDate(): Date {
-  return addDaysLocal(startOfDayLocal(new Date()), 3);
+  return startOfDayLocal(new Date());
 }
 
 function formatLongDate(d: Date): string {
@@ -718,7 +712,7 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
             subtitle={
               isSubscription
                 ? 'Pick a day for your first pickup. Recurring pickups follow this day of the week.'
-                : "Choose when you'd like your pickup. Past dates and the next two days are not available."
+                : "Choose when you'd like your pickup. Same-day dates are available; we'll contact you if we can't collect."
             }
           />
 
