@@ -17,6 +17,15 @@ export interface AdminDriver {
 
 export type AssignmentStatus = "unassigned" | "assigned" | "accepted" | "reassigned";
 
+export interface AdminJobCompletionOutcome {
+  type: "missed";
+  reason: string | null;
+  note: string | null;
+  recordedAt: string | null;
+  recordedBy: string | null;
+  photoUrl: string | null;
+}
+
 export interface AdminJob {
   id: string;
   scheduledDate: string;
@@ -29,6 +38,8 @@ export interface AdminJob {
   assignedTo: string | null;
   assignedAt: string | null;
   assignedBy: string | null;
+  customerName?: string | null;
+  completionOutcome?: AdminJobCompletionOutcome | null;
   items?: Array<{ id: string; type: string; quantity: number; unitPrice: number; totalPrice: number }>;
   addressSnapshot?: { addressLine1: string; area: string; phoneNumber: string };
 }

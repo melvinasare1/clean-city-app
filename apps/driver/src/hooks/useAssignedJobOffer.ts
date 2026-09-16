@@ -10,7 +10,7 @@ import {
   functions,
 } from '@platform/shared-firebase';
 import type { Timestamp } from '@platform/shared-firebase';
-import type { CancelReasonCode } from '@platform/shared-types';
+import type { CancelReasonCode, MissedReasonCode } from '@platform/shared-types';
 import { useDriverApproved } from '@/hooks/useDriverApproved';
 import { markJobArrived } from '@/services/driver-api';
 
@@ -69,6 +69,10 @@ const cancelAcceptedJobFn = httpsCallable<
   { jobId: string; cancelReasonCode: CancelReasonCode; cancelReasonNote?: string },
   { ok: boolean }
 >(functions, 'cancelAcceptedJob');
+const markJobMissedFn = httpsCallable<
+  { jobId: string; reason: MissedReasonCode; note?: string; photoUrl?: string },
+  { ok: boolean }
+>(functions, 'markJobMissed');
 const confirmPickupFn = httpsCallable<{ jobId: string; photoUrl: string }, { ok: boolean }>(
   functions,
   'confirmPickup'
@@ -227,7 +231,7 @@ export function useAssignedJobOffer() {
       (snapshot) => {
         const live = snapshot.docs.find((docSnap) => {
           const status = (docSnap.data() as JobDoc).jobStatus;
-          return status !== 'completed' && status !== 'cancelled';
+          return status !== 'completed' && status !== 'cancelled' && status !== 'missed';
         });
         if (!live) {
           setActiveTrip(null);
@@ -269,6 +273,13 @@ export function useAssignedJobOffer() {
     []
   );
 
+  const markMissed = useCallback(
+    async (jobId: string, reason: MissedReasonCode, note?: string, photoUrl?: string) => {
+      await markJobMissedFn({ jobId, reason, note, photoUrl });
+    },
+    []
+  );
+
   const markArrived = useCallback(async (jobId: string) => {
     const uid = auth.currentUser?.uid;
     if (!uid) throw new Error('Sign in required');
@@ -287,6 +298,7 @@ export function useAssignedJobOffer() {
     decline,
     complete,
     cancel,
+    markMissed,
     markArrived,
     confirmPickup,
   };

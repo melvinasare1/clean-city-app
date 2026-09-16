@@ -249,6 +249,17 @@ export const styles = StyleSheet.create({
     ...typography.button,
     color: colors.surfaceWhite,
   },
+  missedButton: {
+    marginTop: spacing.sm,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  missedButtonLabel: {
+    ...typography.body,
+    color: colors.inkSecondary,
+    fontWeight: '700',
+  },
   emptyState: {
     paddingVertical: spacing.xl,
     alignItems: 'center',

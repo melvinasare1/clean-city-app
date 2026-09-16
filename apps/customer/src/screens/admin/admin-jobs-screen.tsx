@@ -7,7 +7,8 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Modal,
-  FlatList,
+  Image,
+  Linking,
 } from 'react-native';
 import { useAuth } from '@/hooks/useAuth';
 import { isAdmin } from '@/lib/admin';
@@ -21,10 +22,24 @@ import {
   type AdminDriver,
   type AdminJob,
   type AssignmentStatus,
+  type AdminJobCompletionOutcome,
 } from '@/services/admin-api';
+import { MISSED_REASON_LABELS, type MissedReasonCode } from '@platform/shared-types';
 
 function formatDateForInput(date: Date): string {
   return date.toISOString().slice(0, 10);
+}
+
+function missedReasonLabel(reason: string | null): string {
+  if (!reason) return '—';
+  return MISSED_REASON_LABELS[reason as MissedReasonCode] ?? reason;
+}
+
+function formatOutcomeTime(iso: string | null): string {
+  if (!iso) return '—';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return date.toLocaleString();
 }
 
 function assignmentBadge(status: AssignmentStatus): string {
@@ -105,6 +120,10 @@ export const AdminJobsScreen: React.FC = () => {
       Alert.alert('Cannot assign', 'Completed jobs cannot be assigned or reassigned.');
       return;
     }
+    if (job.jobStatus === 'missed') {
+      Alert.alert('Cannot assign', 'Missed jobs cannot be assigned until they are explicitly rescheduled.');
+      return;
+    }
     if (job.paymentStatus !== 'paid') {
       Alert.alert('Cannot assign', 'Only paid jobs can be assigned.');
       return;
@@ -125,8 +144,8 @@ export const AdminJobsScreen: React.FC = () => {
       Alert.alert('Error', 'Please select a driver.');
       return;
     }
-    if (assignModalJob.jobStatus === 'completed') {
-      Alert.alert('Cannot assign', 'Completed jobs cannot be assigned.');
+    if (assignModalJob.jobStatus === 'completed' || assignModalJob.jobStatus === 'missed') {
+      Alert.alert('Cannot assign', 'Completed or missed jobs cannot be assigned.');
       return;
     }
     setAssigning(true);
@@ -212,10 +231,22 @@ export const AdminJobsScreen: React.FC = () => {
           <AppText style={styles.emptyText}>No jobs for this date and filters.</AppText>
         ) : (
           jobs.map((job) => {
-            const canAssign = job.paymentStatus === 'paid' && job.jobStatus !== 'completed';
+            const isMissed = job.jobStatus === 'missed';
+            const canAssign =
+              job.paymentStatus === 'paid' && job.jobStatus !== 'completed' && !isMissed;
             const isCompleted = job.jobStatus === 'completed';
+            const outcome: AdminJobCompletionOutcome | null = job.completionOutcome;
             return (
-              <View key={job.id} style={styles.card}>
+              <View key={job.id} style={[styles.card, isMissed && styles.missedCard]}>
+                {isMissed ? (
+                  <View style={styles.missedBanner}>
+                    <AppText style={styles.missedBannerText}>Missed pickup</AppText>
+                  </View>
+                ) : null}
+                <View style={styles.cardRow}>
+                  <AppText style={styles.label}>Customer</AppText>
+                  <AppText style={styles.value}>{job.customerName || '–'}</AppText>
+                </View>
                 <View style={styles.cardRow}>
                   <AppText style={styles.label}>Location</AppText>
                   <AppText style={styles.value}>{job.location || '–'}</AppText>
@@ -246,6 +277,45 @@ export const AdminJobsScreen: React.FC = () => {
                     <AppText style={styles.value}>{getDriverName(job.assignedTo)}</AppText>
                   </View>
                 )}
+                {isMissed && outcome ? (
+                  <>
+                    <View style={styles.cardRow}>
+                      <AppText style={styles.label}>Missed reason</AppText>
+                      <AppText style={styles.value}>{missedReasonLabel(outcome.reason)}</AppText>
+                    </View>
+                    {outcome.note ? (
+                      <View style={styles.cardRow}>
+                        <AppText style={styles.label}>Note</AppText>
+                        <AppText style={styles.value}>{outcome.note}</AppText>
+                      </View>
+                    ) : null}
+                    <View style={styles.cardRow}>
+                      <AppText style={styles.label}>Missed at</AppText>
+                      <AppText style={styles.value}>{formatOutcomeTime(outcome.recordedAt)}</AppText>
+                    </View>
+                    <View style={styles.cardRow}>
+                      <AppText style={styles.label}>Recorded by</AppText>
+                      <AppText style={styles.value}>
+                        {getDriverName(outcome.recordedBy) || outcome.recordedBy || '–'}
+                      </AppText>
+                    </View>
+                    {outcome.photoUrl ? (
+                      <TouchableOpacity
+                        onPress={() => {
+                          void Linking.openURL(outcome.photoUrl as string);
+                        }}
+                        accessibilityRole="imagebutton"
+                        accessibilityLabel="View missed pickup photo"
+                      >
+                        <Image
+                          source={{ uri: outcome.photoUrl }}
+                          style={styles.missedPhoto}
+                          resizeMode="cover"
+                        />
+                      </TouchableOpacity>
+                    ) : null}
+                  </>
+                ) : null}
                 <View style={styles.cardRow}>
                   <AppButton
                     title={job.assignmentStatus === 'unassigned' ? 'Assign Driver' : 'Reassign'}
@@ -257,6 +327,9 @@ export const AdminJobsScreen: React.FC = () => {
                 </View>
                 {isCompleted && (
                   <AppText style={styles.warningText}>Completed – cannot assign</AppText>
+                )}
+                {isMissed && (
+                  <AppText style={styles.warningText}>Missed – cannot assign</AppText>
                 )}
                 {job.paymentStatus !== 'paid' && (
                   <AppText style={styles.warningText}>Unpaid – assign when paid</AppText>
@@ -353,6 +426,30 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     marginBottom: 12,
+  },
+  missedCard: {
+    borderWidth: 1,
+    borderColor: COLORS.error,
+  },
+  missedBanner: {
+    backgroundColor: '#FFEBEE',
+    borderRadius: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    marginBottom: 8,
+  },
+  missedBannerText: {
+    color: COLORS.error,
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  missedPhoto: {
+    width: '100%',
+    height: 160,
+    borderRadius: 8,
+    marginTop: 8,
+    marginBottom: 8,
+    backgroundColor: COLORS.background,
   },
   cardRow: {
     marginBottom: 6,

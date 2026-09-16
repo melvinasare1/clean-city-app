@@ -52,6 +52,23 @@ export type JobStatus =
   | "missed"
   | "cancelled";
 
+export type MissedReasonCode =
+  | "BIN_NOT_AVAILABLE"
+  | "CUSTOMER_UNAVAILABLE"
+  | "INACCESSIBLE_ADDRESS"
+  | "EXCESS_WASTE"
+  | "ACCESS_SAFETY"
+  | "OTHER";
+
+export interface JobCompletionOutcome {
+  type: "missed";
+  reason: MissedReasonCode;
+  note: string | null;
+  recordedAt: FirebaseTimestamp;
+  recordedBy: string;
+  photoUrl?: string | null;
+}
+
 export type AssignmentStatus =
   | "unassigned"
   | "assigned"
@@ -136,6 +153,8 @@ export interface JobDocument {
   /** Set when driver completes the job */
   completedAt?: FirebaseTimestamp;
   completedBy?: string;
+  /** Terminal unable-to-collect result. Present when jobStatus is missed. */
+  completionOutcome?: JobCompletionOutcome | null;
 
   /** Snapshot from Paystack/booking payment. Currently always "momo". */
   paymentMethod?: "momo" | string;

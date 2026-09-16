@@ -54,7 +54,7 @@ export interface Driver {
   jobsCompletedCount?: number;
 }
 
-export type BookingStatus = "pending" | "completed" | "cancelled";
+export type BookingStatus = "pending" | "completed" | "cancelled" | "missed";
 
 export type BookingPaymentStatus = "unpaid" | "initiated" | "paid";
 
@@ -109,6 +109,8 @@ export type Booking = {
   declinedBy?: string[];
   /** Set once by submitDriverRating; a booking can only be rated once. */
   customerRating?: BookingCustomerRating | null;
+  /** Set when a driver records an unable-to-collect / missed pickup. */
+  completionOutcome?: BookingCompletionOutcome | null;
 };
 
 /** @deprecated Use BookingPaymentStatus. Kept so existing `PaymentStatus` imports keep compiling. */
@@ -132,4 +134,35 @@ export const CANCEL_REASON_LABELS: Record<CancelReasonCode, string> = {
   CUSTOMER_REQUESTED: "Customer asked to cancel",
   SAFETY_ACCESS: "Safety or access issue",
   OTHER: "Other",
+};
+
+// Kept in sync by hand with MISSED_REASON_CODES in functions/src/job-outcome.ts
+// and api/lib/job-outcome.ts — Cloud Functions / Vercel API can't depend on this package.
+export const MISSED_REASON_CODES = [
+  "BIN_NOT_AVAILABLE",
+  "CUSTOMER_UNAVAILABLE",
+  "INACCESSIBLE_ADDRESS",
+  "EXCESS_WASTE",
+  "ACCESS_SAFETY",
+  "OTHER",
+] as const;
+
+export type MissedReasonCode = (typeof MISSED_REASON_CODES)[number];
+
+export const MISSED_REASON_LABELS: Record<MissedReasonCode, string> = {
+  BIN_NOT_AVAILABLE: "Bin not available",
+  CUSTOMER_UNAVAILABLE: "Customer unavailable",
+  INACCESSIBLE_ADDRESS: "Incorrect/inaccessible address",
+  EXCESS_WASTE: "Excess waste",
+  ACCESS_SAFETY: "Access/safety issue",
+  OTHER: "Other",
+};
+
+export type BookingCompletionOutcome = {
+  type: "missed";
+  reason: MissedReasonCode;
+  note: string | null;
+  recordedAt: Timestamp;
+  recordedBy: string;
+  photoUrl?: string | null;
 };

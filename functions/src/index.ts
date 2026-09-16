@@ -386,4 +386,5 @@ export {
   expireJobOffer,
   logJobSheetViewed,
   markArrived,
+  markJobMissed,
 } from "./job-offers";

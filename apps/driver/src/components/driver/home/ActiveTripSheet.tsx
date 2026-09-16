@@ -14,10 +14,12 @@ type Props = {
   onArrived: () => void;
   onOpenJobSheet: () => void;
   onComplete: () => void;
+  onUnableToCollect: () => void;
   onCancel: () => void;
   starting?: boolean;
   arriving?: boolean;
   completing?: boolean;
+  missing?: boolean;
   cancelling?: boolean;
   bottomInset?: number;
   routeAwayLabel?: string | null;
@@ -30,17 +32,19 @@ export function ActiveTripSheet({
   onArrived,
   onOpenJobSheet,
   onComplete,
+  onUnableToCollect,
   onCancel,
   starting,
   arriving,
   completing,
+  missing,
   cancelling,
   bottomInset = 0,
   routeAwayLabel,
 }: Props) {
   const grossFare = trip.totalPrice ?? trip.amountPaid;
   const fare = grossFare != null ? driverEarningsFromGross(grossFare) : grossFare;
-  const busy = Boolean(starting || arriving || completing || cancelling);
+  const busy = Boolean(starting || arriving || completing || missing || cancelling);
   const canStart =
     trip.assignmentStatus === 'accepted' && (trip.jobStatus === 'scheduled' || !trip.jobStatus);
   const inProgress = trip.jobStatus === 'in_progress';
@@ -178,6 +182,19 @@ export function ActiveTripSheet({
           </Text>
         </Pressable>
       )}
+      {inProgress ? (
+        <Pressable
+          onPress={onUnableToCollect}
+          disabled={busy}
+          accessibilityRole="button"
+          accessibilityLabel="Unable to collect"
+          style={[styles.missedButton, busy && styles.btnDisabled]}
+        >
+          <Text style={styles.missedButtonLabel}>
+            {missing ? 'Recording missed pickup…' : 'Unable to collect'}
+          </Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -302,6 +319,17 @@ const styles = StyleSheet.create({
   },
   btnCompleteFlex: {
     flex: 1,
+  },
+  missedButton: {
+    marginTop: spacing.sm,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  missedButtonLabel: {
+    ...typography.body,
+    color: colors.inkSecondary,
+    fontWeight: '700',
   },
   btnDisabled: {
     opacity: 0.55,

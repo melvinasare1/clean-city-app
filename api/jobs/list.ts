@@ -6,6 +6,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getFirestore, admin } from "../lib/firebase-admin";
 import { parsePickupCoordinates } from "../lib/geocode-address";
+import { serializeCompletionOutcome } from "../lib/job-outcome";
 
 const JOBS_COLLECTION = "jobs";
 
@@ -31,6 +32,8 @@ function jobDocToResponse(
     assignedAt:
       (d.assignedAt as { toDate?: () => Date } | undefined)?.toDate?.()?.toISOString?.() ?? null,
     assignedBy: d.assignedBy ?? null,
+    customerName: d.customerName ?? null,
+    completionOutcome: serializeCompletionOutcome(d.completionOutcome),
     addressSnapshot: d.addressSnapshot ?? { addressLine1: "", area: "", phoneNumber: "" },
     pickup: parsePickupCoordinates(d.pickup),
   };

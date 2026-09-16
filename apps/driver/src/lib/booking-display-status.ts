@@ -7,7 +7,8 @@ export type UnifiedDetailStatus =
   | "awaiting_payment"
   | "payment_required"
   | "cancelled"
-  | "completed";
+  | "completed"
+  | "missed";
 
 export function getUnifiedStatusForSubscription(sub: Subscription): UnifiedDetailStatus {
   if (sub.status === "cancelled") return "cancelled";
@@ -28,6 +29,7 @@ export function getUnifiedStatusForSubscription(sub: Subscription): UnifiedDetai
 export function getUnifiedStatusForBooking(booking: Booking): UnifiedDetailStatus {
   if (booking.status === "cancelled") return "cancelled";
   if (booking.status === "completed") return "completed";
+  if (booking.status === "missed") return "missed";
   const pay = booking.payment.status;
   if (pay === "paid") return "active";
   if (pay === "initiated") return "awaiting_payment";
@@ -46,6 +48,8 @@ export function getUnifiedStatusLabel(status: UnifiedDetailStatus): string {
       return "Cancelled";
     case "completed":
       return "Completed";
+    case "missed":
+      return "Missed pickup";
     default: {
       const _e: never = status;
       return _e;
@@ -65,6 +69,8 @@ export function getUnifiedStatusBadgeColor(status: UnifiedDetailStatus): string 
       return COLORS.error;
     case "cancelled":
       return COLORS.textSecondary;
+    case "missed":
+      return COLORS.error;
     default: {
       const _e: never = status;
       return _e;
@@ -73,5 +79,5 @@ export function getUnifiedStatusBadgeColor(status: UnifiedDetailStatus): string 
 }
 
 export function isInactiveDetailStatus(status: UnifiedDetailStatus): boolean {
-  return status === "cancelled" || status === "completed";
+  return status === "cancelled" || status === "completed" || status === "missed";
 }

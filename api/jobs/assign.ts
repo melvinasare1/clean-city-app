@@ -59,6 +59,11 @@ export default async function handler(
         error: "Cannot assign or reassign a completed job.",
       });
     }
+    if (jobData?.jobStatus === "missed") {
+      return res.status(400).json({
+        error: "Cannot assign or reassign a missed job until it is explicitly rescheduled.",
+      });
+    }
     const currentStatus = jobData?.assignmentStatus ?? "unassigned";
     const assignmentStatus =
       currentStatus === "unassigned" ? "assigned" : "reassigned";

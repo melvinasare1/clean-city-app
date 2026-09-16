@@ -8,6 +8,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getFirestore } from "../lib/firebase-admin";
 import { getDriverDoc } from "../lib/collections";
+import { canCompleteJob } from "../lib/job-outcome";
 
 const JOBS_COLLECTION = "jobs";
 const DRIVER_SHIFTS_COLLECTION = "driverShifts";
@@ -66,8 +67,9 @@ export default async function handler(
         error: "Not allowed to complete this job. It is assigned to another driver.",
       });
     }
-    if (data?.jobStatus === "completed") {
-      return res.status(400).json({ error: "Job is already completed." });
+    const completable = canCompleteJob(data?.jobStatus);
+    if (!completable.ok) {
+      return res.status(400).json({ error: completable.message });
     }
 
     const now = firestore.Timestamp.now();

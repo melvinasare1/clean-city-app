@@ -59,6 +59,11 @@ export default async function handler(
         error: "Job must be accepted before it can be started.",
       });
     }
+    if (data?.jobStatus === "missed" || data?.jobStatus === "completed" || data?.jobStatus === "cancelled") {
+      return res.status(400).json({
+        error: `Cannot start a ${data.jobStatus} job.`,
+      });
+    }
 
     const now = firestore.Timestamp.now();
     await jobRef.update({

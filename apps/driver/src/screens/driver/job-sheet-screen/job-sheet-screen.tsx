@@ -15,7 +15,7 @@ import { httpsCallable } from 'firebase/functions';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { auth, db, functions } from '@platform/shared-firebase';
 import { colors } from '@platform/shared-theme';
-import type { CancelReasonCode } from '@platform/shared-types';
+import type { CancelReasonCode, MissedReasonCode } from '@platform/shared-types';
 import { mapJobDoc, type JobOffer } from '@/hooks/useAssignedJobOffer';
 import {
   formatAddressLines,
@@ -26,6 +26,7 @@ import { loadImagePicker } from '@/lib/image-picker';
 import { uploadJobPhoto } from '@/lib/upload-job-photo';
 import { callCustomer, openTripOverflowMenu } from '@/lib/trip-overflow';
 import { CancelReasonModal } from '@/components/driver/CancelReasonModal';
+import { MissedPickupModal } from '@/components/driver/MissedPickupModal';
 import type { DriverStackParamList } from '@/navigation/types';
 import { styles } from './job-sheet-screen.styles';
 
@@ -39,6 +40,10 @@ const confirmPickupFn = httpsCallable<{ jobId: string; photoUrl: string }, { ok:
   functions,
   'confirmPickup'
 );
+const markJobMissedFn = httpsCallable<
+  { jobId: string; reason: MissedReasonCode; note?: string; photoUrl?: string },
+  { ok: boolean }
+>(functions, 'markJobMissed');
 const logJobSheetViewedFn = httpsCallable<{ jobId: string }, { ok: boolean }>(
   functions,
   'logJobSheetViewed'
@@ -51,6 +56,11 @@ export const JobSheetScreen: React.FC<Props> = ({ navigation, route }) => {
   const [confirming, setConfirming] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [reasonModalVisible, setReasonModalVisible] = useState(false);
+  const [missedModalVisible, setMissedModalVisible] = useState(false);
+  const [missing, setMissing] = useState(false);
+  const [missedPhotoUri, setMissedPhotoUri] = useState<string | null>(null);
+  const [missedPhotoUrl, setMissedPhotoUrl] = useState<string | null>(null);
+  const [uploadingMissedPhoto, setUploadingMissedPhoto] = useState(false);
   const [pickupPhotoUri, setPickupPhotoUri] = useState<string | null>(null);
   const [pickupPhotoUrl, setPickupPhotoUrl] = useState<string | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -88,7 +98,7 @@ export const JobSheetScreen: React.FC<Props> = ({ navigation, route }) => {
     }
   }, [job?.pickupPhotoUrl, pickupPhotoUrl]);
 
-  const busy = confirming || cancelling;
+  const busy = confirming || cancelling || missing;
   const address = formatAddressLines({
     addressLine1: job?.addressLine1,
     area: job?.area,
@@ -149,6 +159,56 @@ export const JobSheetScreen: React.FC<Props> = ({ navigation, route }) => {
       })();
     },
     [jobId, navigation]
+  );
+
+  const handleTakeMissedPhoto = useCallback(async () => {
+    const picker = await loadImagePicker();
+    if (!picker) return;
+    const permission = await picker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Camera permission needed', 'Allow camera access to attach a photo.');
+      return;
+    }
+    const result = await picker.launchCameraAsync({ quality: 0.7 });
+    if (result.canceled || !result.assets?.[0]?.uri) return;
+    const uri = result.assets[0].uri;
+    setMissedPhotoUri(uri);
+    setUploadingMissedPhoto(true);
+    try {
+      const uid = auth.currentUser?.uid;
+      if (!uid) throw new Error('Sign in required');
+      const url = await uploadJobPhoto(jobId, uid, uri, 'missed');
+      setMissedPhotoUrl(url);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Could not upload photo';
+      Alert.alert('Upload failed', msg);
+    } finally {
+      setUploadingMissedPhoto(false);
+    }
+  }, [jobId]);
+
+  const handleSubmitMissed = useCallback(
+    (reason: MissedReasonCode, note?: string) => {
+      setMissedModalVisible(false);
+      void (async () => {
+        setMissing(true);
+        try {
+          await markJobMissedFn({
+            jobId,
+            reason,
+            note,
+            photoUrl: missedPhotoUrl ?? undefined,
+          });
+          navigation.goBack();
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : 'Could not record missed pickup';
+          Alert.alert('Error', msg);
+        } finally {
+          setMissing(false);
+        }
+      })();
+    },
+    [jobId, missedPhotoUrl, navigation]
   );
 
   const handleConfirmPickup = useCallback(async () => {
@@ -364,6 +424,17 @@ export const JobSheetScreen: React.FC<Props> = ({ navigation, route }) => {
                 {confirming ? 'Confirming…' : 'Confirm Pickup'}
               </Text>
             </Pressable>
+            <Pressable
+              onPress={() => setMissedModalVisible(true)}
+              disabled={busy}
+              accessibilityRole="button"
+              accessibilityLabel="Unable to collect"
+              style={[styles.missedButton, busy && styles.confirmButtonDisabled]}
+            >
+              <Text style={styles.missedButtonLabel}>
+                {missing ? 'Recording missed pickup…' : 'Unable to collect'}
+              </Text>
+            </Pressable>
           </View>
         </>
       )}
@@ -371,6 +442,17 @@ export const JobSheetScreen: React.FC<Props> = ({ navigation, route }) => {
         visible={reasonModalVisible}
         onClose={() => setReasonModalVisible(false)}
         onSubmit={handleSubmitCancelReason}
+      />
+      <MissedPickupModal
+        visible={missedModalVisible}
+        submitting={missing}
+        onClose={() => setMissedModalVisible(false)}
+        onTakePhoto={() => {
+          void handleTakeMissedPhoto();
+        }}
+        photoUri={missedPhotoUri}
+        uploadingPhoto={uploadingMissedPhoto}
+        onSubmit={handleSubmitMissed}
       />
     </SafeAreaView>
   );

@@ -110,6 +110,7 @@ export const BookingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             recurrence: data.recurrence as any,
             payment: data.payment ?? { status: 'unpaid' },
             subscriptionId: data.subscriptionId as string | undefined,
+            completionOutcome: data.completionOutcome ?? null,
           };
         });
 

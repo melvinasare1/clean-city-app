@@ -121,6 +121,7 @@ export const getUserBookings = async (userId: string): Promise<Booking[]> => {
       type: (data.type ?? "one_off") as BookingType,
       recurrence: data.recurrence as BookingRecurrence | undefined,
       payment: data.payment ?? { status: "unpaid" },
+      completionOutcome: data.completionOutcome ?? null,
     };
   });
 };
@@ -504,6 +505,9 @@ export const cancelCustomerBooking = async (bookingId: string): Promise<void> =>
   }
   if (booking.status === "completed") {
     throw new Error("Completed bookings cannot be cancelled");
+  }
+  if (booking.status === "missed") {
+    throw new Error("Missed collections cannot be cancelled");
   }
   await setDocAtPath(
     [BOOKINGS_COLLECTION, bookingId],

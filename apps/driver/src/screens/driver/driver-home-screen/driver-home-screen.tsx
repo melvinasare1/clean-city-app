@@ -17,12 +17,16 @@ import { colors } from '@platform/shared-theme';
 import { trackEvent } from '@/services/analytics';
 import { BriefToast, useBriefToast } from '@/components/driver/BriefToast';
 import { CancelReasonModal } from '@/components/driver/CancelReasonModal';
-import type { CancelReasonCode } from '@platform/shared-types';
+import { MissedPickupModal } from '@/components/driver/MissedPickupModal';
+import type { CancelReasonCode, MissedReasonCode } from '@platform/shared-types';
 import { useAssignedJobOffer, type ActiveTrip } from '@/hooks/useAssignedJobOffer';
 import { useDriverEarnings } from '@/hooks/useDriverEarnings';
 import { useDriverPriority } from '@/hooks/useDriverPriority';
 import { startJob } from '@/services/driver-api';
 import { openNavigationTo } from '@/lib/open-navigation';
+import { loadImagePicker } from '@/lib/image-picker';
+import { uploadJobPhoto } from '@/lib/upload-job-photo';
+import { auth } from '@platform/shared-firebase';
 import {
   consumeResumeOnlineAfterConsent,
   hasAcknowledgedBackgroundLocation,
@@ -70,7 +74,7 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
   const insets = useSafeAreaInsets();
   const { isApproved, showPendingAlert } = useDriverApproved();
   const [toggleLoading, setToggleLoading] = useState(false);
-  const { offer, activeTrip, accept, decline, complete, cancel, markArrived } =
+  const { offer, activeTrip, accept, decline, complete, cancel, markMissed, markArrived } =
     useAssignedJobOffer();
   const [accepting, setAccepting] = useState(false);
   const [declining, setDeclining] = useState(false);
@@ -79,6 +83,11 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
   const [arriving, setArriving] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [cancelReasonModalVisible, setCancelReasonModalVisible] = useState(false);
+  const [missing, setMissing] = useState(false);
+  const [missedModalVisible, setMissedModalVisible] = useState(false);
+  const [missedPhotoUri, setMissedPhotoUri] = useState<string | null>(null);
+  const [missedPhotoUrl, setMissedPhotoUrl] = useState<string | null>(null);
+  const [uploadingMissedPhoto, setUploadingMissedPhoto] = useState(false);
   const { toast, showToast } = useBriefToast();
 
   const driverId = user?.id ?? '';
@@ -259,6 +268,59 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
     [activeTrip, cancel]
   );
 
+  const handleUnableToCollect = useCallback(() => {
+    if (!activeTrip) return;
+    setMissedModalVisible(true);
+  }, [activeTrip]);
+
+  const handleTakeMissedPhoto = useCallback(async () => {
+    if (!activeTrip) return;
+    const picker = await loadImagePicker();
+    if (!picker) return;
+    const permission = await picker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Camera permission needed', 'Allow camera access to attach a photo.');
+      return;
+    }
+    const result = await picker.launchCameraAsync({ quality: 0.7 });
+    if (result.canceled || !result.assets?.[0]?.uri) return;
+    const uri = result.assets[0].uri;
+    setMissedPhotoUri(uri);
+    setUploadingMissedPhoto(true);
+    try {
+      const uid = auth.currentUser?.uid;
+      if (!uid) throw new Error('Sign in required');
+      const url = await uploadJobPhoto(activeTrip.id, uid, uri, 'missed');
+      setMissedPhotoUrl(url);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Could not upload photo';
+      Alert.alert('Upload failed', msg);
+    } finally {
+      setUploadingMissedPhoto(false);
+    }
+  }, [activeTrip]);
+
+  const handleSubmitMissed = useCallback(
+    (reason: MissedReasonCode, note?: string) => {
+      if (!activeTrip) return;
+      setMissedModalVisible(false);
+      void (async () => {
+        setMissing(true);
+        try {
+          await markMissed(activeTrip.id, reason, note, missedPhotoUrl ?? undefined);
+          setMissedPhotoUri(null);
+          setMissedPhotoUrl(null);
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : 'Could not record missed pickup';
+          Alert.alert('Error', msg);
+        } finally {
+          setMissing(false);
+        }
+      })();
+    },
+    [activeTrip, markMissed, missedPhotoUrl]
+  );
+
   const pickupCoordinate = useMemo((): [number, number] | null => {
     const pickup = offer?.pickup ?? activeTrip?.pickup;
     if (!pickup) return null;
@@ -340,10 +402,12 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
           onComplete={() => {
             void handleComplete();
           }}
+          onUnableToCollect={handleUnableToCollect}
           onCancel={handleCancelTrip}
           starting={starting}
           arriving={arriving}
           completing={completing}
+          missing={missing}
           cancelling={cancelling}
           bottomInset={0}
           routeAwayLabel={routeAwayLabel}
@@ -368,6 +432,17 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
         visible={cancelReasonModalVisible}
         onClose={() => setCancelReasonModalVisible(false)}
         onSubmit={handleSubmitCancelReason}
+      />
+      <MissedPickupModal
+        visible={missedModalVisible}
+        submitting={missing}
+        onClose={() => setMissedModalVisible(false)}
+        onTakePhoto={() => {
+          void handleTakeMissedPhoto();
+        }}
+        photoUri={missedPhotoUri}
+        uploadingPhoto={uploadingMissedPhoto}
+        onSubmit={handleSubmitMissed}
       />
     </View>
   );

@@ -14,6 +14,12 @@ import {
   clampPriority,
   toDate,
 } from "./priority";
+import {
+  bookingStatusForMissedJob,
+  canCompleteJob,
+  canMarkJobMissed,
+  parseMissedPickupInput,
+} from "./job-outcome";
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -384,6 +390,9 @@ export const cancelAcceptedJob = onCall({ region: REGION }, async (request) => {
     }
     const accepted = job.assignmentStatus === "accepted";
     const inProgress = job.jobStatus === "in_progress";
+    if (job.jobStatus === "missed" || job.jobStatus === "completed") {
+      throw new HttpsError("failed-precondition", "This job is already closed.");
+    }
     if (!accepted && !inProgress) {
       throw new HttpsError("failed-precondition", "Job is not accepted or in progress.");
     }
@@ -436,11 +445,9 @@ export const completeJob = onCall({ region: REGION }, async (request) => {
     if (job.assignedTo !== uid) {
       throw new HttpsError("permission-denied", "This job is not assigned to you.");
     }
-    if (job.jobStatus === "completed") {
-      throw new HttpsError("failed-precondition", "Job is already completed.");
-    }
-    if (job.jobStatus !== "in_progress") {
-      throw new HttpsError("failed-precondition", "Job must be started before it can be completed.");
+    const completable = canCompleteJob(job.jobStatus);
+    if (!completable.ok) {
+      throw new HttpsError("failed-precondition", completable.message);
     }
 
     const driverRef = db.doc(`drivers/${uid}`);
@@ -501,6 +508,76 @@ export const completeJob = onCall({ region: REGION }, async (request) => {
       payoutStatus: "pending",
       payoutBatchId: null,
     });
+  });
+
+  return { ok: true };
+});
+
+export const markJobMissed = onCall({ region: REGION }, async (request) => {
+  if (!request.auth?.uid) {
+    throw new HttpsError("unauthenticated", "Sign in required.");
+  }
+  const uid = request.auth.uid;
+  const jobId = requireJobId(request.data);
+  const parsed = parseMissedPickupInput(request.data);
+  if (!parsed.ok) {
+    throw new HttpsError("invalid-argument", parsed.message);
+  }
+  const jobRef = db.doc(`jobs/${jobId}`);
+
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(jobRef);
+    if (!snap.exists) {
+      throw new HttpsError("not-found", "Job not found.");
+    }
+    const job = snap.data() || {};
+    if (job.assignedTo !== uid) {
+      throw new HttpsError("permission-denied", "This job is not assigned to you.");
+    }
+    const markable = canMarkJobMissed(job.jobStatus);
+    if (!markable.ok) {
+      throw new HttpsError("failed-precondition", markable.message);
+    }
+
+    const driverRef = db.doc(`drivers/${uid}`);
+    const driverSnap = await tx.get(driverRef);
+    const driverName =
+      typeof driverSnap.data()?.name === "string" ? (driverSnap.data()?.name as string) : null;
+
+    const completionOutcome = {
+      type: "missed" as const,
+      reason: parsed.reason,
+      note: parsed.note,
+      recordedAt: FieldValue.serverTimestamp(),
+      recordedBy: uid,
+      photoUrl: parsed.photoUrl,
+    };
+
+    const historyRef = historyRefFor(jobRef, job);
+    if (historyRef) {
+      tx.update(historyRef, {
+        endedAt: FieldValue.serverTimestamp(),
+        outcome: "missed",
+        completionOutcome,
+      });
+    }
+
+    tx.update(jobRef, {
+      jobStatus: "missed",
+      completionOutcome,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    const bookingId = typeof job.bookingId === "string" ? job.bookingId : null;
+    if (bookingId) {
+      tx.update(db.doc(`bookings/${bookingId}`), {
+        status: bookingStatusForMissedJob(),
+        driverId: uid,
+        driverName,
+        completionOutcome,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    }
   });
 
   return { ok: true };
