@@ -35,9 +35,9 @@ Complete guide for the admin UI that allows manually triggering push notificatio
 
 ### 3. Railway Backend Integration
 
-- Calls `POST ${EXPO_PUBLIC_API_URL}/push`
+- Calls `POST ${EXPO_PUBLIC_API_URL}/api/push`
 - Sends `{ to, title, body, data }` payload
-- Optionally includes `X-ADMIN-SECRET` header if configured
+- Authenticates with the signed-in admin's Firebase ID token (`Authorization: Bearer ...`)
 
 ## 🚀 Setup Steps
 
@@ -46,11 +46,10 @@ Complete guide for the admin UI that allows manually triggering push notificatio
 Add to your `.env` file or Expo config:
 
 ```bash
-EXPO_PUBLIC_API_URL=https://your-railway-url.railway.app
-EXPO_PUBLIC_ADMIN_SECRET=your-secret-here  # Optional, for backend auth
+EXPO_PUBLIC_API_URL=https://your-vercel-backend.vercel.app
 ```
 
-**Note:** In Expo, environment variables must be prefixed with `EXPO_PUBLIC_` to be accessible in the app.
+Do **not** add `EXPO_PUBLIC_ADMIN_SECRET`. `ADMIN_SECRET` stays on the Vercel server only.
 
 ### 2. Set User as Admin
 
@@ -255,8 +254,9 @@ if (result.success) {
 
 ## 🔐 Security Notes
 
-- **Admin Secret:** Optional header `X-ADMIN-SECRET` can be used for backend authentication
-- **Role Check:** Admin check is done client-side (for UI) but should also be enforced server-side
+- **App auth:** Expo apps send a Firebase ID token. Only approved admins (`admins/{uid}`) can send.
+- **Server secret:** `ADMIN_SECRET` is Vercel-only. Never add `EXPO_PUBLIC_ADMIN_SECRET`.
+- **Role Check:** The admin UI check is client-side; `/api/push` also enforces it server-side.
 - **Token Access:** Only admins can access the push screen, but tokens are still readable from Firestore
 - **Rate Limiting:** Bulk sends are rate-limited to prevent abuse
 

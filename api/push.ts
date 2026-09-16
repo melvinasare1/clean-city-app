@@ -1,15 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { requirePushSender, sendAuthFailure, isAuthFail } from './lib/request-auth';
+import { parseRequestBody } from './lib/parse-request-body';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
-const ADMIN_SECRET = process.env.ADMIN_SECRET;
-
-interface PushRequest {
-  to?: string;
-  tokens?: string[];
-  title: string;
-  body: string;
-  data?: Record<string, any>;
-}
 
 /**
  * POST /api/push
@@ -19,7 +12,8 @@ interface PushRequest {
  * - Single token: { to: string, title, body, data? }
  * - Batch tokens: { tokens: string[], title, body, data? }
  * 
- * Requires X-ADMIN-SECRET. If ADMIN_SECRET is unset the endpoint stays closed.
+ * Auth: Firebase ID token of an approved admin, or server-only ADMIN_SECRET.
+ * Expo apps must send Authorization: Bearer <idToken> and never the secret.
  */
 export default async function handler(
   req: VercelRequest,
@@ -29,24 +23,23 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  if (!ADMIN_SECRET) {
-    console.error('[POST /api/push] ADMIN_SECRET is not configured');
-    return res.status(503).json({
-      error: 'Push endpoint is not configured',
-    });
-  }
-
-  const providedSecret = req.headers['x-admin-secret'] as string | undefined;
-  if (providedSecret !== ADMIN_SECRET) {
-    return res.status(401).json({
-      error: 'Unauthorized',
-      message: 'Invalid or missing X-ADMIN-SECRET header',
-    });
+  const sender = await requirePushSender(req);
+  if (isAuthFail(sender)) {
+    return sendAuthFailure(res, sender);
   }
 
   try {
-    const body = req.body as PushRequest;
-    const { to, tokens, title, body: bodyText, data } = body;
+    const body = parseRequestBody(req);
+    const to = typeof body.to === 'string' ? body.to : undefined;
+    const tokens = Array.isArray(body.tokens)
+      ? body.tokens.filter((token): token is string => typeof token === 'string')
+      : undefined;
+    const title = typeof body.title === 'string' ? body.title : '';
+    const bodyText = typeof body.body === 'string' ? body.body : '';
+    const data =
+      body.data && typeof body.data === 'object' && !Array.isArray(body.data)
+        ? (body.data as Record<string, any>)
+        : undefined;
 
     // Validate required fields
     if (!title || !bodyText) {

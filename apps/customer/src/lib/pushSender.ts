@@ -1,13 +1,13 @@
 /**
  * Push notification sender
- * Wrapper for backend POST /api/push endpoint
+ * Wrapper for backend POST /api/push endpoint.
+ * Authenticates with the signed-in user's Firebase ID token.
  */
 
 import { getApiBaseUrlOrEmpty } from '@/lib/apiBase';
+import { getAuthHeaders } from '@/lib/auth-headers';
 
-// Base URL for backend API (may be empty if not configured)
 const API_URL = getApiBaseUrlOrEmpty();
-const ADMIN_SECRET = process.env.EXPO_PUBLIC_ADMIN_SECRET || '';
 
 export interface PushNotificationParams {
   to: string;
@@ -27,7 +27,7 @@ export interface PushNotificationResponse {
 
 /**
  * Send a push notification via Vercel backend
- * 
+ *
  * @param params - Push notification parameters
  * @returns Promise resolving to response from backend
  */
@@ -41,14 +41,7 @@ export const sendPush = async (
     };
   }
   try {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-
-    // Add admin secret header if configured
-    if (ADMIN_SECRET) {
-      headers['X-ADMIN-SECRET'] = ADMIN_SECRET;
-    }
+    const headers = await getAuthHeaders();
 
     const response = await fetch(`${API_URL}/api/push`, {
       method: 'POST',
@@ -85,4 +78,3 @@ export const sendPush = async (
     };
   }
 };
-

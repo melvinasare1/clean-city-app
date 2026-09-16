@@ -3,7 +3,9 @@ const fs = require("fs");
 const path = require("path");
 const { describe, it } = require("node:test");
 const {
+  adminSecretMatches,
   appStaffAccess,
+  authorizePushCaller,
   driverActorFromDoc,
   jobAssignedToCaller,
   publicAuthError,
@@ -171,13 +173,100 @@ describe("Customer privilege escalation", () => {
 });
 
 describe("Push endpoint", () => {
-  it("fails closed when ADMIN_SECRET is unset", () => {
-    const src = fs.readFileSync(
-      path.join(__dirname, "../push.ts"),
-      "utf8"
+  const pushSrc = fs.readFileSync(
+    path.join(__dirname, "../push.ts"),
+    "utf8"
+  );
+  const customerSender = fs.readFileSync(
+    path.join(__dirname, "../../apps/customer/src/lib/pushSender.ts"),
+    "utf8"
+  );
+  const driverSender = fs.readFileSync(
+    path.join(__dirname, "../../apps/driver/src/lib/pushSender.ts"),
+    "utf8"
+  );
+
+  it("does not fail closed solely because ADMIN_SECRET is unset", () => {
+    assert.doesNotMatch(pushSrc, /Push endpoint is not configured/);
+    assert.doesNotMatch(pushSrc, /if \(!ADMIN_SECRET\)/);
+    assert.match(pushSrc, /requirePushSender/);
+  });
+
+  it("does not ship ADMIN_SECRET to Expo apps", () => {
+    assert.doesNotMatch(customerSender, /EXPO_PUBLIC_ADMIN_SECRET/);
+    assert.doesNotMatch(driverSender, /EXPO_PUBLIC_ADMIN_SECRET/);
+    assert.doesNotMatch(customerSender, /X-ADMIN-SECRET/);
+    assert.doesNotMatch(driverSender, /X-ADMIN-SECRET/);
+    assert.match(customerSender, /getAuthHeaders/);
+    assert.match(driverSender, /getAuthHeaders/);
+  });
+
+  it("rejects unauthenticated callers when ADMIN_SECRET is unset", () => {
+    const result = authorizePushCaller({
+      uid: null,
+      staffDoc: null,
+      configuredSecret: undefined,
+    });
+    assert.equal(result.allowed, false);
+    if (result.allowed) throw new Error("expected rejection");
+    assert.equal(result.status, 401);
+  });
+
+  it("rejects authenticated customers", () => {
+    const result = authorizePushCaller({
+      uid: "cust-1",
+      staffDoc: null,
+    });
+    assert.equal(result.allowed, false);
+    if (result.allowed) throw new Error("expected rejection");
+    assert.equal(result.status, 403);
+  });
+
+  it("rejects assistants and pending admins", () => {
+    const assistant = authorizePushCaller({
+      uid: "asst-1",
+      staffDoc: { role: "assistant", isApproved: true },
+    });
+    assert.equal(assistant.allowed, false);
+    const pending = authorizePushCaller({
+      uid: "admin-1",
+      staffDoc: { role: "admin", isApproved: false },
+    });
+    assert.equal(pending.allowed, false);
+  });
+
+  it("allows approved admins without ADMIN_SECRET", () => {
+    const result = authorizePushCaller({
+      uid: "admin-1",
+      staffDoc: { role: "admin", isApproved: true },
+    });
+    assert.equal(result.allowed, true);
+  });
+
+  it("allows matching server ADMIN_SECRET and rejects a wrong secret", () => {
+    assert.equal(
+      adminSecretMatches("correct-secret-value", "correct-secret-value"),
+      true
     );
-    assert.match(src, /if \(!ADMIN_SECRET\)/);
-    assert.doesNotMatch(src, /Optional admin secret check/);
+    assert.equal(
+      adminSecretMatches("wrong-secret-value", "correct-secret-value"),
+      false
+    );
+    assert.equal(adminSecretMatches("correct-secret-value", undefined), false);
+    const viaSecret = authorizePushCaller({
+      uid: null,
+      providedSecret: "server-only-secret",
+      configuredSecret: "server-only-secret",
+    });
+    assert.equal(viaSecret.allowed, true);
+    const wrong = authorizePushCaller({
+      uid: null,
+      providedSecret: "nope",
+      configuredSecret: "server-only-secret",
+    });
+    assert.equal(wrong.allowed, false);
+    if (wrong.allowed) throw new Error("expected rejection");
+    assert.equal(wrong.status, 401);
   });
 });
 

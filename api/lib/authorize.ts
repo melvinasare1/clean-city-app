@@ -2,6 +2,7 @@
  * Pure authorization decisions for operational APIs.
  * Callers still must verify the Firebase ID token and load Firestore docs.
  */
+import { timingSafeEqual } from "crypto";
 
 export type StaffRole = "admin" | "assistant";
 
@@ -84,6 +85,54 @@ export function appStaffAccess(input: {
 }): StaffAccess {
   void input.profileRole;
   return staffAccessFromAdminDoc(input.adminDoc);
+}
+
+/** Server-to-server push auth. Never expose configuredSecret to Expo clients. */
+export function adminSecretMatches(
+  provided: string | undefined,
+  configured: string | undefined
+): boolean {
+  if (!provided || !configured) {
+    return false;
+  }
+  const a = Buffer.from(provided);
+  const b = Buffer.from(configured);
+  if (a.length !== b.length) {
+    return false;
+  }
+  return timingSafeEqual(a, b);
+}
+
+export type PushAuthResult =
+  | { allowed: true }
+  | { allowed: false; status: 401 | 403; error: string };
+
+/**
+ * /api/push may be called by approved staff with a Firebase ID token,
+ * or by a server that presents ADMIN_SECRET. Unauthenticated and
+ * non-admin callers are rejected. Missing ADMIN_SECRET does not open the
+ * endpoint; it only disables the server-secret path.
+ */
+export function authorizePushCaller(input: {
+  uid: string | null;
+  staffDoc?: Record<string, unknown> | null;
+  providedSecret?: string;
+  configuredSecret?: string;
+}): PushAuthResult {
+  if (adminSecretMatches(input.providedSecret, input.configuredSecret)) {
+    return { allowed: true };
+  }
+  if (!input.uid) {
+    return { allowed: false, ...publicAuthError("unauthenticated") };
+  }
+  const access = staffAccessFromAdminDoc(input.staffDoc);
+  if (!access.allowed) {
+    return { allowed: false, ...publicAuthError(access.reason) };
+  }
+  if (!staffMay(access.role, "admin_only")) {
+    return { allowed: false, status: 403, error: "Not authorized" };
+  }
+  return { allowed: true };
 }
 
 export function publicAuthError(reason: StaffAccess["reason"] | DriverActor["reason"] | "unauthenticated"): {

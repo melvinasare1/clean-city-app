@@ -41,8 +41,10 @@ Or batch mode:
 }
 ```
 
-**Headers (optional):**
-- `X-ADMIN-SECRET`: Admin secret for authentication (if `ADMIN_SECRET` env var is set)
+**Auth (required, fail-closed):**
+- Expo apps: `Authorization: Bearer <Firebase ID token>` from an approved admin (`admins/{uid}`).
+- Server-to-server only: `X-ADMIN-SECRET` matching the server-only `ADMIN_SECRET` env var.
+- Do not put `ADMIN_SECRET` in any `EXPO_PUBLIC_*` variable.
 
 **Response:**
 ```json
@@ -105,7 +107,8 @@ Paystack webhook endpoint for transaction events.
 
 Set these in your Vercel project settings:
 
-- `ADMIN_SECRET` (optional): Secret for `/api/push` authentication
+- `ADMIN_SECRET` (optional, server-only): Secret for server-to-server `/api/push` calls. Never expose to Expo apps.
+- `FIREBASE_SERVICE_ACCOUNT_JSON`: Required for app callers of `/api/push` (Firebase ID token verification)
 - `PAYSTACK_SECRET_KEY`: Your Paystack secret key
 - `CLIENT_APP_URL` (optional): Default callback URL for Paystack (defaults to `http://localhost:19006`)
 - `FIREBASE_SERVICE_ACCOUNT_JSON` (optional): Firebase Admin service account JSON as a string, for webhook Firestore writes

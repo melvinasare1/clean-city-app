@@ -3,6 +3,7 @@ import { verifyAuthHeader } from "./verify-auth";
 import { getFirestore } from "./firebase-admin";
 import { getDriverDoc } from "./collections";
 import {
+  adminSecretMatches,
   driverActorFromDoc,
   jobAssignedToCaller,
   publicAuthError,
@@ -15,6 +16,10 @@ import {
 export type AuthOk<T> = { ok: true } & T;
 export type AuthFail = { ok: false; status: number; error: string };
 export type AuthResult<T> = AuthOk<T> | AuthFail;
+
+export function isAuthFail(result: AuthResult<unknown>): result is AuthFail {
+  return result.ok === false;
+}
 
 export async function requireAuthenticatedUser(
   req: VercelRequest
@@ -42,12 +47,42 @@ async function loadStaffData(
   return undefined;
 }
 
+function headerValue(value: string | string[] | undefined): string | undefined {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value) && typeof value[0] === "string") return value[0];
+  return undefined;
+}
+
+/**
+ * Push sending is privileged: approved admin Firebase session, or
+ * server-to-server ADMIN_SECRET. Apps must use Bearer tokens, never the secret.
+ */
+export async function requirePushSender(
+  req: VercelRequest
+): Promise<AuthResult<{ uid: string | null; via: "staff" | "admin_secret" }>> {
+  if (
+    adminSecretMatches(
+      headerValue(req.headers["x-admin-secret"]),
+      process.env.ADMIN_SECRET
+    )
+  ) {
+    return { ok: true, uid: null, via: "admin_secret" };
+  }
+  const staff = await requireStaff(req, "admin_only");
+  if (isAuthFail(staff)) {
+    return staff;
+  }
+  return { ok: true, uid: staff.uid, via: "staff" };
+}
+
 export async function requireStaff(
   req: VercelRequest,
   action: StaffAction = "dispatch"
 ): Promise<AuthResult<{ uid: string; role: StaffRole }>> {
   const auth = await requireAuthenticatedUser(req);
-  if (!auth.ok) return auth;
+  if (isAuthFail(auth)) {
+    return auth;
+  }
 
   const access = staffAccessFromAdminDoc(await loadStaffData(auth.uid));
   if (!access.allowed) {
