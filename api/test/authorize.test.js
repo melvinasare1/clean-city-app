@@ -170,6 +170,17 @@ describe("Customer privilege escalation", () => {
   });
 });
 
+describe("Push endpoint", () => {
+  it("fails closed when ADMIN_SECRET is unset", () => {
+    const src = fs.readFileSync(
+      path.join(__dirname, "../push.ts"),
+      "utf8"
+    );
+    assert.match(src, /if \(!ADMIN_SECRET\)/);
+    assert.doesNotMatch(src, /Optional admin secret check/);
+  });
+});
+
 describe("Data protection", () => {
   it("16. Unauthenticated /api/jobs/list cannot retrieve data", () => {
     const result = authorizeStaffApi({ uid: null, staffDoc: null });

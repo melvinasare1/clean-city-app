@@ -19,7 +19,7 @@ interface PushRequest {
  * - Single token: { to: string, title, body, data? }
  * - Batch tokens: { tokens: string[], title, body, data? }
  * 
- * Optional security: X-ADMIN-SECRET header
+ * Requires X-ADMIN-SECRET. If ADMIN_SECRET is unset the endpoint stays closed.
  */
 export default async function handler(
   req: VercelRequest,
@@ -29,15 +29,19 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Optional admin secret check
-  if (ADMIN_SECRET) {
-    const providedSecret = req.headers['x-admin-secret'] as string | undefined;
-    if (providedSecret !== ADMIN_SECRET) {
-      return res.status(401).json({
-        error: 'Unauthorized',
-        message: 'Invalid or missing X-ADMIN-SECRET header',
-      });
-    }
+  if (!ADMIN_SECRET) {
+    console.error('[POST /api/push] ADMIN_SECRET is not configured');
+    return res.status(503).json({
+      error: 'Push endpoint is not configured',
+    });
+  }
+
+  const providedSecret = req.headers['x-admin-secret'] as string | undefined;
+  if (providedSecret !== ADMIN_SECRET) {
+    return res.status(401).json({
+      error: 'Unauthorized',
+      message: 'Invalid or missing X-ADMIN-SECRET header',
+    });
   }
 
   try {

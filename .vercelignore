@@ -1,0 +1,10 @@
+apps
+functions
+.expo
+ios
+android
+**/.git
+firebase-debug.log
+scripts
+*.md
+agent-transcripts

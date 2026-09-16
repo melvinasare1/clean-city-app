@@ -93,8 +93,8 @@ export default async function handler(
       const startOfDay = new Date(date + "T00:00:00.000Z");
       const endOfDay = new Date(date + "T23:59:59.999Z");
       query = query
-        .where("scheduledDate", ">=", firestore.Timestamp.fromDate(startOfDay))
-        .where("scheduledDate", "<=", firestore.Timestamp.fromDate(endOfDay));
+        .where("scheduledDate", ">=", admin.firestore.Timestamp.fromDate(startOfDay))
+        .where("scheduledDate", "<=", admin.firestore.Timestamp.fromDate(endOfDay));
     }
 
     query = query.orderBy("scheduledDate", "asc");

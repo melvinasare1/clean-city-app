@@ -312,6 +312,8 @@ export const acceptJobOffer = onCall({ region: REGION }, async (request) => {
       throw new HttpsError("not-found", "Job not found.");
     }
     const job = snap.data() || {};
+    const driverSnap = await tx.get(db.doc(`drivers/${uid}`));
+    assertApprovedDriver(driverSnap.data());
     taskName = job.offerTaskName;
     if (job.assignedTo !== uid) {
       throw new HttpsError("permission-denied", "This offer is not assigned to you.");
@@ -357,6 +359,8 @@ export const declineJobOffer = onCall({ region: REGION }, async (request) => {
       throw new HttpsError("not-found", "Job not found.");
     }
     const job = snap.data() || {};
+    const driverSnap = await tx.get(db.doc(`drivers/${uid}`));
+    assertApprovedDriver(driverSnap.data());
     taskName = job.offerTaskName;
     if (job.assignedTo !== uid) {
       throw new HttpsError("permission-denied", "This offer is not assigned to you.");
