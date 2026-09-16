@@ -4,6 +4,7 @@ import { Feather } from '@expo/vector-icons';
 import { Timestamp } from 'firebase/firestore';
 import { colors, radius, spacing, typography } from '@platform/shared-theme';
 import type { JobOffer } from '@/hooks/useAssignedJobOffer';
+import { driverEarningsFromGross } from '@/lib/earnings';
 
 type Props = {
   offer: JobOffer;
@@ -50,7 +51,8 @@ export function JobOfferSheet({
   bottomInset = 0,
   routeAwayLabel,
 }: Props) {
-  const fare = offer.totalPrice ?? offer.amountPaid;
+  const grossFare = offer.totalPrice ?? offer.amountPaid;
+  const fare = grossFare != null ? driverEarningsFromGross(grossFare) : grossFare;
   const expiresAt = toDate(offer.offerExpiresAt);
   const [secondsLeft, setSecondsLeft] = useState(() => remainingSeconds(expiresAt));
 

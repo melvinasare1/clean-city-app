@@ -16,7 +16,10 @@ import { DriverMap } from '@/components/driver/home/DriverMap';
 import { colors } from '@platform/shared-theme';
 import { trackEvent } from '@/services/analytics';
 import { BriefToast, useBriefToast } from '@/components/driver/BriefToast';
+import { CancelReasonModal } from '@/components/driver/CancelReasonModal';
+import type { CancelReasonCode } from '@platform/shared-types';
 import { useAssignedJobOffer, type ActiveTrip } from '@/hooks/useAssignedJobOffer';
+import { useDriverEarnings } from '@/hooks/useDriverEarnings';
 import { useDriverPriority } from '@/hooks/useDriverPriority';
 import { startJob } from '@/services/driver-api';
 import { openNavigationTo } from '@/lib/open-navigation';
@@ -67,7 +70,6 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
   const insets = useSafeAreaInsets();
   const { isApproved, showPendingAlert } = useDriverApproved();
   const [toggleLoading, setToggleLoading] = useState(false);
-  const [todaysEarnings] = useState(0);
   const { offer, activeTrip, accept, decline, complete, cancel, markArrived } =
     useAssignedJobOffer();
   const [accepting, setAccepting] = useState(false);
@@ -76,12 +78,15 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
   const [starting, setStarting] = useState(false);
   const [arriving, setArriving] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [cancelReasonModalVisible, setCancelReasonModalVisible] = useState(false);
   const { toast, showToast } = useBriefToast();
 
   const driverId = user?.id ?? '';
   const driverName = firstNameFromUser(user?.name, user?.email);
   const { isOnline, isSharingLocation, goOnline, goOffline } = useDriverPresence(driverId);
   const priority = useDriverPriority(driverId);
+  const today = useMemo(() => new Date(), []);
+  const { totalEarnings: todaysEarnings } = useDriverEarnings(driverId, today);
 
   const handleToggleOnline = useCallback(() => {
     if (!driverId) return;
@@ -229,18 +234,27 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
 
   const handleCancelTrip = useCallback(() => {
     if (!activeTrip) return;
-    void (async () => {
-      setCancelling(true);
-      try {
-        await cancel(activeTrip.id);
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : 'Could not cancel this trip';
-        Alert.alert('Error', msg);
-      } finally {
-        setCancelling(false);
-      }
-    })();
-  }, [activeTrip, cancel]);
+    setCancelReasonModalVisible(true);
+  }, [activeTrip]);
+
+  const handleSubmitCancelReason = useCallback(
+    (reasonCode: CancelReasonCode, reasonNote?: string) => {
+      if (!activeTrip) return;
+      setCancelReasonModalVisible(false);
+      void (async () => {
+        setCancelling(true);
+        try {
+          await cancel(activeTrip.id, reasonCode, reasonNote);
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : 'Could not cancel this trip';
+          Alert.alert('Error', msg);
+        } finally {
+          setCancelling(false);
+        }
+      })();
+    },
+    [activeTrip, cancel]
+  );
 
   const pickupCoordinate = useMemo((): [number, number] | null => {
     const pickup = offer?.pickup ?? activeTrip?.pickup;
@@ -347,6 +361,11 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
       )}
 
       <BriefToast message={toast} topOffset={insets.top + 56} />
+      <CancelReasonModal
+        visible={cancelReasonModalVisible}
+        onClose={() => setCancelReasonModalVisible(false)}
+        onSubmit={handleSubmitCancelReason}
+      />
     </View>
   );
 };

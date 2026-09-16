@@ -107,13 +107,11 @@ const DEMO_EARNINGS: Omit<DriverEarnings, 'loading'> = {
   isDemo: true,
 };
 
-type BookingDoc = {
-  scheduledDate?: unknown;
-  totalPrice?: number;
-  amountPaid?: number;
-  pickupAddress?: string;
-  dropoffAddress?: string;
-  address?: string;
+type EarningsDoc = {
+  earnedAt?: unknown;
+  driverAmount?: number;
+  bookingId?: string;
+  customerName?: string;
   location?: string;
 };
 
@@ -148,41 +146,33 @@ function formatBookingIdLabel(id: string): string {
   return `#${shortId}`;
 }
 
-function routeLabelFromBooking(data: BookingDoc): string {
-  const pickup = typeof data.pickupAddress === 'string' ? data.pickupAddress.trim() : '';
-  const dropoff = typeof data.dropoffAddress === 'string' ? data.dropoffAddress.trim() : '';
-  if (pickup && dropoff) return `${pickup} → ${dropoff}`;
-
-  const address = typeof data.address === 'string' ? data.address.trim() : '';
-  if (address) return address;
-  if (pickup) return pickup;
-  if (dropoff) return dropoff;
-
+function routeLabelFromEarnings(data: EarningsDoc): string {
   const location = typeof data.location === 'string' ? data.location.trim() : '';
-  return location;
+  if (location) return location;
+  return typeof data.customerName === 'string' ? data.customerName.trim() : '';
 }
 
-function fareFromBooking(data: BookingDoc): number {
-  const raw = data.totalPrice ?? data.amountPaid ?? 0;
-  const fare = Number(raw);
+function fareFromEarnings(data: EarningsDoc): number {
+  const fare = Number(data.driverAmount ?? 0);
   return Number.isFinite(fare) ? fare : 0;
 }
 
-function mapBookingDocs(
-  docs: Array<{ id: string; data: () => BookingDoc }>
+function mapEarningsDocs(
+  docs: Array<{ id: string; data: () => EarningsDoc }>
 ): EarningsJob[] {
   return docs
     .map((snap) => {
       const data = snap.data();
-      const scheduled = toDate(data.scheduledDate) ?? new Date(0);
+      const earnedAt = toDate(data.earnedAt) ?? new Date(0);
+      const bookingId = typeof data.bookingId === 'string' && data.bookingId ? data.bookingId : snap.id;
       return {
         id: snap.id,
-        occurredAt: scheduled,
-        dateLabel: formatDateLabel(scheduled),
-        timeLabel: formatTimeLabel(scheduled),
-        bookingIdLabel: formatBookingIdLabel(snap.id),
-        routeLabel: routeLabelFromBooking(data),
-        fare: fareFromBooking(data),
+        occurredAt: earnedAt,
+        dateLabel: formatDateLabel(earnedAt),
+        timeLabel: formatTimeLabel(earnedAt),
+        bookingIdLabel: formatBookingIdLabel(bookingId),
+        routeLabel: routeLabelFromEarnings(data),
+        fare: fareFromEarnings(data),
       };
     })
     .sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime());
@@ -201,7 +191,7 @@ export function useDriverEarnings(
   const [jobs, setJobs] = useState<EarningsJob[]>([]);
   const [sessions, setSessions] = useState<DriverShiftSessionRecord[]>([]);
   const [nowMs, setNowMs] = useState(() => Date.now());
-  const [bookingsReady, setBookingsReady] = useState(false);
+  const [entriesReady, setEntriesReady] = useState(false);
   const [sessionsReady, setSessionsReady] = useState(false);
 
   const dayStart = useMemo(() => startOfDay(date), [date]);
@@ -220,37 +210,31 @@ export function useDriverEarnings(
     if (!uid) {
       setJobs([]);
       setSessions([]);
-      setBookingsReady(true);
+      setEntriesReady(true);
       setSessionsReady(true);
       return;
     }
 
-    setBookingsReady(false);
+    setEntriesReady(false);
     setSessionsReady(false);
 
-    const startMs = dayStart.getTime();
-    const endMs = dayEnd.getTime();
-
-    // Equality-only constraints so rules can prove driverId == auth.uid.
-    // Date windows are applied in memory (range filters + OR rules get denied).
-    const bookingsUnsub = onSnapshot(
+    // Subcollection is scoped by path (drivers/{uid}/earnings), so the security
+    // rule only checks the path segment — no need for the equality-only-constraint
+    // workaround the old bookings query needed; a real range query works here.
+    const earningsUnsub = onSnapshot(
       query(
-        collection(db, 'bookings'),
-        where('driverId', '==', uid),
-        where('status', '==', 'completed')
+        collection(db, 'drivers', uid, 'earnings'),
+        where('earnedAt', '>=', Timestamp.fromDate(dayStart)),
+        where('earnedAt', '<=', Timestamp.fromDate(dayEnd))
       ),
       (snapshot) => {
-        const mapped = mapBookingDocs(snapshot.docs).filter((job) => {
-          const at = job.occurredAt.getTime();
-          return at >= startMs && at <= endMs;
-        });
-        setJobs(mapped);
-        setBookingsReady(true);
+        setJobs(mapEarningsDocs(snapshot.docs));
+        setEntriesReady(true);
       },
       (error) => {
-        console.error('[useDriverEarnings] bookings query failed', error);
+        console.error('[useDriverEarnings] earnings query failed', error);
         setJobs([]);
-        setBookingsReady(true);
+        setEntriesReady(true);
       }
     );
 
@@ -282,7 +266,7 @@ export function useDriverEarnings(
     );
 
     return () => {
-      bookingsUnsub();
+      earningsUnsub();
       sessionsUnsub();
     };
   }, [dayEnd, dayStart, driverId]);
@@ -293,8 +277,8 @@ export function useDriverEarnings(
   );
 
   return useMemo(() => {
-    const loading = !bookingsReady || !sessionsReady;
-    if (__DEV__ && bookingsReady && jobs.length === 0) {
+    const loading = !entriesReady || !sessionsReady;
+    if (__DEV__ && entriesReady && jobs.length === 0) {
       return { ...DEMO_EARNINGS, loading: false };
     }
 
@@ -311,5 +295,5 @@ export function useDriverEarnings(
       loading,
       isDemo: false,
     };
-  }, [bookingsReady, jobs, onlineTimeMs, sessionsReady]);
+  }, [entriesReady, jobs, onlineTimeMs, sessionsReady]);
 }

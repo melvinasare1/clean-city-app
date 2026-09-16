@@ -26,3 +26,4 @@ backend/.env
 .vercel
 ios/
 android/
+.env*.local

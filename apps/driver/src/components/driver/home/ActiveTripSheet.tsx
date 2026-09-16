@@ -5,6 +5,7 @@ import { colors, radius, spacing, typography } from '@platform/shared-theme';
 import type { ActiveTrip } from '@/hooks/useAssignedJobOffer';
 import { isTimestampSet } from '@/lib/job-sheet';
 import { openTripOverflowMenu } from '@/lib/trip-overflow';
+import { driverEarningsFromGross } from '@/lib/earnings';
 
 type Props = {
   trip: ActiveTrip;
@@ -37,7 +38,8 @@ export function ActiveTripSheet({
   bottomInset = 0,
   routeAwayLabel,
 }: Props) {
-  const fare = trip.totalPrice ?? trip.amountPaid;
+  const grossFare = trip.totalPrice ?? trip.amountPaid;
+  const fare = grossFare != null ? driverEarningsFromGross(grossFare) : grossFare;
   const busy = Boolean(starting || arriving || completing || cancelling);
   const canStart =
     trip.assignmentStatus === 'accepted' && (trip.jobStatus === 'scheduled' || !trip.jobStatus);
@@ -58,8 +60,8 @@ export function ActiveTripSheet({
     primaryDisabled = busy;
     accessibilityLabel = 'Arrived';
   } else if (inProgress && arrived && !pickupConfirmed) {
-    primaryLabel = 'Job Sheet';
-    primaryBusyLabel = 'Job Sheet';
+    primaryLabel = 'View Job Sheet';
+    primaryBusyLabel = 'Viewing Job Sheet';
     onPrimary = onOpenJobSheet;
     primaryDisabled = busy;
     accessibilityLabel = 'Job Sheet';
@@ -99,6 +101,7 @@ export function ActiveTripSheet({
             onPress={() =>
               openTripOverflowMenu({
                 phone: trip.phoneNumber,
+                jobId: trip.id,
                 onCancel,
               })
             }

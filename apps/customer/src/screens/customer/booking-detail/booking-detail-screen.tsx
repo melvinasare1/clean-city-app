@@ -43,6 +43,7 @@ import {
   getNextPickupIsoForSubscription,
   getSubscriptionBookingTypeCardLabel,
 } from "./booking-detail-screen.utils";
+import { RatingModal } from "./rating-modal";
 
 type Props = NativeStackScreenProps<CustomerStackParamList, "BookingDetail">;
 
@@ -62,6 +63,7 @@ export const BookingDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [processingPayment, setProcessingPayment] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const [ratingModalOpen, setRatingModalOpen] = useState(false);
 
   const subscription = kind === "subscription" ? subscriptions.find((s) => s.id === id) : undefined;
   const booking = kind === "booking" ? bookings.find((b) => b.id === id) : undefined;
@@ -125,7 +127,12 @@ export const BookingDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         : null;
 
   const showPayActions = pill === "awaiting_payment";
-  const showHelpCta = !showPayActions;
+  const showRateDriverCta =
+    kind === "booking" &&
+    unifiedStatus === "completed" &&
+    Boolean(booking) &&
+    !booking?.customerRating;
+  const showHelpCta = !showPayActions && !showRateDriverCta;
 
   const busy = processingPayment || verifying;
 
@@ -453,6 +460,18 @@ export const BookingDetailScreen: React.FC<Props> = ({ navigation, route }) => {
               </>
             ) : null}
 
+            {showRateDriverCta ? (
+              <TouchableOpacity
+                style={[styles.ctaButton, styles.ctaPrimary]}
+                onPress={() => setRatingModalOpen(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Rate your driver"
+              >
+                <Ionicons name="star-outline" size={18} color={colors.surfaceWhite} />
+                <AppText style={styles.ctaPrimaryText}>Rate Your Driver</AppText>
+              </TouchableOpacity>
+            ) : null}
+
             {showHelpCta ? (
               <TouchableOpacity
                 style={[styles.ctaButton, styles.ctaSoft]}
@@ -467,6 +486,15 @@ export const BookingDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           </View>
         </ResponsiveContent>
       </ScrollView>
+
+      {booking ? (
+        <RatingModal
+          visible={ratingModalOpen}
+          bookingId={booking.id}
+          onClose={() => setRatingModalOpen(false)}
+          onSubmitted={() => setRatingModalOpen(false)}
+        />
+      ) : null}
     </SafeAreaView>
   );
 };

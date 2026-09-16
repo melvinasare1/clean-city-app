@@ -47,8 +47,10 @@ export interface Driver {
   priority?: number;
   /** Defaults to true. When false, the client clears expoPushToken. */
   notificationsEnabled?: boolean;
-  /** Out of 5. Admin-editable for now; not computed from reviews. */
+  /** Out of 5. Running average computed from customer ratings via submitDriverRating. */
   rating?: number | null;
+  /** Number of ratings included in `rating`'s average. */
+  ratingCount?: number;
   jobsCompletedCount?: number;
 }
 
@@ -80,6 +82,12 @@ export type BookingRecurrence = {
   intervalWeeks: number;
 };
 
+export type BookingCustomerRating = {
+  stars: number;
+  comment: string | null;
+  ratedAt: Timestamp;
+};
+
 export type Booking = {
   id: string;
   userId: string;
@@ -99,7 +107,29 @@ export type Booking = {
   driverId?: string | null;
   driverName?: string | null;
   declinedBy?: string[];
+  /** Set once by submitDriverRating; a booking can only be rated once. */
+  customerRating?: BookingCustomerRating | null;
 };
 
 /** @deprecated Use BookingPaymentStatus. Kept so existing `PaymentStatus` imports keep compiling. */
 export type PaymentStatus = BookingPaymentStatus;
+
+// Kept in sync by hand with CANCEL_REASON_CODES in functions/src/job-offers.ts —
+// Cloud Functions can't depend on this workspace package.
+export const CANCEL_REASON_CODES = [
+  "NO_SPACE",
+  "CUSTOMER_UNAVAILABLE",
+  "CUSTOMER_REQUESTED",
+  "SAFETY_ACCESS",
+  "OTHER",
+] as const;
+
+export type CancelReasonCode = (typeof CANCEL_REASON_CODES)[number];
+
+export const CANCEL_REASON_LABELS: Record<CancelReasonCode, string> = {
+  NO_SPACE: "Not enough space for the load",
+  CUSTOMER_UNAVAILABLE: "Customer not home/unavailable",
+  CUSTOMER_REQUESTED: "Customer asked to cancel",
+  SAFETY_ACCESS: "Safety or access issue",
+  OTHER: "Other",
+};

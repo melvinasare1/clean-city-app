@@ -121,6 +121,20 @@ service cloud.firestore {
                 .hasOnly(['expoPushToken', 'pushTokenUpdatedAt', 'updatedAt', 'name', 'phone', 'photoURL', 'notificationsEnabled']))
         );
       allow delete: if false;
+
+      // Per-job earnings ledger — the driver can read their own; only the
+      // completeJob Cloud Function (Admin SDK, bypasses rules) ever writes it.
+      match /earnings/{entryId} {
+        allow get, list: if isStaff() || isOwner(userId);
+        allow write: if false;
+      }
+    }
+
+    // Weekly payout batches (computed ledger, no money movement in-app) — staff
+    // only; written solely by the weekly-driver-payout cron via Admin SDK.
+    match /payoutBatches/{batchId} {
+      allow get, list: if isStaff();
+      allow write: if false;
     }
 
     // Store orders (physical goods) — customers own their docs.
@@ -178,6 +192,13 @@ service cloud.firestore {
       allow get, list: if isSignedIn() && resource.data.assignedTo == request.auth.uid;
       allow update: if isStaff();
       allow create, delete: if false;
+
+      // Per-driver assignment attempt history — written only by Admin SDK (Cloud
+      // Functions), never directly by clients.
+      match /assignmentHistory/{historyId} {
+        allow get, list: if isStaff();
+        allow write: if false;
+      }
     }
 
     match /customers/{userId} {

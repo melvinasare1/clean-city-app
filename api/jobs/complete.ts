@@ -11,6 +11,9 @@ import { getDriverDoc } from "../lib/collections";
 
 const JOBS_COLLECTION = "jobs";
 const DRIVER_SHIFTS_COLLECTION = "driverShifts";
+// Kept in sync by hand with DRIVER_COMMISSION_RATE in functions/src/job-offers.ts
+// and apps/driver/src/lib/earnings.ts — these three runtimes don't share a package.
+const DRIVER_COMMISSION_RATE = 0.8;
 
 function todayUtcYYYYMMDD(): string {
   return new Date().toISOString().slice(0, 10);
@@ -74,6 +77,10 @@ export default async function handler(
     const driverRef = firestore.collection("drivers").doc(driverId);
 
     await firestore.runTransaction(async (tx) => {
+      const driverSnap = await tx.get(driverRef);
+      const driverName =
+        typeof driverSnap.data()?.name === "string" ? (driverSnap.data()?.name as string) : null;
+
       tx.update(jobRef, {
         jobStatus: "completed",
         completedAt: now,
@@ -96,6 +103,44 @@ export default async function handler(
         },
         { merge: true }
       );
+
+      const bookingId = typeof data?.bookingId === "string" ? data.bookingId : null;
+      if (bookingId) {
+        tx.set(
+          firestore.collection("bookings").doc(bookingId),
+          {
+            status: "completed",
+            driverId,
+            driverName,
+            completedAt: now,
+            updatedAt: now,
+          },
+          { merge: true }
+        );
+      }
+
+      const items = Array.isArray(data?.items) ? data.items : [];
+      const grossAmount = items.reduce((sum: number, item: unknown) => {
+        const record = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
+        const value = Number(record.totalPrice ?? 0);
+        return sum + (Number.isFinite(value) ? value : 0);
+      }, 0);
+      const driverAmount = grossAmount * DRIVER_COMMISSION_RATE;
+      const platformAmount = grossAmount - driverAmount;
+
+      tx.set(driverRef.collection("earnings").doc(), {
+        jobId,
+        bookingId,
+        grossAmount,
+        commissionRate: DRIVER_COMMISSION_RATE,
+        driverAmount,
+        platformAmount,
+        earnedAt: now,
+        customerName: typeof data?.customerName === "string" ? data.customerName : null,
+        location: typeof data?.location === "string" ? data.location : null,
+        payoutStatus: "pending",
+        payoutBatchId: null,
+      });
     });
 
     const updated = await jobRef.get();

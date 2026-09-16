@@ -13,7 +13,7 @@ import { onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { setGlobalOptions } from "firebase-functions/v2";
 import * as admin from "firebase-admin";
 import { logger } from "firebase-functions";
-import { startJobOfferWindow } from "./job-offers";
+import { recordJobAssignment, startJobOfferWindow } from "./job-offers";
 
 // Initialize Firebase Admin (only once)
 if (!admin.apps.length) {
@@ -241,6 +241,21 @@ export const onJobAssigned = onDocumentUpdated(
         });
       }
 
+      try {
+        await recordJobAssignment(
+          jobId,
+          before as Record<string, unknown>,
+          after as Record<string, unknown>,
+          Boolean(driverChanged)
+        );
+      } catch (error) {
+        logger.error("Failed to record job assignment history", {
+          jobId,
+          driverId: afterDriverId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+
       const token = await getDriverPushToken(afterDriverId as string);
 
       if (!token) {
@@ -369,5 +384,6 @@ export {
   confirmPickup,
   declineJobOffer,
   expireJobOffer,
+  logJobSheetViewed,
   markArrived,
 } from "./job-offers";

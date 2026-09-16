@@ -3,8 +3,15 @@ import { ActionSheetIOS, Alert, Linking, Platform } from 'react-native';
 export const CANCEL_TRIP_CONFIRM_COPY =
   'Cancelling will reduce your priority by 10. Frequent cancellations can lead to account suspension.';
 
-export function showHelpStub() {
-  Alert.alert('Get help', 'Support is coming soon. If you need assistance now, contact Clean City.');
+const SUPPORT_WHATSAPP_NUMBER = '233247014479';
+
+export function openWhatsAppSupport(jobId?: string) {
+  const message = jobId
+    ? `Hi, I need help with job ${jobId}.`
+    : 'Hi, I need help.';
+  void Linking.openURL(
+    `https://wa.me/${SUPPORT_WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`
+  );
 }
 
 export function callCustomer(phone?: string | null) {
@@ -25,6 +32,7 @@ export function confirmCancelTrip(onCancel: () => void, labels?: { title?: strin
 
 type OverflowOptions = {
   phone?: string | null;
+  jobId?: string;
   onCancel: () => void;
   cancelTitle?: string;
   cancelConfirmLabel?: string;
@@ -34,6 +42,7 @@ type OverflowOptions = {
 
 export function openTripOverflowMenu({
   phone,
+  jobId,
   onCancel,
   cancelTitle,
   cancelConfirmLabel,
@@ -51,7 +60,7 @@ export function openTripOverflowMenu({
         cancelButtonIndex: 3,
       },
       (buttonIndex) => {
-        if (buttonIndex === 0) showHelpStub();
+        if (buttonIndex === 0) openWhatsAppSupport(jobId);
         if (buttonIndex === 1) callCustomer(phone);
         if (buttonIndex === 2) runCancel();
       }
@@ -60,7 +69,7 @@ export function openTripOverflowMenu({
   }
 
   Alert.alert('Trip options', undefined, [
-    { text: getHelpLabel, onPress: showHelpStub },
+    { text: getHelpLabel, onPress: () => openWhatsAppSupport(jobId) },
     { text: 'Contact Customer', onPress: () => callCustomer(phone) },
     { text: cancelMenuLabel, style: 'destructive', onPress: runCancel },
     { text: 'Close', style: 'cancel' },

@@ -10,6 +10,7 @@ import {
   functions,
 } from '@platform/shared-firebase';
 import type { Timestamp } from '@platform/shared-firebase';
+import type { CancelReasonCode } from '@platform/shared-types';
 import { useDriverApproved } from '@/hooks/useDriverApproved';
 import { markJobArrived } from '@/services/driver-api';
 
@@ -44,6 +45,10 @@ export type JobOffer = {
   photoUrl?: string | null;
   arrivedAt?: Timestamp | Date | string | null;
   pickupConfirmedAt?: Timestamp | Date | string | null;
+  acceptedAt?: Timestamp | Date | string | null;
+  jobSheetViewedAt?: Timestamp | Date | string | null;
+  pickupPhotoUrl?: string | null;
+  currentAssignmentId?: string | null;
 };
 
 export type ActiveTrip = JobOffer;
@@ -60,11 +65,11 @@ const completeJobFn = httpsCallable<{ jobId: string }, { ok: boolean }>(
   functions,
   'completeJob'
 );
-const cancelAcceptedJobFn = httpsCallable<{ jobId: string }, { ok: boolean }>(
-  functions,
-  'cancelAcceptedJob'
-);
-const confirmPickupFn = httpsCallable<{ jobId: string }, { ok: boolean }>(
+const cancelAcceptedJobFn = httpsCallable<
+  { jobId: string; cancelReasonCode: CancelReasonCode; cancelReasonNote?: string },
+  { ok: boolean }
+>(functions, 'cancelAcceptedJob');
+const confirmPickupFn = httpsCallable<{ jobId: string; photoUrl: string }, { ok: boolean }>(
   functions,
   'confirmPickup'
 );
@@ -96,6 +101,10 @@ type JobDoc = {
   photoUrl?: string | null;
   arrivedAt?: Timestamp | Date | string | null;
   pickupConfirmedAt?: Timestamp | Date | string | null;
+  acceptedAt?: Timestamp | Date | string | null;
+  jobSheetViewedAt?: Timestamp | Date | string | null;
+  pickupPhotoUrl?: string | null;
+  currentAssignmentId?: string | null;
 };
 
 function fareFromItems(items: JobDoc['items']): number | undefined {
@@ -154,6 +163,10 @@ export function mapJobDoc(id: string, data: JobDoc): JobOffer {
     photoUrl: data.photoUrl,
     arrivedAt: data.arrivedAt,
     pickupConfirmedAt: data.pickupConfirmedAt,
+    acceptedAt: data.acceptedAt,
+    jobSheetViewedAt: data.jobSheetViewedAt,
+    pickupPhotoUrl: data.pickupPhotoUrl,
+    currentAssignmentId: data.currentAssignmentId,
   };
 }
 
@@ -249,9 +262,12 @@ export function useAssignedJobOffer() {
     await completeJobFn({ jobId });
   }, []);
 
-  const cancel = useCallback(async (jobId: string) => {
-    await cancelAcceptedJobFn({ jobId });
-  }, []);
+  const cancel = useCallback(
+    async (jobId: string, cancelReasonCode: CancelReasonCode, cancelReasonNote?: string) => {
+      await cancelAcceptedJobFn({ jobId, cancelReasonCode, cancelReasonNote });
+    },
+    []
+  );
 
   const markArrived = useCallback(async (jobId: string) => {
     const uid = auth.currentUser?.uid;
@@ -259,8 +275,8 @@ export function useAssignedJobOffer() {
     await markJobArrived(jobId, uid);
   }, []);
 
-  const confirmPickup = useCallback(async (jobId: string) => {
-    await confirmPickupFn({ jobId });
+  const confirmPickup = useCallback(async (jobId: string, photoUrl: string) => {
+    await confirmPickupFn({ jobId, photoUrl });
   }, []);
 
   return {

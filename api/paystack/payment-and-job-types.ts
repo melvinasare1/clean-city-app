@@ -121,10 +121,18 @@ export interface JobDocument {
   /** Set when driver starts the job */
   startedAt?: FirebaseTimestamp;
   startedBy?: string;
+  /** Set when the driver accepts the offer */
+  acceptedAt?: FirebaseTimestamp | null;
   /** Checkpoint within in_progress: driver arrived at pickup */
   arrivedAt?: FirebaseTimestamp | null;
+  /** Set the first time the driver opens the Job Sheet for this attempt */
+  jobSheetViewedAt?: FirebaseTimestamp | null;
   /** Checkpoint within in_progress: driver confirmed pickup on the job sheet */
   pickupConfirmedAt?: FirebaseTimestamp | null;
+  /** Driver-captured photo of the load, set together with pickupConfirmedAt */
+  pickupPhotoUrl?: string | null;
+  /** Points at the open jobs/{id}/assignmentHistory/{id} doc for the current attempt */
+  currentAssignmentId?: string | null;
   /** Set when driver completes the job */
   completedAt?: FirebaseTimestamp;
   completedBy?: string;

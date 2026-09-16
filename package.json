@@ -20,6 +20,12 @@
     "deploy:database-rules": "node scripts/deploy-database-rules.js",
     "mapbox:directions-usage": "node scripts/check-mapbox-directions-usage.js"
   },
+  "dependencies": {
+    "firebase-admin": "^13.6.0"
+  },
+  "devDependencies": {
+    "@vercel/node": "^13.0.1"
+  },
   "overrides": {
     "expo-constants": "18.0.12",
     "expo-font": "14.0.12"

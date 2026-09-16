@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -13,27 +13,35 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { httpsCallable } from 'firebase/functions';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { db, functions } from '@platform/shared-firebase';
+import { auth, db, functions } from '@platform/shared-firebase';
 import { colors } from '@platform/shared-theme';
+import type { CancelReasonCode } from '@platform/shared-types';
 import { mapJobDoc, type JobOffer } from '@/hooks/useAssignedJobOffer';
 import {
   formatAddressLines,
   formatWindowPill,
   paymentMethodLabel,
 } from '@/lib/job-sheet';
+import { loadImagePicker } from '@/lib/image-picker';
+import { uploadJobPhoto } from '@/lib/upload-job-photo';
 import { callCustomer, openTripOverflowMenu } from '@/lib/trip-overflow';
+import { CancelReasonModal } from '@/components/driver/CancelReasonModal';
 import type { DriverStackParamList } from '@/navigation/types';
 import { styles } from './job-sheet-screen.styles';
 
 type Props = NativeStackScreenProps<DriverStackParamList, 'JobSheet'>;
 
-const cancelAcceptedJobFn = httpsCallable<{ jobId: string }, { ok: boolean }>(
-  functions,
-  'cancelAcceptedJob'
-);
-const confirmPickupFn = httpsCallable<{ jobId: string }, { ok: boolean }>(
+const cancelAcceptedJobFn = httpsCallable<
+  { jobId: string; cancelReasonCode: CancelReasonCode; cancelReasonNote?: string },
+  { ok: boolean }
+>(functions, 'cancelAcceptedJob');
+const confirmPickupFn = httpsCallable<{ jobId: string; photoUrl: string }, { ok: boolean }>(
   functions,
   'confirmPickup'
+);
+const logJobSheetViewedFn = httpsCallable<{ jobId: string }, { ok: boolean }>(
+  functions,
+  'logJobSheetViewed'
 );
 
 export const JobSheetScreen: React.FC<Props> = ({ navigation, route }) => {
@@ -42,6 +50,12 @@ export const JobSheetScreen: React.FC<Props> = ({ navigation, route }) => {
   const [loading, setLoading] = useState(true);
   const [confirming, setConfirming] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [reasonModalVisible, setReasonModalVisible] = useState(false);
+  const [pickupPhotoUri, setPickupPhotoUri] = useState<string | null>(null);
+  const [pickupPhotoUrl, setPickupPhotoUrl] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const loggedViewRef = useRef(false);
 
   useEffect(() => {
     const unsub = onSnapshot(
@@ -62,6 +76,18 @@ export const JobSheetScreen: React.FC<Props> = ({ navigation, route }) => {
     return unsub;
   }, [jobId]);
 
+  useEffect(() => {
+    if (loggedViewRef.current) return;
+    loggedViewRef.current = true;
+    logJobSheetViewedFn({ jobId }).catch(() => {});
+  }, [jobId]);
+
+  useEffect(() => {
+    if (!pickupPhotoUrl && job?.pickupPhotoUrl) {
+      setPickupPhotoUrl(job.pickupPhotoUrl);
+    }
+  }, [job?.pickupPhotoUrl, pickupPhotoUrl]);
+
   const busy = confirming || cancelling;
   const address = formatAddressLines({
     addressLine1: job?.addressLine1,
@@ -69,26 +95,67 @@ export const JobSheetScreen: React.FC<Props> = ({ navigation, route }) => {
     location: job?.location ?? job?.address,
   });
   const photoUrl = job?.photoUrl?.trim() || null;
+  const canConfirm = Boolean(pickupPhotoUrl) && !busy && !uploadingPhoto;
+
+  const handleTakePhoto = useCallback(async () => {
+    const picker = await loadImagePicker();
+    if (!picker) return;
+
+    const permission = await picker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Camera permission needed', 'Allow camera access to take a photo of the load.');
+      return;
+    }
+
+    const result = await picker.launchCameraAsync({ quality: 0.7 });
+    if (result.canceled || !result.assets?.[0]?.uri) return;
+
+    const uri = result.assets[0].uri;
+    setPickupPhotoUri(uri);
+    setPhotoError(null);
+    setUploadingPhoto(true);
+    try {
+      const uid = auth.currentUser?.uid;
+      if (!uid) throw new Error('Sign in required');
+      const url = await uploadJobPhoto(jobId, uid, uri);
+      setPickupPhotoUrl(url);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Could not upload photo';
+      setPhotoError(msg);
+      Alert.alert('Upload failed', msg);
+    } finally {
+      setUploadingPhoto(false);
+    }
+  }, [jobId]);
 
   const handleCancel = useCallback(() => {
-    void (async () => {
-      setCancelling(true);
-      try {
-        await cancelAcceptedJobFn({ jobId });
-        navigation.goBack();
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : 'Could not cancel this job';
-        Alert.alert('Error', msg);
-      } finally {
-        setCancelling(false);
-      }
-    })();
-  }, [jobId, navigation]);
+    setReasonModalVisible(true);
+  }, []);
+
+  const handleSubmitCancelReason = useCallback(
+    (cancelReasonCode: CancelReasonCode, cancelReasonNote?: string) => {
+      setReasonModalVisible(false);
+      void (async () => {
+        setCancelling(true);
+        try {
+          await cancelAcceptedJobFn({ jobId, cancelReasonCode, cancelReasonNote });
+          navigation.goBack();
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : 'Could not cancel this job';
+          Alert.alert('Error', msg);
+        } finally {
+          setCancelling(false);
+        }
+      })();
+    },
+    [jobId, navigation]
+  );
 
   const handleConfirmPickup = useCallback(async () => {
+    if (!pickupPhotoUrl) return;
     setConfirming(true);
     try {
-      await confirmPickupFn({ jobId });
+      await confirmPickupFn({ jobId, photoUrl: pickupPhotoUrl });
       navigation.goBack();
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Could not confirm pickup';
@@ -96,7 +163,7 @@ export const JobSheetScreen: React.FC<Props> = ({ navigation, route }) => {
     } finally {
       setConfirming(false);
     }
-  }, [jobId, navigation]);
+  }, [jobId, navigation, pickupPhotoUrl]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -115,6 +182,7 @@ export const JobSheetScreen: React.FC<Props> = ({ navigation, route }) => {
           onPress={() =>
             openTripOverflowMenu({
               phone: job?.phoneNumber,
+              jobId,
               onCancel: handleCancel,
               getHelpLabel: 'Get Help',
               cancelMenuLabel: 'Cancel Job',
@@ -221,6 +289,51 @@ export const JobSheetScreen: React.FC<Props> = ({ navigation, route }) => {
               )}
             </View>
 
+            <View style={styles.card}>
+              <View style={styles.sectionHeader}>
+                <Feather name="camera" size={16} color={colors.brandGreen} />
+                <Text style={styles.sectionTitle}>Load photo</Text>
+              </View>
+              {uploadingPhoto ? (
+                <View style={styles.photoUploading}>
+                  <ActivityIndicator color={colors.brandGreen} />
+                  <Text style={styles.itemSubtitle}>Uploading photo…</Text>
+                </View>
+              ) : pickupPhotoUrl ? (
+                <>
+                  <Image
+                    source={{ uri: pickupPhotoUri ?? pickupPhotoUrl }}
+                    style={styles.photo}
+                    resizeMode="cover"
+                  />
+                  <Pressable
+                    onPress={() => {
+                      void handleTakePhoto();
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Retake Load Photo"
+                    style={styles.retakePill}
+                  >
+                    <Feather name="rotate-ccw" size={14} color={colors.brandGreen} />
+                    <Text style={styles.retakePillText}>Retake</Text>
+                  </Pressable>
+                </>
+              ) : (
+                <Pressable
+                  onPress={() => {
+                    void handleTakePhoto();
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Take Load Photo"
+                  style={styles.takePhotoButton}
+                >
+                  <Feather name="camera" size={18} color={colors.brandGreen} />
+                  <Text style={styles.takePhotoButtonLabel}>Take Photo</Text>
+                </Pressable>
+              )}
+              {photoError ? <Text style={styles.photoErrorText}>{photoError}</Text> : null}
+            </View>
+
             {photoUrl ? (
               <View style={styles.card}>
                 <View style={styles.sectionHeader}>
@@ -233,14 +346,19 @@ export const JobSheetScreen: React.FC<Props> = ({ navigation, route }) => {
           </ScrollView>
 
           <View style={styles.footer}>
+            {!pickupPhotoUrl ? (
+              <Text style={styles.confirmHintText}>
+                Take a photo of the load before confirming pickup.
+              </Text>
+            ) : null}
             <Pressable
               onPress={() => {
                 void handleConfirmPickup();
               }}
-              disabled={busy}
+              disabled={!canConfirm}
               accessibilityRole="button"
               accessibilityLabel="Confirm Pickup"
-              style={[styles.confirmButton, busy && styles.confirmButtonDisabled]}
+              style={[styles.confirmButton, !canConfirm && styles.confirmButtonDisabled]}
             >
               <Text style={styles.confirmButtonLabel}>
                 {confirming ? 'Confirming…' : 'Confirm Pickup'}
@@ -249,6 +367,11 @@ export const JobSheetScreen: React.FC<Props> = ({ navigation, route }) => {
           </View>
         </>
       )}
+      <CancelReasonModal
+        visible={reasonModalVisible}
+        onClose={() => setReasonModalVisible(false)}
+        onSubmit={handleSubmitCancelReason}
+      />
     </SafeAreaView>
   );
 };
