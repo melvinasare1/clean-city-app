@@ -3,7 +3,12 @@
  * - Resolves ${ENV} placeholders from app.json (Expo does not interpolate them).
  * - Disables OTA updates on development EAS builds so the dev client can load Metro.
  * - Adds iOS local-network keys so physical devices can reach the packager.
+ * - Bumps expo.version patch on production EAS builds.
  */
+const { maybeBumpProductionAppVersion } = require("../../scripts/bump-production-version");
+
+maybeBumpProductionAppVersion(__dirname);
+delete require.cache[require.resolve("./app.json")];
 const appJson = require("./app.json");
 
 const buildProfile = process.env.EAS_BUILD_PROFILE;
