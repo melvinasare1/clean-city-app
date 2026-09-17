@@ -57,8 +57,8 @@ function paidSession(overrides = {}) {
     url: "https://checkout.stripe.com/c/pay/cs_test_1",
     status: "complete",
     payment_status: "paid",
-    amount_total: 1500,
-    currency: "ghs",
+    amount_total: 1683,
+    currency: "gbp",
     payment_intent: "pi_test_1",
     metadata: { bookingId: "booking-1", userId: "user-1", type: "one_time" },
     client_reference_id: "booking-1",
@@ -71,6 +71,15 @@ describe("Stripe checkout initialization", () => {
     assert.equal(ignoreClientSpecifiedAmount(15, 1), 15);
     assert.equal(ignoreClientSpecifiedAmount(15, 9999), 15);
     assert.equal(amountToMinorUnits(15), 1500);
+  });
+
+  it("offers Stripe only when the booking total is above GHS 100", () => {
+    const { isStripeCardAvailable } = require("../.test-out/stripe-threshold");
+    assert.equal(isStripeCardAvailable(99), false);
+    assert.equal(isStripeCardAvailable(100), false);
+    assert.equal(isStripeCardAvailable(100.01), true);
+    assert.equal(isStripeCardAvailable(101), true);
+    assert.equal(isStripeCardAvailable(141), true);
   });
 
   it("includes the Clean City booking ID in Stripe metadata", () => {
@@ -87,15 +96,15 @@ describe("Stripe checkout initialization", () => {
       url: "https://checkout.stripe.com/c/pay/cs_test_1",
       status: "open",
       payment_status: "unpaid",
-      amount_total: 1500,
-      currency: "ghs",
+      amount_total: 1683,
+      currency: "gbp",
     };
     const result = await getOrCreateStripeCheckoutSession({
       bookingId: "booking-1",
       userId: "user-1",
       email: "a@b.com",
-      serverAmountMajor: 15,
-      clientAmount: 1,
+      amountMinor: 1683,
+      currency: "GBP",
       existingSessionId: "cs_test_1",
       successUrl: "https://app/success",
       cancelUrl: "https://app/cancel",
@@ -110,13 +119,17 @@ describe("Stripe checkout initialization", () => {
     assert.equal(result.reused, true);
     assert.equal(result.session.id, "cs_test_1");
     assert.equal(creates, 0);
-    assert.equal(canReuseCheckoutSession(existing, 1500), true);
+    assert.equal(canReuseCheckoutSession(existing, 1683, "gbp"), true);
   });
 
   it("uses a deterministic idempotency key for the first checkout of a booking", () => {
     assert.equal(
-      stripeCheckoutIdempotencyKey({ bookingId: "booking-1", amountMinor: 1500 }),
-      "booking_checkout_booking-1_1500"
+      stripeCheckoutIdempotencyKey({
+        bookingId: "booking-1",
+        amountMinor: 1683,
+        currency: "gbp",
+      }),
+      "booking_checkout_booking-1_gbp_1683"
     );
   });
 });

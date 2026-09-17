@@ -9,11 +9,22 @@ export const GHANA_FALLBACK_CENTER: PickupCoordinates = {
   lng: -0.207,
 };
 
+export function nonemptyString(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
 export function parsePickupCoordinates(value: unknown): PickupCoordinates | null {
   if (!value || typeof value !== 'object') return null;
-  const record = value as { lat?: unknown; lng?: unknown };
-  const lat = typeof record.lat === 'number' ? record.lat : Number(record.lat);
-  const lng = typeof record.lng === 'number' ? record.lng : Number(record.lng);
+  const record = value as {
+    lat?: unknown;
+    lng?: unknown;
+    latitude?: unknown;
+    longitude?: unknown;
+  };
+  const lat = Number(record.lat ?? record.latitude);
+  const lng = Number(record.lng ?? record.longitude);
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
   if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
   return { lat, lng };

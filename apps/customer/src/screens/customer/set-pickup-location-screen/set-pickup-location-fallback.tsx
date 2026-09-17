@@ -112,7 +112,7 @@ export function SetPickupLocationFallbackScreen({ navigation, route }: Props) {
       }
       try {
         await persistPickupLocationToProfile(user.id, address, location);
-        await refreshUserProfile();
+        await refreshUserProfile({ fromServer: true });
         navigation.goBack();
       } catch (err) {
         console.error('[pickup] persist address failed', err);

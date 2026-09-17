@@ -17,7 +17,7 @@ export interface SubscriptionDocument {
   id: string;
   userId: string;
 
-  paymentMethod: "momo";
+  paymentMethod: "momo" | "card";
 
   collectionFrequency: CollectionFrequency;
   /** Day of week for collection, e.g. "Tuesday" */

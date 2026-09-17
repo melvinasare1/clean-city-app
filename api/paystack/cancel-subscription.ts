@@ -88,6 +88,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
+    const stripeSubscriptionId =
+      typeof (subscription as Record<string, unknown>).stripeSubscriptionId === "string"
+        ? String((subscription as Record<string, unknown>).stripeSubscriptionId)
+        : "";
+    if (stripeSubscriptionId && process.env.STRIPE_SECRET_KEY) {
+      try {
+        const { cancelStripeSubscription } = await import("../lib/stripe-api");
+        await cancelStripeSubscription(stripeSubscriptionId);
+      } catch (err: any) {
+        const message = String(err?.message || "");
+        if (!/already canceled|canceled/i.test(message)) {
+          console.error("[Cancel subscription] Stripe cancel failed:", message);
+          return res.status(500).json({
+            ok: false,
+            error: "Failed to cancel Stripe subscription",
+            details: message,
+          });
+        }
+      }
+    }
+
     await admin
       .firestore()
       .collection(SUBSCRIPTIONS_COLLECTION)

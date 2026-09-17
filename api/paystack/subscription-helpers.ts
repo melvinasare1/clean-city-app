@@ -378,6 +378,8 @@ export async function createJobsForSubscription(
     addressSnapshot: JobAddressSnapshot;
     windowId: string;
     windowLabel: string;
+    paymentMethod?: "momo" | "card";
+    paymentReference?: string;
     Timestamp: typeof import("firebase-admin").firestore.Timestamp;
   }
 ): Promise<void> {
@@ -392,6 +394,8 @@ export async function createJobsForSubscription(
     addressSnapshot,
     windowId,
     windowLabel,
+    paymentMethod = "momo",
+    paymentReference,
     Timestamp,
   } = params;
   const scheduledDates = getJobScheduledDates(billingPeriodStart, collectionFrequency);
@@ -425,7 +429,8 @@ export async function createJobsForSubscription(
       ...(pickup ? { pickup } : {}),
       windowId: windowId ?? "",
       windowLabel: windowLabel ?? "",
-      paymentMethod: "momo",
+      paymentMethod,
+      ...(paymentReference ? { paymentReference } : {}),
       ...(collectionFrequency ? { collectionFrequency } : {}),
       ...(collectionDay != null && collectionDay !== "" ? { collectionDay } : {}),
       createdAt: nowTs,

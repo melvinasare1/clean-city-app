@@ -91,6 +91,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const paid = shouldFulfillStripeCheckout({
       eventName: "checkout.session.completed",
       paymentStatus: session.payment_status,
+      mode: session.mode,
     });
     const bookingId = evidenceBookingId || clientBookingId;
 

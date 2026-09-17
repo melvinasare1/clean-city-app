@@ -57,10 +57,7 @@ export const CustomerHomeScreen: React.FC<CustomerHomeScreenProps> = ({
     };
   }, [user?.id, subscribeToUserBookings]);
 
-  const profileComplete = useMemo(
-    () => user?.profileComplete ?? isProfileComplete(user ?? {}),
-    [user]
-  );
+  const profileComplete = isProfileComplete(user ?? {});
 
   const completedSteps = useMemo(
     () =>

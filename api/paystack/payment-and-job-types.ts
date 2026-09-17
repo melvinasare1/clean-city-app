@@ -21,7 +21,19 @@ export interface PaymentDocument {
   type: PaymentType;
 
   amount: number;
-  currency: "GHS";
+  currency: string;
+
+  sourceAmountGhs?: number;
+  sourceCurrency?: "GHS";
+  stripeCurrency?: string;
+  exchangeRate?: number;
+  fxProvider?: string;
+  fxTimestamp?: string;
+  convertedAmount?: number;
+  stripeSurchargePercent?: number;
+  stripeSurchargeAmount?: number;
+  finalStripeAmount?: number;
+  stripeAmountMinor?: number;
 
   reference: string;
 
@@ -33,6 +45,10 @@ export interface PaymentDocument {
   stripeStatus?: string;
   stripeCheckoutSessionId?: string;
   stripePaymentIntentId?: string;
+  stripeCustomerId?: string;
+  stripeSubscriptionId?: string;
+  stripePriceId?: string;
+  stripeInvoiceId?: string;
 
   jobId?: string;
   source?: "paystack" | "stripe" | "admin" | "free";

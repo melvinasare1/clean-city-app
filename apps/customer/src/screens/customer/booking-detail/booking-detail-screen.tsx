@@ -23,7 +23,7 @@ import {
 import { pickupAddressText } from "@/lib/profile-location";
 import { colors } from "@platform/shared-theme";
 import { initiatePaymentForBooking, verifyBookingPayment } from "@/services/booking-service";
-import { getSubscriptionPaymentUrl, verifySubscriptionPayment } from "@/services/payments";
+import { createStripeSubscription, getSubscriptionPaymentUrl, verifySubscriptionPayment } from "@/services/payments";
 import { useBookings } from "@/contexts/bookings-context";
 import { useSubscriptions } from "@/contexts/subscriptions-context";
 import type { Subscription } from "@/types/subscription";
@@ -38,6 +38,7 @@ import { styles } from "./booking-detail-screen.styles";
 import {
   formatDetailCollectionDate,
   formatGhsAmount,
+  formatStripeCharge,
   getLinkedBookingForSubscription,
   getNextPickupIsoForBooking,
   getNextPickupIsoForSubscription,
@@ -168,10 +169,22 @@ export const BookingDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     try {
       setProcessingPayment(true);
       if (kind === "subscription" && subscription) {
-        const { authorizationUrl } = await getSubscriptionPaymentUrl({
-          subscriptionId: subscription.id,
-          reference: getSubscriptionPaystackReference(subscription),
-        });
+        const useStripe =
+          subscription.paymentMethod === "card" || subscription.source === "stripe";
+        const { authorizationUrl } = useStripe
+          ? await createStripeSubscription({
+              subscriptionId: subscription.id,
+              userId: user.id,
+              email: user.email ?? "",
+              amount: Number(subscription.amount || 0),
+              bookingId: String(subscription.bookingId || ""),
+              collectionFrequency: subscription.collectionFrequency || "monthly",
+              collectionDay: String(subscription.collectionDay || ""),
+            })
+          : await getSubscriptionPaymentUrl({
+              subscriptionId: subscription.id,
+              reference: getSubscriptionPaystackReference(subscription),
+            });
         await Linking.openURL(authorizationUrl);
         Alert.alert(
           "Complete payment",
@@ -419,18 +432,45 @@ export const BookingDetailScreen: React.FC<Props> = ({ navigation, route }) => {
               <AppText style={styles.paymentLineLabel}>Payment method</AppText>
               <AppText style={styles.paymentLineValue}>
                 {booking?.payment?.source === "stripe"
-                  ? "Card / Stripe"
+                  ? "Card"
                   : booking?.payment?.source === "admin"
                     ? "Admin"
                     : booking?.payment?.source === "free"
                       ? "Free"
-                      : "Mobile Money / Paystack"}
+                      : subscription?.paymentMethod === "card" ||
+                          subscription?.source === "stripe"
+                        ? "Card"
+                        : "Mobile Money"}
               </AppText>
             </View>
             {amountValue ? (
               <View style={styles.paymentLine}>
                 <AppText style={styles.paymentLineLabel}>Amount</AppText>
                 <AppText style={styles.paymentLineValue}>{amountValue}</AppText>
+              </View>
+            ) : null}
+            {booking?.payment?.source === "stripe" &&
+            booking.payment.finalStripeAmount != null &&
+            booking.payment.stripeCurrency ? (
+              <View style={styles.paymentLine}>
+                <AppText style={styles.paymentLineLabel}>Card charge</AppText>
+                <AppText style={styles.paymentLineValue}>
+                  {formatStripeCharge(
+                    booking.payment.finalStripeAmount,
+                    booking.payment.stripeCurrency
+                  )}
+                </AppText>
+              </View>
+            ) : null}
+            {subscription?.finalStripeAmount != null && subscription.stripeCurrency ? (
+              <View style={styles.paymentLine}>
+                <AppText style={styles.paymentLineLabel}>Card charge</AppText>
+                <AppText style={styles.paymentLineValue}>
+                  {formatStripeCharge(
+                    subscription.finalStripeAmount,
+                    subscription.stripeCurrency
+                  )}
+                </AppText>
               </View>
             ) : null}
           </View>

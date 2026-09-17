@@ -362,6 +362,52 @@ export const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.textSecondary,
   },
+  stripeQuoteBox: {
+    marginTop: VARS.small,
+    marginBottom: VARS.small,
+    backgroundColor: COLORS.white,
+    borderRadius: CARD_RADIUS,
+    borderWidth: 1,
+    borderColor: BORDER,
+    padding: VARS.xsmall,
+  },
+  currencyRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 8,
+  },
+  currencyChip: {
+    borderWidth: 1,
+    borderColor: BORDER,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: COLORS.background,
+  },
+  currencyChipSelected: {
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primary,
+  },
+  currencyChipText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  currencyChipTextSelected: {
+    color: COLORS.white,
+  },
+  stripeQuoteLine: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    marginBottom: 4,
+  },
+  stripeQuoteAmount: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: 4,
+  },
   noItemsNotice: {
     backgroundColor: COLORS.amberLight,
     borderRadius: VARS.xsmall,

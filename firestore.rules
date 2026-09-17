@@ -81,10 +81,13 @@ service cloud.firestore {
       allow read: if isOwner(userId);
       allow create: if isOwner(userId)
         && request.resource.data.role == 'customer';
+      // Resulting role must stay customer. Allow filling in a missing role so
+      // older profiles can save name/phone/address. Privilege fields stay locked.
       allow update: if isOwner(userId)
         && request.resource.data.role == 'customer'
+        && (!('role' in resource.data) || resource.data.role == 'customer')
         && !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['role', 'isApproved', 'status', 'staffRole', 'permissions']);
+          .hasAny(['isApproved', 'status', 'staffRole', 'permissions']);
       allow delete: if false;
     }
 

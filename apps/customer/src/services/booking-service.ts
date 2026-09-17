@@ -23,6 +23,7 @@ import { BOOKINGS_COLLECTION } from "@/lib/constants";
 import { setDocAtPath, PROFILES_COLLECTION } from "@/lib/utils";
 import { rewardReferralIfEligible } from "@/services/referralService";
 import { initializePayment, initializeStripeCheckout, verifyPayment, verifyBookingPaymentWithBackend, verifyStripeBookingPayment } from "@/services/payments";
+import { isStripeCardAvailable, STRIPE_CARD_THRESHOLD_MESSAGE } from "@/lib/stripe-threshold";
 
 type CreateBookingParams = {
   userId: string;
@@ -168,7 +169,8 @@ export const getBookingById = async (bookingId: string): Promise<Booking | null>
  */
 export const initiatePaymentForBooking = async (
   bookingId: string,
-  provider: "paystack" | "stripe" = "paystack"
+  provider: "paystack" | "stripe" = "paystack",
+  stripeCurrency?: string
 ): Promise<{ authorizationUrl: string; reference: string }> => {
   console.log("=".repeat(60));
   console.log("[Payment Init] 🚀 Starting payment initialization");
@@ -191,6 +193,10 @@ export const initiatePaymentForBooking = async (
     throw new Error("Booking is already paid ✅");
   }
 
+  if (provider === "stripe" && !isStripeCardAvailable(booking.totalPrice)) {
+    throw new Error(STRIPE_CARD_THRESHOLD_MESSAGE);
+  }
+
   // Call backend to initialize Paystack payment (simplified: only bookingId)
   const bookingIdStr =
     bookingId != null && bookingId !== "" ? String(bookingId).trim() : "";
@@ -203,7 +209,10 @@ export const initiatePaymentForBooking = async (
   try {
     paymentInit =
       provider === "stripe"
-        ? await initializeStripeCheckout({ bookingId: bookingIdStr })
+        ? await initializeStripeCheckout({
+            bookingId: bookingIdStr,
+            ...(stripeCurrency ? { stripeCurrency } : {}),
+          })
         : await initializePayment({
             paymentType: "one_time",
             bookingId: bookingIdStr,

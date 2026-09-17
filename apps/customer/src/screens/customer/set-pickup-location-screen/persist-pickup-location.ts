@@ -9,6 +9,7 @@ export async function persistPickupLocationToProfile(
   await setDocAtPath(
     ['profiles', userId],
     {
+      role: 'customer',
       address,
       location: { lat: location.lat, lng: location.lng },
     },

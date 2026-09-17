@@ -102,6 +102,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     for (const doc of activeSnap.docs) {
       const sub = { id: doc.id, ...doc.data() } as SubscriptionDocument;
+      if (
+        sub.paymentMethod === "card" ||
+        (sub as Record<string, unknown>).source === "stripe" ||
+        (sub as Record<string, unknown>).stripeSubscriptionId
+      ) {
+        continue;
+      }
       const nextBilling = toDate(sub.nextBillingDate);
       if (!isBillingDayToday(nextBilling, today)) continue;
 

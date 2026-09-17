@@ -9,6 +9,7 @@ import { Platform } from 'react-native';
 import {
     doc,
     getDoc,
+    getDocFromServer,
 } from 'firebase/firestore';
 import {
     signInWithEmailAndPassword,
@@ -30,6 +31,7 @@ import { createReferralIfValid } from '@/services/referralService';
 import { registerDriverAccount } from '@/services/driver-api';
 import { isProfileComplete, toMillis } from '@/lib/referral-utils';
 import {
+    nonemptyString,
     parsePickupCoordinates,
     resolveProfileAddress,
     type PickupCoordinates,
@@ -71,6 +73,8 @@ export interface AppUser {
     };
     /** Set when role === 'driver' */
     driverStatus?: DriverAccountStatus;
+    /** Card checkout presentation currency: USD, GBP, EUR, or CAD */
+    preferredStripeCurrency?: string;
 }
 
 interface AuthContextProps {
@@ -91,7 +95,8 @@ interface AuthContextProps {
         driverDetails?: DriverSignupDetails
     ) => Promise<void>;
     logout: () => Promise<void>;
-    refreshUserProfile: () => Promise<void>;
+    refreshUserProfile: (options?: { fromServer?: boolean }) => Promise<void>;
+    mergeLocalProfile: (patch: Partial<AppUser>) => void;
 }
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
@@ -138,6 +143,8 @@ type ProfileData = {
     referralCode?: string;
     bookingRemindersEnabled?: boolean;
     promotionsEnabled?: boolean;
+    preferredStripeCurrency?: string;
+    country?: string;
 };
 
 const mapProfile = (firebaseUser: FirebaseUser | null, data?: ProfileData): AppUser => {
@@ -149,8 +156,8 @@ const mapProfile = (firebaseUser: FirebaseUser | null, data?: ProfileData): AppU
         };
     }
 
-    const name = data?.name ?? undefined;
-    const phone = data?.phone ?? undefined;
+    const name = nonemptyString(data?.name);
+    const phone = nonemptyString(data?.phone);
     const address = resolveProfileAddress(data ?? {});
     const location = parsePickupCoordinates(data?.location) ?? undefined;
     const signupMs =
@@ -173,9 +180,9 @@ const mapProfile = (firebaseUser: FirebaseUser | null, data?: ProfileData): AppU
         referralCodeApplied: data?.referralCodeApplied === true,
         firstBookingAt: firstBookingMs ? new Date(firstBookingMs).toISOString() : null,
         profileComplete: isProfileComplete({
-            name: name || undefined,
-            phone: phone || undefined,
-            address: address || undefined,
+            name,
+            phone,
+            address,
         }),
         referralCode:
             typeof data?.referralCode === 'string'
@@ -183,6 +190,10 @@ const mapProfile = (firebaseUser: FirebaseUser | null, data?: ProfileData): AppU
                 : `CC-${firebaseUser.uid.slice(0, 6).toUpperCase()}`,
         bookingRemindersEnabled: data?.bookingRemindersEnabled !== false,
         promotionsEnabled: data?.promotionsEnabled === true,
+        preferredStripeCurrency:
+            typeof data?.preferredStripeCurrency === 'string'
+                ? data.preferredStripeCurrency
+                : undefined,
     };
 };
 
@@ -244,7 +255,10 @@ const createProfileIfMissing = async (firebaseUser: FirebaseUser): Promise<void>
     );
 };
 
-const fetchUserProfile = async (firebaseUser: FirebaseUser | null): Promise<AppUser> => {
+const fetchUserProfile = async (
+    firebaseUser: FirebaseUser | null,
+    options?: { fromServer?: boolean }
+): Promise<AppUser> => {
     if (!firebaseUser) {
         return {
             id: '',
@@ -286,7 +300,9 @@ const fetchUserProfile = async (firebaseUser: FirebaseUser | null): Promise<AppU
     await createProfileIfMissing(firebaseUser);
 
     const docRef = doc(db, 'profiles', firebaseUser.uid);
-    const snap = await getDoc(docRef);
+    const snap = options?.fromServer
+        ? await getDocFromServer(docRef).catch(() => getDoc(docRef))
+        : await getDoc(docRef);
 
     if (!snap.exists()) {
         return mapProfile(firebaseUser);
@@ -391,16 +407,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return () => unsubscribe();
     }, [applyAuthenticatedUser]);
 
-    const refreshUserProfile = useCallback(async () => {
-        if (currentFirebaseUser) {
-            try {
-                const profile = await fetchUserProfile(currentFirebaseUser);
-                setUser(profile);
-            } catch (err) {
-                console.error('Error refreshing user profile:', err);
-            }
+    const refreshUserProfile = useCallback(async (options?: { fromServer?: boolean }) => {
+        const firebaseUser = auth.currentUser ?? currentFirebaseUser;
+        if (!firebaseUser) return;
+        try {
+            const profile = await fetchUserProfile(firebaseUser, options);
+            setUser(profile);
+        } catch (err) {
+            console.error('Error refreshing user profile:', err);
         }
     }, [currentFirebaseUser]);
+
+    const mergeLocalProfile = useCallback((patch: Partial<AppUser>) => {
+        setUser((prev) => {
+            if (!prev) return prev;
+            const next = { ...prev, ...patch };
+            return {
+                ...next,
+                profileComplete: isProfileComplete({
+                    name: next.name,
+                    phone: next.phone,
+                    address: next.address,
+                }),
+            };
+        });
+    }, []);
 
     const login = async (email: string, password: string) => {
         await signInWithEmailAndPassword(auth, email, password);
@@ -544,7 +575,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return (
         <AuthContext.Provider
-            value={{ user, loading, login, loginWithCredential, signup, resetPassword, logout, refreshUserProfile }}
+            value={{ user, loading, login, loginWithCredential, signup, resetPassword, logout, refreshUserProfile, mergeLocalProfile }}
         >
             {children}
         </AuthContext.Provider>

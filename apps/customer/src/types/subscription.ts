@@ -36,6 +36,12 @@ export type Subscription = {
   amount?: number;
   /** Firestore/API: pickup cadence */
   collectionFrequency?: SubscriptionCollectionFrequency;
+  paymentMethod?: "momo" | "card";
+  source?: "paystack" | "stripe";
+  stripeCurrency?: string;
+  finalStripeAmount?: number;
+  stripeSurchargePercent?: number;
+  sourceAmountGhs?: number;
   /** Firestore/API: weekday key e.g. "monday" */
   collectionDay?: string;
   /** ISO YYYY-MM-DD first collection (API) */

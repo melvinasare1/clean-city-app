@@ -71,6 +71,17 @@ export type BookingPayment = {
   fulfillmentStatus?: "pending" | "fulfilled" | "failed";
   stripeCheckoutSessionId?: string;
   stripePaymentIntentId?: string;
+  sourceAmountGhs?: number;
+  sourceCurrency?: "GHS";
+  stripeCurrency?: string;
+  exchangeRate?: number;
+  fxProvider?: string;
+  fxTimestamp?: string;
+  convertedAmount?: number;
+  stripeSurchargePercent?: number;
+  stripeSurchargeAmount?: number;
+  finalStripeAmount?: number;
+  stripeAmountMinor?: number;
 };
 
 export type BookingBinItem = {

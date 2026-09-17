@@ -210,6 +210,20 @@ export function formatGhsAmount(value: number): string {
   return `GHS ${value.toFixed(2)}`;
 }
 
+export function formatStripeCharge(amount: number, currency: string): string {
+  const code = String(currency || "").toUpperCase();
+  try {
+    return new Intl.NumberFormat("en-GB", {
+      style: "currency",
+      currency: code,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    return `${code} ${amount.toFixed(2)}`;
+  }
+}
+
 function startOfDayLocal(d: Date): Date {
   const x = new Date(d);
   x.setHours(0, 0, 0, 0);

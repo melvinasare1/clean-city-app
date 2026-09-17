@@ -33,6 +33,7 @@ export type {
 export async function initializeStripeCheckout(body: {
   bookingId: string;
   amount?: number;
+  stripeCurrency?: string;
 }): Promise<InitializePaymentResponse> {
   const API_BASE_URL = getApiBaseUrl();
   const url = `${API_BASE_URL}/api/stripe/initialize`;
@@ -51,7 +52,14 @@ export async function initializeStripeCheckout(body: {
     throw new Error(`Stripe init returned non-JSON: ${text.slice(0, 120)}`);
   }
   if (!response.ok || json?.ok === false) {
-    throw new Error(json?.error || `Stripe init failed (status ${response.status})`);
+    const stripe = json?.stripe;
+    const parts = [
+      json?.error || `Stripe init failed (status ${response.status})`,
+      stripe?.code ? `code=${stripe.code}` : "",
+      stripe?.type ? `type=${stripe.type}` : "",
+      stripe?.request_id ? `request_id=${stripe.request_id}` : "",
+    ].filter(Boolean);
+    throw new Error(parts.join(" | "));
   }
   if (!json.authorizationUrl || !json.reference) {
     throw new Error("Stripe did not return a checkout URL");
@@ -60,6 +68,69 @@ export async function initializeStripeCheckout(body: {
     ok: true,
     authorizationUrl: json.authorizationUrl,
     reference: json.reference,
+    subscriptionId: json.subscriptionId,
+  };
+}
+
+export type StripeQuote = {
+  ok: boolean;
+  stripeAvailable?: boolean;
+  sourceAmountGhs: number;
+  sourceCurrency: "GHS";
+  stripeCurrency: string;
+  exchangeRate: number;
+  convertedAmount: number;
+  stripeSurchargePercent: number;
+  stripeSurchargeAmount: number;
+  finalStripeAmount: number;
+  stripeAmountMinor: number;
+  fxProvider?: string;
+  fxTimestamp?: string;
+};
+
+export async function quoteStripePayment(input: {
+  amountGhs: number;
+  currency: string;
+}): Promise<StripeQuote> {
+  const API_BASE_URL = getApiBaseUrl();
+  const params = new URLSearchParams({
+    amountGhs: String(input.amountGhs),
+    currency: input.currency,
+  });
+  const response = await fetch(`${API_BASE_URL}/api/stripe/quote?${params.toString()}`);
+  const json = await response.json().catch(() => ({}));
+  if (!response.ok || json?.ok === false) {
+    throw new Error(json?.error || "Could not quote card payment amount");
+  }
+  return json as StripeQuote;
+}
+
+export async function createStripeSubscription(
+  body: CreateSubscriptionRequest & { stripeCurrency?: string; subscriptionId?: string }
+): Promise<CreateSubscriptionResponse> {
+  const API_BASE_URL = getApiBaseUrl();
+  const response = await fetch(`${API_BASE_URL}/api/stripe/subscribe`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const text = await response.text();
+  let json: any;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    throw new Error(`Stripe subscribe returned non-JSON: ${text.slice(0, 120)}`);
+  }
+  if (!response.ok || json?.ok === false) {
+    throw new Error(json?.error || "Failed to start Stripe subscription");
+  }
+  if (!json.authorizationUrl || !json.reference) {
+    throw new Error("Stripe did not return a subscription checkout URL");
+  }
+  return {
+    authorizationUrl: json.authorizationUrl,
+    reference: json.reference,
+    subscriptionId: json.subscriptionId,
   };
 }
 

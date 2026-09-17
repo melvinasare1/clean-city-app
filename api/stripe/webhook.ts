@@ -1,8 +1,13 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { FieldValue, getFirestore } from "../lib/firebase-admin";
+import { admin, FieldValue, getFirestore } from "../lib/firebase-admin";
 import { fulfillPaidOneTimeBooking } from "../lib/payment-fulfillment";
 import { webhookHttpStatus } from "../lib/payment-integrity";
 import { liveStripeApi } from "../lib/stripe-api";
+import {
+  applyStripePaidSubscriptionPeriod,
+  markStripeSubscriptionCancelled,
+  markStripeSubscriptionFailed,
+} from "../lib/stripe-subscription-fulfillment";
 import { processStripeWebhookEvent } from "../lib/stripe-webhook-process";
 import {
   isValidStripeSignature,
@@ -73,6 +78,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       firestore: getFirestore(),
       fulfill: fulfillPaidOneTimeBooking,
       serverTimestamp: () => FieldValue.serverTimestamp(),
+      applyPaidSubscriptionPeriod: (params) =>
+        applyStripePaidSubscriptionPeriod({
+          ...params,
+          Timestamp: admin.firestore.Timestamp,
+        }),
+      markSubscriptionFailed: markStripeSubscriptionFailed,
+      markSubscriptionCancelled: markStripeSubscriptionCancelled,
     });
     const status = webhookHttpStatus(result);
     if (!result.ok) {

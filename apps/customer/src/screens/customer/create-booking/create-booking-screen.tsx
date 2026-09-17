@@ -17,13 +17,21 @@ import { TIME_WINDOWS, TimeWindowId } from '@/lib/time-windows';
 import type { BookingBinItem, BookingType } from '@platform/shared-types';
 import { serverTimestamp } from 'firebase/firestore';
 import { createBooking, initiatePaymentForBooking, updateBooking } from '@/services/booking-service';
-import { createSubscription, confirmFreeBooking } from '@/services/payments';
+import { createSubscription, createStripeSubscription, confirmFreeBooking, quoteStripePayment, type StripeQuote } from '@/services/payments';
 import { mergeSubscriptionPaymentReference, saveSubscriptionRecord } from '@/services/subscription-service';
 import * as Linking from 'expo-linking';
 import { CustomerStackParamList } from '@/navigation/types';
 import { styles } from './create-booking-screen.styles';
 import { trackEvent } from '@/services/analytics';
 import { pickupAddressText } from '@/lib/profile-location';
+import { isStripeCardAvailable, STRIPE_CARD_MIN_AMOUNT_MAJOR } from '@/lib/stripe-threshold';
+import {
+  DEFAULT_STRIPE_CURRENCY,
+  STRIPE_CHARGE_CURRENCIES,
+  formatStripeMoney,
+  normalizeStripeChargeCurrency,
+  type StripeChargeCurrency,
+} from '@/lib/stripe-currency';
 import { SubscriptionCollectionCalendarModal } from './subscription-collection-calendar-modal';
 import {
   getSubscriptionDiscount,
@@ -173,6 +181,12 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
   const [paymentProvider, setPaymentProvider] = useState<'paystack' | 'stripe'>(
     'paystack'
   );
+  const [stripeCurrency, setStripeCurrency] = useState<StripeChargeCurrency>(
+    DEFAULT_STRIPE_CURRENCY
+  );
+  const [stripeQuote, setStripeQuote] = useState<StripeQuote | null>(null);
+  const [stripeQuoteError, setStripeQuoteError] = useState<string | null>(null);
+  const [stripeQuoteLoading, setStripeQuoteLoading] = useState(false);
   const [intervalWeeks, setIntervalWeeks] = useState<number>(1);
   const collectionFrequency: 'weekly' | 'biweekly' | 'monthly' =
     intervalWeeks === 1 ? 'weekly' : intervalWeeks === 2 ? 'biweekly' : 'monthly';
@@ -217,6 +231,12 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
   }, [selectedWindowId]);
 
   const displayTotal = isSubscription ? discountedTotal : totalPrice;
+  const stripeAvailable = isSubscription
+    ? displayTotal > 0
+    : isStripeCardAvailable(displayTotal);
+
+  const stripeQuoteReady =
+    paymentProvider !== 'stripe' || (!stripeQuoteLoading && !!stripeQuote);
 
   const canContinue = isSubscription
     ? !!user &&
@@ -224,21 +244,61 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
       hasItems &&
       !!selectedDate &&
       discountedTotal > 0 &&
-      !isSaving
+      !isSaving &&
+      stripeQuoteReady
     : !!user &&
       !!selectedDate &&
       !!selectedWindowId &&
       !!address &&
       hasItems &&
-      !isSaving;
+      !isSaving &&
+      stripeQuoteReady;
 
   useEffect(() => {
     trackEvent('checkout_viewed', { screen: 'checkout' });
   }, []);
 
   useEffect(() => {
-    if (isSubscription) setPaymentProvider('paystack');
-  }, [isSubscription]);
+    if (!stripeAvailable && paymentProvider === 'stripe') {
+      setPaymentProvider('paystack');
+    }
+  }, [stripeAvailable, paymentProvider]);
+
+  useEffect(() => {
+    const preferred = normalizeStripeChargeCurrency(user?.preferredStripeCurrency);
+    setStripeCurrency(preferred);
+  }, [user?.preferredStripeCurrency]);
+
+  useEffect(() => {
+    if (!stripeAvailable || paymentProvider !== 'stripe' || displayTotal <= 0) {
+      setStripeQuote(null);
+      setStripeQuoteError(null);
+      return;
+    }
+    let cancelled = false;
+    setStripeQuoteLoading(true);
+    quoteStripePayment({ amountGhs: displayTotal, currency: stripeCurrency })
+      .then((quote) => {
+        if (!cancelled) {
+          setStripeQuote(quote);
+          setStripeQuoteError(null);
+        }
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setStripeQuote(null);
+          setStripeQuoteError(
+            err instanceof Error ? err.message : 'Could not quote card amount'
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setStripeQuoteLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [stripeAvailable, paymentProvider, displayTotal, stripeCurrency]);
 
   const handleHelp = () => {
     navigation.navigate('CustomerTabs', { screen: 'CustomerHelp' });
@@ -307,28 +367,53 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
       let reference: string;
       let subscriptionId: string | undefined;
       try {
-        const result = await createSubscription({
-          userId: user.id,
-          email: user.email ?? '',
-          amount: discountedTotal,
-          bookingId,
-          collectionFrequency,
-          collectionDay: collectionDayKey.toLowerCase(),
-          startDate: startDateIso,
-          items: items.map((i) => ({
-            type: i.type,
-            quantity: i.quantity ?? 1,
-            unitPrice: i.unitPrice,
-            totalPrice: i.totalPrice,
-          })),
-          location: address,
-          metadata: {
-            binType: items.map((i) => i.type).join(', '),
-            quantity: items.reduce((acc, i) => acc + (i.quantity ?? 1), 0),
-            location: address,
-            startDate: startDateIso,
-          },
-        });
+        const result =
+          paymentProvider === 'stripe'
+            ? await createStripeSubscription({
+                userId: user.id,
+                email: user.email ?? '',
+                amount: discountedTotal,
+                bookingId,
+                collectionFrequency,
+                collectionDay: collectionDayKey.toLowerCase(),
+                startDate: startDateIso,
+                stripeCurrency,
+                items: items.map((i) => ({
+                  type: i.type,
+                  quantity: i.quantity ?? 1,
+                  unitPrice: i.unitPrice,
+                  totalPrice: i.totalPrice,
+                })),
+                location: address,
+                metadata: {
+                  binType: items.map((i) => i.type).join(', '),
+                  quantity: items.reduce((acc, i) => acc + (i.quantity ?? 1), 0),
+                  location: address,
+                  startDate: startDateIso,
+                },
+              })
+            : await createSubscription({
+                userId: user.id,
+                email: user.email ?? '',
+                amount: discountedTotal,
+                bookingId,
+                collectionFrequency,
+                collectionDay: collectionDayKey.toLowerCase(),
+                startDate: startDateIso,
+                items: items.map((i) => ({
+                  type: i.type,
+                  quantity: i.quantity ?? 1,
+                  unitPrice: i.unitPrice,
+                  totalPrice: i.totalPrice,
+                })),
+                location: address,
+                metadata: {
+                  binType: items.map((i) => i.type).join(', '),
+                  quantity: items.reduce((acc, i) => acc + (i.quantity ?? 1), 0),
+                  location: address,
+                  startDate: startDateIso,
+                },
+              });
         authorizationUrl = result.authorizationUrl;
         reference = result.reference;
         subscriptionId = result.subscriptionId;
@@ -387,7 +472,7 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
         screen: 'checkout',
         amount: Number(discountedTotal),
         currency: 'GHS',
-        provider: 'paystack',
+        provider: paymentProvider === 'stripe' ? 'stripe' : 'paystack',
         type: 'subscription',
       });
       await Linking.openURL(authorizationUrl);
@@ -483,7 +568,8 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
 
       const { authorizationUrl } = await initiatePaymentForBooking(
         bookingId,
-        paymentProvider
+        paymentProvider,
+        paymentProvider === 'stripe' ? stripeCurrency : undefined
       );
 
       await trackEvent('payment_started', {
@@ -826,7 +912,7 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
               onPress={() => setPaymentProvider('paystack')}
               accessibilityRole="radio"
               accessibilityState={{ selected: paymentProvider === 'paystack' }}
-              accessibilityLabel="Mobile Money / Paystack"
+              accessibilityLabel="Mobile Money"
             >
               <View style={styles.paymentCardHeader}>
                 <View style={styles.paymentIconWrap}>
@@ -843,18 +929,18 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
                   ) : null}
                 </View>
               </View>
-              <AppText style={styles.paymentTitle}>Mobile Money / Paystack</AppText>
+              <AppText style={styles.paymentTitle}>Mobile Money</AppText>
               <AppText style={styles.paymentSubtitle}>
                 Pay with MTN, Telecel or AirtelTigo.
               </AppText>
             </TouchableOpacity>
 
-            {isSubscription ? (
+            {!stripeAvailable ? (
               <View
                 style={[styles.paymentCard, styles.paymentCardDisabled]}
                 accessibilityRole="radio"
                 accessibilityState={{ disabled: true }}
-                accessibilityLabel="Card / Stripe, not available for subscriptions"
+                accessibilityLabel={`Card, available for bookings above GHS ${STRIPE_CARD_MIN_AMOUNT_MAJOR}`}
               >
                 <View style={styles.paymentCardHeader}>
                   <View style={styles.paymentIconWrap}>
@@ -866,12 +952,14 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
                   </View>
                   <View style={styles.paymentRadio} />
                 </View>
-                <AppText style={styles.paymentTitle}>Card / Stripe</AppText>
+                <AppText style={styles.paymentTitle}>Card</AppText>
                 <AppText style={styles.paymentSubtitle}>
                   Visa, Mastercard or other cards
                 </AppText>
                 <View style={styles.comingSoon}>
-                  <AppText style={styles.comingSoonText}>Subscriptions soon</AppText>
+                  <AppText style={styles.comingSoonText}>
+                    {`Available above ¢${STRIPE_CARD_MIN_AMOUNT_MAJOR}`}
+                  </AppText>
                 </View>
               </View>
             ) : (
@@ -883,7 +971,7 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
                 onPress={() => setPaymentProvider('stripe')}
                 accessibilityRole="radio"
                 accessibilityState={{ selected: paymentProvider === 'stripe' }}
-                accessibilityLabel="Card / Stripe"
+                accessibilityLabel="Card"
               >
                 <View style={styles.paymentCardHeader}>
                   <View style={styles.paymentIconWrap}>
@@ -900,20 +988,80 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
                     ) : null}
                   </View>
                 </View>
-                <AppText style={styles.paymentTitle}>Card / Stripe</AppText>
+                <AppText style={styles.paymentTitle}>Card</AppText>
                 <AppText style={styles.paymentSubtitle}>
                   Visa, Mastercard or other cards
                 </AppText>
               </TouchableOpacity>
             )}
           </View>
+          {paymentProvider === 'stripe' && stripeAvailable ? (
+            <View style={styles.stripeQuoteBox}>
+              <AppText style={styles.sectionLabel}>Card currency</AppText>
+              <View style={styles.currencyRow}>
+                {STRIPE_CHARGE_CURRENCIES.map((code) => (
+                  <TouchableOpacity
+                    key={code}
+                    style={[
+                      styles.currencyChip,
+                      stripeCurrency === code && styles.currencyChipSelected,
+                    ]}
+                    onPress={() => setStripeCurrency(code)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: stripeCurrency === code }}
+                    accessibilityLabel={code}
+                  >
+                    <AppText
+                      style={[
+                        styles.currencyChipText,
+                        stripeCurrency === code && styles.currencyChipTextSelected,
+                      ]}
+                    >
+                      {code}
+                    </AppText>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <AppText style={styles.stripeQuoteLine}>
+                Booking: GHS {displayTotal.toFixed(2)}
+              </AppText>
+              {stripeQuoteLoading ? (
+                <ActivityIndicator color={COLORS.primary} />
+              ) : stripeQuote ? (
+                <>
+                  <AppText style={styles.stripeQuoteAmount}>
+                    Card payment: Approximately{' '}
+                    {formatStripeMoney(
+                      stripeQuote.finalStripeAmount,
+                      normalizeStripeChargeCurrency(stripeQuote.stripeCurrency)
+                    )}
+                    {isSubscription ? '/month' : ''}
+                  </AppText>
+                  <AppText style={styles.paymentSubtitle}>
+                    Includes {stripeQuote.stripeSurchargePercent}% card payment surcharge
+                  </AppText>
+                </>
+              ) : (
+                <AppText style={styles.paymentSubtitle}>
+                  {stripeQuoteError || 'Could not load card amount'}
+                </AppText>
+              )}
+            </View>
+          ) : null}
         </ResponsiveContent>
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
         <View>
           <AppText style={styles.totalLabel}>Total</AppText>
-          <AppText style={styles.totalValue}>{formatPrice(displayTotal)}</AppText>
+          <AppText style={styles.totalValue}>
+            {paymentProvider === 'stripe' && stripeQuote
+              ? formatStripeMoney(
+                  stripeQuote.finalStripeAmount,
+                  normalizeStripeChargeCurrency(stripeQuote.stripeCurrency)
+                )
+              : formatPrice(displayTotal)}
+          </AppText>
         </View>
         <TouchableOpacity
           style={[

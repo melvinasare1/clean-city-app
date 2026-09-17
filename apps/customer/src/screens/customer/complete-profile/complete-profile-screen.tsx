@@ -38,7 +38,7 @@ export const CompleteProfileScreen: React.FC<CompleteProfileScreenProps> = ({
     navigation,
     route,
 }) => {
-    const { user, refreshUserProfile } = useAuth();
+    const { user, refreshUserProfile, mergeLocalProfile } = useAuth();
     const [name, setName] = useState(user?.name ?? '');
     const [phone, setPhone] = useState(user?.phone ?? '');
     const [address, setAddress] = useState(pickupAddressText(user ?? {}));
@@ -101,7 +101,11 @@ export const CompleteProfileScreen: React.FC<CompleteProfileScreenProps> = ({
             return;
         }
 
-        if (!name || !phone || !address || !coords) {
+        const trimmedName = name.trim();
+        const trimmedPhone = phone.trim();
+        const trimmedAddress = address.trim();
+
+        if (!trimmedName || !trimmedPhone || !trimmedAddress || !coords) {
             Alert.alert(
                 'Missing info',
                 'Please add your name, contact number, and a confirmed pickup address.'
@@ -136,21 +140,29 @@ export const CompleteProfileScreen: React.FC<CompleteProfileScreenProps> = ({
             await setDocAtPath(
                 ['profiles', user.id],
                 {
-                    name,
-                    phone,
-                    address,
+                    role: 'customer',
+                    name: trimmedName,
+                    phone: trimmedPhone,
+                    address: trimmedAddress,
                     location: { lat: coords.lat, lng: coords.lng },
                 },
                 { merge: true, addTimestamps: false }
             );
-            await refreshUserProfile();
+            mergeLocalProfile({
+                name: trimmedName,
+                phone: trimmedPhone,
+                address: trimmedAddress,
+                location: { lat: coords.lat, lng: coords.lng },
+            });
+            await refreshUserProfile({ fromServer: true });
             navigation.goBack();
         } catch (err) {
             console.error('Error updating profile:', err);
-            Alert.alert(
-                'Error',
-                'Could not update your profile. Please try again later.'
-            );
+            const message =
+                err instanceof Error && /permission/i.test(err.message)
+                    ? 'You do not have permission to update this profile. Please sign in again and try.'
+                    : 'Could not update your profile. Please try again later.';
+            Alert.alert('Error', message);
         } finally {
             setIsSaving(false);
         }

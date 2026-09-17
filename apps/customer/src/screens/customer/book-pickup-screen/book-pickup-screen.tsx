@@ -58,8 +58,7 @@ export const BookPickupScreen: React.FC<BookPickupScreenProps> = ({
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { pricing, loading: pricingLoading } = usePricing();
-  const profileComplete =
-    user?.profileComplete ?? isProfileComplete(user ?? {});
+  const profileComplete = isProfileComplete(user ?? {});
 
   const [quantities, setQuantities] = useState(initialQuantities);
   const [showBinInfoSheet, setShowBinInfoSheet] = useState(false);

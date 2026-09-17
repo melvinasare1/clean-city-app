@@ -28,3 +28,5 @@ ios/
 android/
 .env*.local
 api/.test-out/
+api/paystack/payment-and-job-types.js
+api/paystack/subscription-types.js

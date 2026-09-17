@@ -1,5 +1,6 @@
 /**
  * Dynamic Expo config.
+ * - Resolves ${ENV} placeholders from app.json (Expo does not interpolate them).
  * - Disables OTA updates on development EAS builds so the dev client can load Metro.
  * - Adds iOS local-network keys so physical devices can reach the packager.
  * - Bumps expo.version patch on production EAS builds.
@@ -13,9 +14,35 @@ const appJson = require("./app.json");
 const buildProfile = process.env.EAS_BUILD_PROFILE;
 const isDevelopmentBuild = buildProfile === "development";
 
+function envValue(placeholderOrValue, envName) {
+  const fromEnv = process.env[envName];
+  if (typeof fromEnv === "string" && fromEnv.length > 0 && !fromEnv.includes("${")) {
+    return fromEnv;
+  }
+  if (
+    typeof placeholderOrValue === "string" &&
+    placeholderOrValue.length > 0 &&
+    !placeholderOrValue.includes("${")
+  ) {
+    return placeholderOrValue;
+  }
+  return "";
+}
+
 module.exports = {
   expo: {
     ...appJson.expo,
+    extra: {
+      ...appJson.expo.extra,
+      aptabaseKey: envValue(
+        appJson.expo.extra?.aptabaseKey,
+        "EXPO_PUBLIC_APTABASE_KEY"
+      ),
+      mapboxAccessToken: envValue(
+        appJson.expo.extra?.mapboxAccessToken,
+        "EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN"
+      ),
+    },
     ios: {
       ...appJson.expo.ios,
       infoPlist: {

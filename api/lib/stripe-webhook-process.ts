@@ -5,9 +5,13 @@ import {
   bookingIdFromStripeSession,
   paymentIntentIdFromSession,
   shouldFulfillStripeCheckout,
-  type StripeApi,
   type StripeCheckoutSessionLike,
 } from "./stripe-checkout";
+import {
+  processStripeSubscriptionEvent,
+  type StripeBillingApi,
+} from "./stripe-subscription-process";
+import { fromMinorUnits } from "./stripe-fx";
 
 type FulfillFn = (
   firestore: Firestore,
@@ -26,17 +30,57 @@ function trimId(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function isSubscriptionEvent(eventName: string, object: any): boolean {
+  if (eventName.startsWith("invoice.")) return true;
+  if (eventName.startsWith("customer.subscription.")) return true;
+  if (eventName.startsWith("checkout.session.")) {
+    return (
+      String(object?.mode || "").toLowerCase() === "subscription" ||
+      String(object?.metadata?.type || "") === "subscription"
+    );
+  }
+  return false;
+}
+
 export async function processStripeWebhookEvent(
   event: any,
   deps: {
-    stripe: StripeApi;
+    stripe: StripeBillingApi;
     firestore: Firestore;
     fulfill: FulfillFn;
     serverTimestamp: () => unknown;
+    applyPaidSubscriptionPeriod?: Parameters<
+      typeof processStripeSubscriptionEvent
+    >[1]["applyPaidPeriod"];
+    markSubscriptionFailed?: Parameters<
+      typeof processStripeSubscriptionEvent
+    >[1]["markFailed"];
+    markSubscriptionCancelled?: Parameters<
+      typeof processStripeSubscriptionEvent
+    >[1]["markCancelled"];
   }
 ): Promise<WebhookProcessResult> {
-  const eventName = event?.type;
-  const session = (event?.data?.object || {}) as StripeCheckoutSessionLike;
+  const eventName = String(event?.type || "");
+  const object = event?.data?.object || {};
+
+  if (isSubscriptionEvent(eventName, object)) {
+    if (!deps.applyPaidSubscriptionPeriod) {
+      return {
+        ok: false,
+        retry: true,
+        error: "Stripe subscription webhook handler is not configured",
+      };
+    }
+    return processStripeSubscriptionEvent(event, {
+      stripe: deps.stripe,
+      firestore: deps.firestore,
+      serverTimestamp: deps.serverTimestamp,
+      applyPaidPeriod: deps.applyPaidSubscriptionPeriod,
+      markFailed: deps.markSubscriptionFailed,
+      markCancelled: deps.markSubscriptionCancelled,
+    });
+  }
+
   if (
     eventName !== "checkout.session.completed" &&
     eventName !== "checkout.session.async_payment_succeeded" &&
@@ -46,6 +90,7 @@ export async function processStripeWebhookEvent(
     return { ok: true, duplicate: false };
   }
 
+  const session = object as StripeCheckoutSessionLike;
   const sessionId = trimId(session.id);
   if (!sessionId) {
     return { ok: false, retry: true, error: "Webhook missing Checkout Session id" };
@@ -66,8 +111,13 @@ export async function processStripeWebhookEvent(
     bookingIdFromStripeSession(latest) || bookingIdFromStripeSession(session);
   const paymentIntentId = paymentIntentIdFromSession(latest);
   const paymentStatus = String(latest.payment_status || "unpaid").toLowerCase();
-  const amount =
-    typeof latest.amount_total === "number" ? latest.amount_total / 100 : undefined;
+  const stripeChargeAmount =
+    typeof latest.amount_total === "number"
+      ? fromMinorUnits(latest.amount_total)
+      : undefined;
+  const stripeChargeCurrency = latest.currency
+    ? String(latest.currency).toUpperCase()
+    : undefined;
 
   const paymentRef = deps.firestore.collection("payments").doc(sessionId);
   await paymentRef.set(
@@ -88,7 +138,8 @@ export async function processStripeWebhookEvent(
       stripeCheckoutSessionId: sessionId,
       ...(paymentIntentId ? { stripePaymentIntentId: paymentIntentId } : {}),
       ...(bookingId ? { bookingId } : {}),
-      ...(amount != null ? { amount } : {}),
+      ...(stripeChargeAmount != null ? { stripeChargeAmount } : {}),
+      ...(stripeChargeCurrency ? { stripeChargeCurrency } : {}),
       updatedAt: deps.serverTimestamp(),
     },
     { merge: true }
@@ -105,6 +156,7 @@ export async function processStripeWebhookEvent(
     !shouldFulfillStripeCheckout({
       eventName,
       paymentStatus: latest.payment_status,
+      mode: latest.mode,
     })
   ) {
     return { ok: true, duplicate: false };
