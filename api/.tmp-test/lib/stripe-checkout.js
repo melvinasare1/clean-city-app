@@ -20,6 +20,13 @@ exports.buildCheckoutSessionForm = buildCheckoutSessionForm;
 exports.buildSubscriptionCheckoutForm = buildSubscriptionCheckoutForm;
 exports.getOrCreateStripeCheckoutSession = getOrCreateStripeCheckoutSession;
 const stripe_currency_1 = require("./stripe-currency");
+function assertStripeChargeCurrency(currency) {
+    const code = String(currency || "").trim().toUpperCase();
+    if (code === "GHS" || !(0, stripe_currency_1.isStripeChargeCurrency)(code)) {
+        throw new Error("Stripe cannot charge GHS. Convert the GHS amount into USD, GBP, EUR, or CAD first.");
+    }
+    return code;
+}
 function ignoreClientSpecifiedAmount(serverAmountMajor, _clientAmount) {
     return serverAmountMajor;
 }
@@ -133,7 +140,7 @@ function buildCheckoutSessionForm(input) {
         bookingId: input.bookingId,
         userId: input.userId,
     });
-    const currency = (0, stripe_currency_1.stripeCurrencyMinorCode)(input.currency);
+    const currency = (0, stripe_currency_1.stripeCurrencyMinorCode)(assertStripeChargeCurrency(input.currency));
     return {
         mode: "payment",
         success_url: input.successUrl,
@@ -155,7 +162,7 @@ function buildCheckoutSessionForm(input) {
     };
 }
 function buildSubscriptionCheckoutForm(input) {
-    const currency = (0, stripe_currency_1.stripeCurrencyMinorCode)(input.currency);
+    const currency = (0, stripe_currency_1.stripeCurrencyMinorCode)(assertStripeChargeCurrency(input.currency));
     const lineItem = input.stripePriceId
         ? {
             "line_items[0][price]": input.stripePriceId,
@@ -192,7 +199,7 @@ async function getOrCreateStripeCheckoutSession(input) {
     if (!Number.isFinite(amountMinor) || amountMinor <= 0) {
         throw new Error("Booking has no valid Stripe amount");
     }
-    const currencyCode = (0, stripe_currency_1.stripeCurrencyMinorCode)(input.currency);
+    const currencyCode = (0, stripe_currency_1.stripeCurrencyMinorCode)(assertStripeChargeCurrency(input.currency));
     let previousUnusableSessionId = null;
     if (input.existingSessionId) {
         try {

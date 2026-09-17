@@ -63,6 +63,15 @@ export const CompleteProfileScreen: React.FC<CompleteProfileScreenProps> = ({
         navigation.setParams({ pickup: undefined });
     }, [navigation, route.params?.pickup]);
 
+    useEffect(() => {
+        if (!user || route.params?.pickup) return;
+        if (user.name) setName(user.name);
+        if (user.phone) setPhone(user.phone);
+        const savedAddress = pickupAddressText(user);
+        if (savedAddress) setAddress(savedAddress);
+        if (user.location) setCoords(user.location);
+    }, [route.params?.pickup, user]);
+
     const checklistSteps = useMemo(
         () =>
             getProfileCompletionSteps({

@@ -3,7 +3,21 @@
  * Amount charged is the converted Stripe presentation amount (not GHS).
  */
 
-import { stripeCurrencyMinorCode, type StripeChargeCurrency } from "./stripe-currency";
+import {
+  isStripeChargeCurrency,
+  stripeCurrencyMinorCode,
+  type StripeChargeCurrency,
+} from "./stripe-currency";
+
+function assertStripeChargeCurrency(currency: unknown): StripeChargeCurrency {
+  const code = String(currency || "").trim().toUpperCase();
+  if (code === "GHS" || !isStripeChargeCurrency(code)) {
+    throw new Error(
+      "Stripe cannot charge GHS. Convert the GHS amount into USD, GBP, EUR, or CAD first."
+    );
+  }
+  return code;
+}
 
 export type StripeCheckoutSessionLike = {
   id: string;
@@ -201,7 +215,7 @@ export function buildCheckoutSessionForm(input: {
     bookingId: input.bookingId,
     userId: input.userId,
   });
-  const currency = stripeCurrencyMinorCode(input.currency);
+  const currency = stripeCurrencyMinorCode(assertStripeChargeCurrency(input.currency));
   return {
     mode: "payment",
     success_url: input.successUrl,
@@ -234,7 +248,7 @@ export function buildSubscriptionCheckoutForm(input: {
   cancelUrl: string;
   stripePriceId?: string | null;
 }): Record<string, string> {
-  const currency = stripeCurrencyMinorCode(input.currency);
+  const currency = stripeCurrencyMinorCode(assertStripeChargeCurrency(input.currency));
   const lineItem = input.stripePriceId
     ? {
         "line_items[0][price]": input.stripePriceId,
@@ -282,7 +296,9 @@ export async function getOrCreateStripeCheckoutSession(input: {
   if (!Number.isFinite(amountMinor) || amountMinor <= 0) {
     throw new Error("Booking has no valid Stripe amount");
   }
-  const currencyCode = stripeCurrencyMinorCode(input.currency);
+  const currencyCode = stripeCurrencyMinorCode(
+    assertStripeChargeCurrency(input.currency)
+  );
 
   let previousUnusableSessionId: string | null = null;
   if (input.existingSessionId) {

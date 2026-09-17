@@ -10,6 +10,7 @@ const {
   getOrCreateStripeCheckoutSession,
   shouldFulfillStripeCheckout,
   bookingIdFromStripeSession,
+  buildCheckoutSessionForm,
 } = require("../.test-out/stripe-checkout");
 const {
   isValidStripeSignature,
@@ -130,6 +131,22 @@ describe("Stripe checkout initialization", () => {
         currency: "gbp",
       }),
       "booking_checkout_booking-1_gbp_1683"
+    );
+  });
+
+  it("refuses to create Checkout in GHS", () => {
+    assert.throws(
+      () =>
+        buildCheckoutSessionForm({
+          bookingId: "booking-1",
+          userId: "user-1",
+          email: "a@b.com",
+          amountMinor: 14000,
+          currency: "GHS",
+          successUrl: "https://ok",
+          cancelUrl: "https://cancel",
+        }),
+      /cannot charge GHS/
     );
   });
 });

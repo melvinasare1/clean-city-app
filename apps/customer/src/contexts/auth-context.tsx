@@ -183,6 +183,7 @@ const mapProfile = (firebaseUser: FirebaseUser | null, data?: ProfileData): AppU
             name,
             phone,
             address,
+            location,
         }),
         referralCode:
             typeof data?.referralCode === 'string'
@@ -239,10 +240,6 @@ const createProfileIfMissing = async (firebaseUser: FirebaseUser): Promise<void>
         {
             email: firebaseUser.email ?? '',
             role: 'customer' as AppUserRole,
-            name: null,
-            phone: null,
-            address: null,
-            location: null,
             referralCode: generatedReferralCode,
             referredBy: null,
             creditBalance: 0,
@@ -333,7 +330,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [currentFirebaseUser, setCurrentFirebaseUser] = useState<FirebaseUser | null>(null);
 
     const applyAuthenticatedUser = useCallback(async (firebaseUser: FirebaseUser) => {
-        const profile = await fetchUserProfile(firebaseUser);
+        const profile = await fetchUserProfile(firebaseUser, { fromServer: true });
         setUser(profile);
 
         registerForPushNotifications(firebaseUser.uid, profile.role).catch((err) => {
@@ -428,6 +425,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     name: next.name,
                     phone: next.phone,
                     address: next.address,
+                    location: next.location,
                 }),
             };
         });
@@ -517,9 +515,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await setDocAtPath(['profiles', firebaseUser.uid], {
             email,
             role: 'customer',
-            phone: null,
-            address: null,
-            location: null,
             referralCode: generatedReferralCode,
             referredBy: null,
             referralCodeUsed: null,

@@ -122,8 +122,17 @@ export function isProfileComplete(user: {
   name?: string;
   phone?: string;
   address?: string;
+  location?: unknown;
 }): boolean {
-  return !!user.name && !!user.phone && !!user.address;
+  const name = typeof user.name === 'string' ? user.name.trim() : '';
+  const phone = typeof user.phone === 'string' ? user.phone.trim() : '';
+  const address =
+    typeof user.address === 'string' && user.address.trim()
+      ? user.address.trim()
+      : typeof user.location === 'string' && user.location.trim()
+        ? user.location.trim()
+        : '';
+  return !!name && !!phone && !!address;
 }
 
 export function getReferralStatsDisplay(
