@@ -76,7 +76,7 @@ describe("Stripe subscription price creation", () => {
         quote: {
           rates: { USD: 0.08 },
           rateTimestamp: "2026-09-17T12:00:00.000Z",
-          provider: "exchangerate.fun",
+          provider: "manual_firebase",
         },
       })
     );
@@ -84,8 +84,8 @@ describe("Stripe subscription price creation", () => {
       await convertGhsToStripeCurrency(200, "USD", {
         quote: {
           rates: { USD: 0.2 },
-          rateTimestamp: "2026-09-17T14:00:00.000Z",
-          provider: "exchangerate.fun",
+          rateTimestamp: "2026-09-18T12:00:00.000Z",
+          provider: "manual_firebase",
         },
       })
     );
@@ -106,6 +106,32 @@ describe("Stripe subscription price creation", () => {
     });
     assert.equal(form["line_items[0][price]"], "price_locked");
     assert.equal(form["line_items[0][price_data][unit_amount]"], undefined);
+  });
+
+  it("uses the new Firebase FX rate only for a newly created subscription", async () => {
+    const existing = snapshotFromConversion(
+      await convertGhsToStripeCurrency(200, "USD", {
+        quote: {
+          rates: { USD: 0.08 },
+          rateTimestamp: "2026-09-17T12:00:00.000Z",
+          provider: "manual_firebase",
+        },
+      })
+    );
+    const createdAfterRateChange = snapshotFromConversion(
+      await convertGhsToStripeCurrency(200, "USD", {
+        quote: {
+          rates: { USD: 0.2 },
+          rateTimestamp: "2026-09-18T12:00:00.000Z",
+          provider: "manual_firebase",
+        },
+      })
+    );
+    assert.equal(existing.fxProvider, "manual_firebase");
+    assert.equal(createdAfterRateChange.fxProvider, "manual_firebase");
+    assert.equal(existing.stripeAmountMinor, 1632);
+    assert.equal(createdAfterRateChange.stripeAmountMinor, 4080);
+    assert.notEqual(existing.stripeAmountMinor, createdAfterRateChange.stripeAmountMinor);
   });
 });
 

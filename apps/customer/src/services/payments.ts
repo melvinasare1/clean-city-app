@@ -78,14 +78,20 @@ export type StripeQuote = {
   sourceAmountGhs: number;
   sourceCurrency: "GHS";
   stripeCurrency: string;
+  targetCurrency?: string;
   exchangeRate: number;
   convertedAmount: number;
   stripeSurchargePercent: number;
   stripeSurchargeAmount: number;
+  surchargePercent?: number;
+  surchargeAmount?: number;
   finalStripeAmount: number;
+  finalAmount?: number;
   stripeAmountMinor: number;
   fxProvider?: string;
   fxTimestamp?: string;
+  exchangeRateProvider?: string;
+  exchangeRateTimestamp?: string;
 };
 
 export async function quoteStripePayment(input: {

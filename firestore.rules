@@ -53,13 +53,20 @@ service cloud.firestore {
     function isPricingDoc(pathSegments) {
       return pathSegments[0] == 'config' && pathSegments[1] == 'pricing';
     }
+    // FX rates are server/Admin SDK only. Clients (including admin SDK
+    // web apps) must not read or write config/stripe_fx. Overlapping match
+    // blocks are OR'd, so the catch-all below must also exclude this doc.
+    function isStripeFxDoc(pathSegments) {
+      return pathSegments[0] == 'config' && pathSegments[1] == 'stripe_fx';
+    }
 
-    // Admin can do everything (web admin dashboard)
+    // Admin can do everything (web admin dashboard) except Stripe FX config.
     match /{document=**} {
-      allow read: if isAdmin();
+      allow read: if isAdmin() && !isStripeFxDoc(document);
       allow create, update: if isAdmin()
+        && !isStripeFxDoc(document)
         && (!isPricingDoc(document) || isValidPricingWrite(request.resource.data));
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() && !isStripeFxDoc(document);
     }
 
     // Public config
@@ -67,6 +74,12 @@ service cloud.firestore {
       allow read: if true;
       allow create, update: if isAdmin() && isValidPricingWrite(request.resource.data);
       allow delete: if isAdmin();
+    }
+
+    // Manually maintained Stripe FX rates — Admin SDK / Firebase console only.
+    // Customers, drivers, and client admin UIs have no direct access.
+    match /config/stripe_fx {
+      allow read, write: if false;
     }
 
     // Store catalog — public read; admin writes (also covered by the catch-all).

@@ -1,12 +1,16 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { StripeFxError } from "../lib/stripe-fx";
 import { resolveStripeChargeCurrency } from "../lib/stripe-currency";
-import { buildStripePriceSnapshot } from "../lib/stripe-pricing";
+import {
+  buildStripePriceSnapshot,
+  stripeQuoteResponseFields,
+} from "../lib/stripe-pricing";
 import { isStripeCardAvailable } from "../lib/stripe-threshold";
 
 /**
  * GET /api/stripe/quote?amountGhs=141&currency=GBP
- * Live FX + 2% surcharge preview. Does not create a Stripe object.
+ * Firebase FX + 2% surcharge preview. Does not create a Stripe object.
+ * The quoted amount is display-only; initialize/subscribe recalculate.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "GET" && req.method !== "POST") {
@@ -32,7 +36,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({
       ok: true,
       stripeAvailable: isStripeCardAvailable(amountGhs),
-      ...snapshot,
+      ...stripeQuoteResponseFields(snapshot),
     });
   } catch (error: unknown) {
     const message =
@@ -41,7 +45,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         : error instanceof Error
           ? error.message
           : "Failed to quote Stripe amount";
-    return res.status(error instanceof StripeFxError ? 502 : 500).json({
+    return res.status(error instanceof StripeFxError ? 503 : 500).json({
       ok: false,
       error: message,
     });

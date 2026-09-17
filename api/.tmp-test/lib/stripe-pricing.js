@@ -1,7 +1,7 @@
 "use strict";
 /**
- * Stripe presentation price: live FX, then Clean City 2% card payment surcharge.
- * Does not claim the 2% equals Stripe's fees.
+ * Stripe presentation price: Firebase FX (config/stripe_fx), then Clean City 2%
+ * card payment surcharge. Does not claim the 2% equals Stripe's fees.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.STRIPE_SURCHARGE_PERCENT = void 0;
@@ -9,6 +9,7 @@ exports.applyStripePaymentSurchargeMinor = applyStripePaymentSurchargeMinor;
 exports.snapshotFromConversion = snapshotFromConversion;
 exports.buildStripePriceSnapshot = buildStripePriceSnapshot;
 exports.stripePriceSnapshotFields = stripePriceSnapshotFields;
+exports.stripeQuoteResponseFields = stripeQuoteResponseFields;
 exports.lockedSnapshotFromRecord = lockedSnapshotFromRecord;
 exports.amountMajorFromSnapshot = amountMajorFromSnapshot;
 const stripe_fx_1 = require("./stripe-fx");
@@ -56,6 +57,18 @@ function stripePriceSnapshotFields(snapshot) {
         stripeSurchargeAmount: snapshot.stripeSurchargeAmount,
         finalStripeAmount: snapshot.finalStripeAmount,
         stripeAmountMinor: snapshot.stripeAmountMinor,
+    };
+}
+/** Quote API aliases. Persistence still uses stripePriceSnapshotFields. */
+function stripeQuoteResponseFields(snapshot) {
+    return {
+        ...snapshot,
+        targetCurrency: snapshot.stripeCurrency,
+        exchangeRateProvider: snapshot.fxProvider,
+        exchangeRateTimestamp: snapshot.fxTimestamp,
+        surchargePercent: snapshot.stripeSurchargePercent,
+        surchargeAmount: snapshot.stripeSurchargeAmount,
+        finalAmount: snapshot.finalStripeAmount,
     };
 }
 function lockedSnapshotFromRecord(data, fallbackGhs) {

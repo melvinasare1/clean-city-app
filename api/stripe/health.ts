@@ -6,7 +6,7 @@ import { buildStripePriceSnapshot } from "../lib/stripe-pricing";
 
 /**
  * GET /api/stripe/health
- * Account probe plus a live FX quote for GHS 141. Does not create Checkout Sessions.
+ * Account probe plus a Firebase FX quote for GHS 141. Does not create Checkout Sessions.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "GET") {

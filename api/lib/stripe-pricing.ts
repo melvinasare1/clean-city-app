@@ -1,6 +1,6 @@
 /**
- * Stripe presentation price: live FX, then Clean City 2% card payment surcharge.
- * Does not claim the 2% equals Stripe's fees.
+ * Stripe presentation price: Firebase FX (config/stripe_fx), then Clean City 2%
+ * card payment surcharge. Does not claim the 2% equals Stripe's fees.
  */
 
 import type { StripeChargeCurrency } from "./stripe-currency";
@@ -92,6 +92,19 @@ export function stripePriceSnapshotFields(
     stripeSurchargeAmount: snapshot.stripeSurchargeAmount,
     finalStripeAmount: snapshot.finalStripeAmount,
     stripeAmountMinor: snapshot.stripeAmountMinor,
+  };
+}
+
+/** Quote API aliases. Persistence still uses stripePriceSnapshotFields. */
+export function stripeQuoteResponseFields(snapshot: StripePriceSnapshot) {
+  return {
+    ...snapshot,
+    targetCurrency: snapshot.stripeCurrency,
+    exchangeRateProvider: snapshot.fxProvider,
+    exchangeRateTimestamp: snapshot.fxTimestamp,
+    surchargePercent: snapshot.stripeSurchargePercent,
+    surchargeAmount: snapshot.stripeSurchargeAmount,
+    finalAmount: snapshot.finalStripeAmount,
   };
 }
 

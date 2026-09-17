@@ -53,7 +53,7 @@ function addDaysDate(d: Date, n: number): Date {
 /**
  * POST /api/stripe/subscribe
  * Creates or reuses a Stripe Checkout Session in subscription mode.
- * GHS plan price is converted once (or reused from the locked snapshot).
+ * GHS plan price is converted once from Firebase FX (or reused from the locked snapshot).
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
@@ -227,7 +227,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       mode: stripeKeyMode(),
       ...stripe,
     });
-    return res.status(isFx ? 502 : 500).json({
+    return res.status(isFx ? 503 : 500).json({
       ok: false,
       error: stripe.message || "Failed to initialize Stripe subscription",
       stripe: { ...stripe, currency: stripeCurrency, mode: stripeKeyMode() },

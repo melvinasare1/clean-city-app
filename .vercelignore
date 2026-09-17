@@ -8,3 +8,6 @@ firebase-debug.log
 scripts
 *.md
 agent-transcripts
+api/.tmp-test
+api/.test-out
+api/paystack/*.js

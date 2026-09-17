@@ -1,23 +1,29 @@
 "use strict";
 /**
- * Live GHS → Stripe currency conversion via ExchangeRate.fun.
- * Clean City prices stay in GHS; this module only produces an audit snapshot of FX.
- * No API key. Fail closed if a usable GHS-base rate is not available.
+ * GHS → Stripe currency conversion using manually maintained Firestore rates.
+ *
+ * Source of truth: config/stripe_fx (Admin SDK / server only).
+ * No external FX APIs. No hardcoded production rates. Fail closed if the
+ * document is missing or invalid. A future POST /api/admin/stripe-fx can
+ * reuse parseStripeFxConfig + stripeFxDocument without changing pricing.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.StripeFxError = exports.FX_CACHE_TTL_MS = exports.EXCHANGE_RATE_FUN_PROVIDER = exports.EXCHANGE_RATE_FUN_LATEST_URL = void 0;
+exports.StripeFxError = exports.STRIPE_FX_UNAVAILABLE_MESSAGE = exports.STRIPE_FX_CONFIG_PROVIDER = exports.MANUAL_FIREBASE_FX_PROVIDER = exports.STRIPE_FX_DOC_ID = exports.STRIPE_FX_COLLECTION = void 0;
 exports.toMinorUnits = toMinorUnits;
 exports.fromMinorUnits = fromMinorUnits;
 exports.convertMinorByRate = convertMinorByRate;
-exports.resetStripeFxCache = resetStripeFxCache;
-exports.parseExchangeRateFunResponse = parseExchangeRateFunResponse;
-exports.fetchGhsFxQuote = fetchGhsFxQuote;
+exports.stripeFxDocument = stripeFxDocument;
+exports.parseStripeFxConfig = parseStripeFxConfig;
+exports.loadStripeFxConfig = loadStripeFxConfig;
 exports.convertGhsToStripeCurrency = convertGhsToStripeCurrency;
+const firebase_admin_1 = require("./firebase-admin");
 const stripe_currency_1 = require("./stripe-currency");
 const RATE_SCALE = 100000000;
-exports.EXCHANGE_RATE_FUN_LATEST_URL = "https://api.exchangerate.fun/latest?base=GHS";
-exports.EXCHANGE_RATE_FUN_PROVIDER = "exchangerate.fun";
-exports.FX_CACHE_TTL_MS = 60 * 60 * 1000;
+exports.STRIPE_FX_COLLECTION = "config";
+exports.STRIPE_FX_DOC_ID = "stripe_fx";
+exports.MANUAL_FIREBASE_FX_PROVIDER = "manual_firebase";
+exports.STRIPE_FX_CONFIG_PROVIDER = "manual";
+exports.STRIPE_FX_UNAVAILABLE_MESSAGE = "Stripe FX configuration unavailable";
 class StripeFxError extends Error {
     constructor(message) {
         super(message);
@@ -34,132 +40,125 @@ function toMinorUnits(amountMajor) {
 function fromMinorUnits(amountMinor) {
     return Math.round(amountMinor) / 100;
 }
-/** Convert GHS minor units by a live rate using fixed-scale integer math. */
+/** Convert GHS minor units by a rate using fixed-scale integer math. */
 function convertMinorByRate(sourceMinor, rate) {
     if (!Number.isFinite(sourceMinor) || sourceMinor < 0) {
         throw new StripeFxError("Source amount is invalid");
     }
     if (!Number.isFinite(rate) || rate <= 0) {
-        throw new StripeFxError("Exchange rate is unavailable");
+        throw new StripeFxError(exports.STRIPE_FX_UNAVAILABLE_MESSAGE);
     }
     const scaled = Math.round(rate * RATE_SCALE);
     if (scaled <= 0) {
-        throw new StripeFxError("Exchange rate is unavailable");
+        throw new StripeFxError(exports.STRIPE_FX_UNAVAILABLE_MESSAGE);
     }
     return Math.round((sourceMinor * scaled) / RATE_SCALE);
 }
-let cachedQuote = null;
-let inFlightQuote = null;
-function resetStripeFxCache() {
-    cachedQuote = null;
-    inFlightQuote = null;
+function unavailable() {
+    throw new StripeFxError(exports.STRIPE_FX_UNAVAILABLE_MESSAGE);
 }
-function readFreshCache(nowMs) {
-    if (!cachedQuote)
-        return null;
-    if (nowMs - cachedQuote.fetchedAtMs >= exports.FX_CACHE_TTL_MS)
-        return null;
-    return cachedQuote.quote;
+function snapshotExists(snap) {
+    if (typeof snap.exists === "function")
+        return snap.exists();
+    return snap.exists === true;
 }
-function writeCache(quote, fetchedAtMs) {
-    cachedQuote = { quote, fetchedAtMs };
-}
-function readRate(rates, currency) {
-    const direct = rates[currency] ?? rates[currency.toLowerCase()];
-    if (!Number.isFinite(direct) || direct <= 0) {
-        throw new StripeFxError(`No live ${currency} rate from FX provider`);
-    }
-    return Number(direct);
-}
-function providerTimestamp(data) {
-    if (typeof data.date === "string" && data.date.trim()) {
-        const parsed = Date.parse(data.date);
+function timestampToIso(value) {
+    if (value == null)
+        unavailable();
+    if (typeof value === "string" && value.trim()) {
+        const parsed = Date.parse(value);
         if (Number.isFinite(parsed))
             return new Date(parsed).toISOString();
-        return data.date.trim();
+        return value.trim();
     }
-    if (typeof data.timestamp === "number" && Number.isFinite(data.timestamp)) {
-        if (data.timestamp <= 0) {
-            throw new StripeFxError("FX provider did not return a timestamp");
-        }
-        const ms = data.timestamp < 1e12 ? data.timestamp * 1000 : data.timestamp;
+    if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+        const ms = value < 1e12 ? value * 1000 : value;
         const parsed = new Date(ms);
         if (!Number.isNaN(parsed.getTime()))
             return parsed.toISOString();
     }
-    throw new StripeFxError("FX provider did not return a timestamp");
+    if (typeof value === "object") {
+        const v = value;
+        if (typeof v.toDate === "function") {
+            const dated = v.toDate();
+            if (dated instanceof Date && !Number.isNaN(dated.getTime())) {
+                return dated.toISOString();
+            }
+        }
+        if (typeof v.toMillis === "function") {
+            const parsed = new Date(v.toMillis());
+            if (!Number.isNaN(parsed.getTime()))
+                return parsed.toISOString();
+        }
+        const seconds = typeof v.seconds === "number" ? v.seconds : v._seconds;
+        if (typeof seconds === "number" && Number.isFinite(seconds) && seconds > 0) {
+            return new Date(seconds * 1000).toISOString();
+        }
+    }
+    unavailable();
 }
-function parseExchangeRateFunResponse(data) {
+function readRate(rates, currency) {
+    const direct = rates[currency] ?? rates[currency.toLowerCase()];
+    if (!Number.isFinite(direct) || direct <= 0) {
+        unavailable();
+    }
+    return Number(direct);
+}
+function stripeFxDocument(firestore) {
+    return firestore.collection(exports.STRIPE_FX_COLLECTION).doc(exports.STRIPE_FX_DOC_ID);
+}
+/**
+ * Validate a `config/stripe_fx` document. Rates mean 1 GHS = X target currency.
+ * Does not accept client-supplied rates; callers must pass Firestore data.
+ */
+function parseStripeFxConfig(data) {
     if (!data || typeof data !== "object" || Array.isArray(data)) {
-        throw new StripeFxError("FX provider returned a malformed response");
+        unavailable();
     }
     const payload = data;
-    const base = String(payload.base || "").trim().toUpperCase();
+    const base = String(payload.baseCurrency || "")
+        .trim()
+        .toUpperCase();
     if (base !== "GHS") {
-        throw new StripeFxError("FX provider did not return GHS-base rates");
+        unavailable();
     }
     if (!payload.rates ||
         typeof payload.rates !== "object" ||
         Array.isArray(payload.rates)) {
-        throw new StripeFxError("FX provider did not return usable GHS rates");
+        unavailable();
     }
     const rates = {};
     for (const [code, value] of Object.entries(payload.rates)) {
         const n = Number(value);
-        if (Number.isFinite(n) && n > 0) {
-            rates[String(code).toUpperCase()] = n;
-        }
+        rates[String(code).toUpperCase()] = n;
     }
     return {
         rates,
-        rateTimestamp: providerTimestamp(payload),
-        provider: exports.EXCHANGE_RATE_FUN_PROVIDER,
+        rateTimestamp: timestampToIso(payload.updatedAt),
+        provider: exports.MANUAL_FIREBASE_FX_PROVIDER,
     };
 }
-async function fetchJson(fetchImpl, url) {
-    let response;
+async function loadStripeFxConfig(firestore) {
+    let snap;
     try {
-        response = await fetchImpl(url, { method: "GET" });
-    }
-    catch (err) {
-        const message = err instanceof Error ? err.message : "network error";
-        throw new StripeFxError(`FX provider request failed (${message})`);
-    }
-    if (!response.ok) {
-        throw new StripeFxError(`FX provider request failed (${response.status})`);
-    }
-    try {
-        return await response.json();
+        snap = await stripeFxDocument(firestore).get();
     }
     catch {
-        throw new StripeFxError("FX provider returned malformed JSON");
+        unavailable();
     }
+    if (!snap || !snapshotExists(snap)) {
+        unavailable();
+    }
+    return parseStripeFxConfig(snap.data());
 }
-async function fetchExchangeRateFun(fetchImpl) {
-    const data = await fetchJson(fetchImpl, exports.EXCHANGE_RATE_FUN_LATEST_URL);
-    return parseExchangeRateFunResponse(data);
-}
-async function fetchGhsFxQuote(fetchImpl = fetch, nowMs = Date.now()) {
-    const cached = readFreshCache(nowMs);
-    if (cached)
-        return cached;
-    if (inFlightQuote)
-        return inFlightQuote;
-    inFlightQuote = fetchExchangeRateFun(fetchImpl)
-        .then((quote) => {
-        writeCache(quote, nowMs);
-        return quote;
-    })
-        .finally(() => {
-        inFlightQuote = null;
-    });
+function resolveFirestore(firestore) {
+    if (firestore)
+        return firestore;
     try {
-        return await inFlightQuote;
+        return (0, firebase_admin_1.getFirestore)();
     }
-    catch (err) {
-        throw err instanceof StripeFxError
-            ? err
-            : new StripeFxError("Live FX rate unavailable");
+    catch {
+        unavailable();
     }
 }
 async function convertGhsToStripeCurrency(amountGhs, targetCurrency, options) {
@@ -170,7 +169,7 @@ async function convertGhsToStripeCurrency(amountGhs, targetCurrency, options) {
         throw new StripeFxError("GHS amount must be greater than zero");
     }
     const quote = options?.quote ||
-        (await fetchGhsFxQuote(options?.fetchImpl, options?.nowMs));
+        (await loadStripeFxConfig(resolveFirestore(options?.firestore)));
     const exchangeRate = readRate(quote.rates, targetCurrency);
     const sourceMinor = toMinorUnits(amountGhs);
     const convertedAmountMinor = convertMinorByRate(sourceMinor, exchangeRate);
@@ -185,6 +184,6 @@ async function convertGhsToStripeCurrency(amountGhs, targetCurrency, options) {
         convertedAmount: fromMinorUnits(convertedAmountMinor),
         convertedAmountMinor,
         rateTimestamp: quote.rateTimestamp,
-        provider: quote.provider,
+        provider: exports.MANUAL_FIREBASE_FX_PROVIDER,
     };
 }

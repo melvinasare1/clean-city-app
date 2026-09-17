@@ -31,7 +31,7 @@ const PROFILES_COLLECTION = "profiles";
  *
  * Amount from the client is ignored. The booking total in Firestore (GHS) is used.
  * Card checkout is only allowed when that GHS total is above 100.
- * Stripe is charged in the customer's presentation currency after live FX + 2%.
+ * Stripe is charged in the customer's presentation currency after Firebase FX + 2%.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
@@ -233,7 +233,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       message: stripe.message,
       request_id: stripe.request_id,
     });
-    return res.status(isFx ? 502 : 500).json({
+    return res.status(isFx ? 503 : 500).json({
       ok: false,
       error: stripe.message || "Failed to initialize Stripe checkout",
       stripe: {
