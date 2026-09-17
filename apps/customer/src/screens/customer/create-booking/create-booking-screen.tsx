@@ -24,6 +24,7 @@ import { CustomerStackParamList } from '@/navigation/types';
 import { styles } from './create-booking-screen.styles';
 import { trackEvent } from '@/services/analytics';
 import { pickupAddressText } from '@/lib/profile-location';
+import { STRIPE_PAYMENTS_ENABLED } from '@/lib/stripe-payments-enabled';
 import { isStripeCardAvailable, STRIPE_CARD_MIN_AMOUNT_MAJOR } from '@/lib/stripe-threshold';
 import {
   DEFAULT_STRIPE_CURRENCY,
@@ -231,9 +232,11 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
   }, [selectedWindowId]);
 
   const displayTotal = isSubscription ? discountedTotal : totalPrice;
-  const stripeAvailable = isSubscription
-    ? displayTotal > 0
-    : isStripeCardAvailable(displayTotal);
+  const stripeAvailable =
+    STRIPE_PAYMENTS_ENABLED &&
+    (isSubscription
+      ? displayTotal > 0
+      : isStripeCardAvailable(displayTotal));
 
   const stripeQuoteReady =
     paymentProvider !== 'stripe' || (!stripeQuoteLoading && !!stripeQuote);
@@ -368,7 +371,7 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
       let subscriptionId: string | undefined;
       try {
         const result =
-          paymentProvider === 'stripe'
+          STRIPE_PAYMENTS_ENABLED && paymentProvider === 'stripe'
             ? await createStripeSubscription({
                 userId: user.id,
                 email: user.email ?? '',
@@ -472,7 +475,10 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
         screen: 'checkout',
         amount: Number(discountedTotal),
         currency: 'GHS',
-        provider: paymentProvider === 'stripe' ? 'stripe' : 'paystack',
+        provider:
+          STRIPE_PAYMENTS_ENABLED && paymentProvider === 'stripe'
+            ? 'stripe'
+            : 'paystack',
         type: 'subscription',
       });
       await Linking.openURL(authorizationUrl);
@@ -566,21 +572,25 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
         return;
       }
 
+      const checkoutProvider =
+        STRIPE_PAYMENTS_ENABLED && paymentProvider === 'stripe'
+          ? 'stripe'
+          : 'paystack';
       const { authorizationUrl } = await initiatePaymentForBooking(
         bookingId,
-        paymentProvider,
-        paymentProvider === 'stripe' ? stripeCurrency : undefined
+        checkoutProvider,
+        checkoutProvider === 'stripe' ? stripeCurrency : undefined
       );
 
       await trackEvent('payment_started', {
         screen: 'checkout',
         amount: Number(totalPrice),
         currency: 'GHS',
-        provider: paymentProvider,
+        provider: checkoutProvider,
       });
       await trackEvent('payment_provider_opened', {
         screen: 'checkout',
-        provider: paymentProvider,
+        provider: checkoutProvider,
       });
 
       await Linking.openURL(authorizationUrl);
@@ -935,65 +945,67 @@ export const CreateBookingScreen: React.FC<CreateBookingScreenProps> = ({
               </AppText>
             </TouchableOpacity>
 
-            {!stripeAvailable ? (
-              <View
-                style={[styles.paymentCard, styles.paymentCardDisabled]}
-                accessibilityRole="radio"
-                accessibilityState={{ disabled: true }}
-                accessibilityLabel={`Card, available for bookings above GHS ${STRIPE_CARD_MIN_AMOUNT_MAJOR}`}
-              >
-                <View style={styles.paymentCardHeader}>
-                  <View style={styles.paymentIconWrap}>
-                    <Ionicons
-                      name="card-outline"
-                      size={18}
-                      color={COLORS.textSecondary}
-                    />
+            {STRIPE_PAYMENTS_ENABLED ? (
+              !stripeAvailable ? (
+                <View
+                  style={[styles.paymentCard, styles.paymentCardDisabled]}
+                  accessibilityRole="radio"
+                  accessibilityState={{ disabled: true }}
+                  accessibilityLabel={`Card, available for bookings above GHS ${STRIPE_CARD_MIN_AMOUNT_MAJOR}`}
+                >
+                  <View style={styles.paymentCardHeader}>
+                    <View style={styles.paymentIconWrap}>
+                      <Ionicons
+                        name="card-outline"
+                        size={18}
+                        color={COLORS.textSecondary}
+                      />
+                    </View>
+                    <View style={styles.paymentRadio} />
                   </View>
-                  <View style={styles.paymentRadio} />
-                </View>
-                <AppText style={styles.paymentTitle}>Card</AppText>
-                <AppText style={styles.paymentSubtitle}>
-                  Visa, Mastercard or other cards
-                </AppText>
-                <View style={styles.comingSoon}>
-                  <AppText style={styles.comingSoonText}>
-                    {`Available above ¢${STRIPE_CARD_MIN_AMOUNT_MAJOR}`}
+                  <AppText style={styles.paymentTitle}>Card</AppText>
+                  <AppText style={styles.paymentSubtitle}>
+                    Visa, Mastercard or other cards
                   </AppText>
-                </View>
-              </View>
-            ) : (
-              <TouchableOpacity
-                style={[
-                  styles.paymentCard,
-                  paymentProvider === 'stripe' && styles.paymentCardSelected,
-                ]}
-                onPress={() => setPaymentProvider('stripe')}
-                accessibilityRole="radio"
-                accessibilityState={{ selected: paymentProvider === 'stripe' }}
-                accessibilityLabel="Card"
-              >
-                <View style={styles.paymentCardHeader}>
-                  <View style={styles.paymentIconWrap}>
-                    <Ionicons name="card-outline" size={18} color={COLORS.primary} />
-                  </View>
-                  <View
-                    style={[
-                      styles.paymentRadio,
-                      paymentProvider === 'stripe' && styles.paymentRadioSelected,
-                    ]}
-                  >
-                    {paymentProvider === 'stripe' ? (
-                      <Ionicons name="checkmark" size={12} color={COLORS.white} />
-                    ) : null}
+                  <View style={styles.comingSoon}>
+                    <AppText style={styles.comingSoonText}>
+                      {`Available above ¢${STRIPE_CARD_MIN_AMOUNT_MAJOR}`}
+                    </AppText>
                   </View>
                 </View>
-                <AppText style={styles.paymentTitle}>Card</AppText>
-                <AppText style={styles.paymentSubtitle}>
-                  Visa, Mastercard or other cards
-                </AppText>
-              </TouchableOpacity>
-            )}
+              ) : (
+                <TouchableOpacity
+                  style={[
+                    styles.paymentCard,
+                    paymentProvider === 'stripe' && styles.paymentCardSelected,
+                  ]}
+                  onPress={() => setPaymentProvider('stripe')}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: paymentProvider === 'stripe' }}
+                  accessibilityLabel="Card"
+                >
+                  <View style={styles.paymentCardHeader}>
+                    <View style={styles.paymentIconWrap}>
+                      <Ionicons name="card-outline" size={18} color={COLORS.primary} />
+                    </View>
+                    <View
+                      style={[
+                        styles.paymentRadio,
+                        paymentProvider === 'stripe' && styles.paymentRadioSelected,
+                      ]}
+                    >
+                      {paymentProvider === 'stripe' ? (
+                        <Ionicons name="checkmark" size={12} color={COLORS.white} />
+                      ) : null}
+                    </View>
+                  </View>
+                  <AppText style={styles.paymentTitle}>Card</AppText>
+                  <AppText style={styles.paymentSubtitle}>
+                    Visa, Mastercard or other cards
+                  </AppText>
+                </TouchableOpacity>
+              )
+            ) : null}
           </View>
           {paymentProvider === 'stripe' && stripeAvailable ? (
             <View style={styles.stripeQuoteBox}>

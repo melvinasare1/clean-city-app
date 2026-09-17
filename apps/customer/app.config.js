@@ -4,6 +4,7 @@
  * - Disables OTA updates on development EAS builds so the dev client can load Metro.
  * - Adds iOS local-network keys so physical devices can reach the packager.
  * - Bumps expo.version patch on production EAS builds.
+ * - OTA hotfixes set extra.releaseKind via CLEAN_CITY_HOTFIX=1 (runtimeVersion unchanged).
  */
 const { maybeBumpProductionAppVersion } = require("../../scripts/bump-production-version");
 
@@ -74,6 +75,7 @@ module.exports = {
         appJson.expo.extra?.googlePlacesApiKey,
         "EXPO_PUBLIC_GOOGLE_PLACES_API_KEY"
       ),
+      releaseKind: process.env.CLEAN_CITY_HOTFIX === "1" ? "hotfix" : "store",
     },
     updates: {
       ...appJson.expo.updates,

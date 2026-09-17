@@ -5,6 +5,7 @@ import {
   buildStripePriceSnapshot,
   stripeQuoteResponseFields,
 } from "../lib/stripe-pricing";
+import { rejectDisabledStripePayments } from "../lib/stripe-payments-enabled";
 import { isStripeCardAvailable } from "../lib/stripe-threshold";
 
 /**
@@ -16,6 +17,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "GET" && req.method !== "POST") {
     return res.status(405).json({ ok: false, error: "Method not allowed" });
   }
+  if (rejectDisabledStripePayments(res)) return;
 
   try {
     const body =

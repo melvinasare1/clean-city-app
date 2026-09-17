@@ -1,6 +1,7 @@
 // src/services/payments.ts
 
 import { getApiBaseUrl } from "@/lib/apiBase";
+import { assertStripePaymentsEnabled } from "@/lib/stripe-payments-enabled";
 import type {
   CancelSubscriptionRequest,
   CreateSubscriptionRequest,
@@ -35,6 +36,7 @@ export async function initializeStripeCheckout(body: {
   amount?: number;
   stripeCurrency?: string;
 }): Promise<InitializePaymentResponse> {
+  assertStripePaymentsEnabled();
   const API_BASE_URL = getApiBaseUrl();
   const url = `${API_BASE_URL}/api/stripe/initialize`;
   const response = await fetch(url, {
@@ -98,6 +100,7 @@ export async function quoteStripePayment(input: {
   amountGhs: number;
   currency: string;
 }): Promise<StripeQuote> {
+  assertStripePaymentsEnabled();
   const API_BASE_URL = getApiBaseUrl();
   const params = new URLSearchParams({
     amountGhs: String(input.amountGhs),
@@ -114,6 +117,7 @@ export async function quoteStripePayment(input: {
 export async function createStripeSubscription(
   body: CreateSubscriptionRequest & { stripeCurrency?: string; subscriptionId?: string }
 ): Promise<CreateSubscriptionResponse> {
+  assertStripePaymentsEnabled();
   const API_BASE_URL = getApiBaseUrl();
   const response = await fetch(`${API_BASE_URL}/api/stripe/subscribe`, {
     method: "POST",

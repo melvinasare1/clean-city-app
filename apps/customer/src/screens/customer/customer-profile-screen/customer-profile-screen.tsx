@@ -22,6 +22,7 @@ import {
   CustomerStackParamList,
   CustomerTabParamList,
 } from '@/navigation/types';
+import { getAppVersionLabel } from '@/lib/app-version';
 import { getInitials } from '../customer-home-screen/customer-home-screen.utils';
 import { styles } from './customer-profile-screen.styles';
 
@@ -33,6 +34,7 @@ type Props = CompositeScreenProps<
 export const CustomerProfileScreen: React.FC<Props> = ({ navigation }) => {
   const { user, logout, refreshUserProfile } = useAuth();
   const profileComplete = isProfileComplete(user ?? {});
+  const appVersionLabel = getAppVersionLabel();
   const [remindersEnabled, setRemindersEnabled] = useState(
     user?.bookingRemindersEnabled !== false
   );
@@ -323,6 +325,15 @@ export const CustomerProfileScreen: React.FC<Props> = ({ navigation }) => {
             <Ionicons name="log-out-outline" size={20} color={COLORS.error} />
             <AppText style={styles.logoutLabel}>Log Out</AppText>
           </TouchableOpacity>
+
+          <View
+            style={styles.versionFooter}
+            accessibilityRole="text"
+            accessibilityLabel={`App version ${appVersionLabel}`}
+          >
+            <AppText style={styles.versionCaption}>App version</AppText>
+            <AppText style={styles.versionValue}>{appVersionLabel}</AppText>
+          </View>
         </ResponsiveContent>
       </ScrollView>
     </SafeAreaView>

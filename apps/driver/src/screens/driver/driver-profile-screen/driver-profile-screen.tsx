@@ -2,12 +2,12 @@ import React, { useCallback, useMemo } from 'react';
 import { Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Feather from '@expo/vector-icons/Feather';
-import Constants from 'expo-constants';
 import { CompositeNavigationProp } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors } from '@platform/shared-theme';
 import { useAuth } from '@/hooks/useAuth';
+import { getAppVersionLabel } from '@/lib/app-version';
 import { paymentMethodsSubtitle, useDriverProfile } from '@/hooks/useDriverProfile';
 import { trackEvent } from '@/services/analytics';
 import type { DriverStackParamList, DriverTabParamList } from '@/navigation/types';
@@ -37,18 +37,6 @@ function displayName(name?: string | null, email?: string): string {
 function formatRating(rating: number | null): string {
   if (rating == null) return '—';
   return Number.isInteger(rating) ? String(rating) : rating.toFixed(2);
-}
-
-function appVersionLabel(): string {
-  const version =
-    Constants.expoConfig?.version ?? Constants.nativeApplicationVersion ?? '1.0.0';
-  const build =
-    Constants.nativeBuildVersion ??
-    Constants.expoConfig?.ios?.buildNumber ??
-    (Constants.expoConfig?.android?.versionCode != null
-      ? String(Constants.expoConfig.android.versionCode)
-      : null);
-  return build ? `${version} (${build})` : version;
 }
 
 function ProfileRow({ icon, label, subtitle, onPress }: ProfileRowProps) {
@@ -207,7 +195,7 @@ export const DriverProfileScreen: React.FC<Props> = ({ navigation }) => {
             </View>
             <View style={styles.rowCopy}>
               <Text style={styles.rowLabel}>App version</Text>
-              <Text style={styles.rowSubtitle}>{appVersionLabel()}</Text>
+              <Text style={styles.rowSubtitle}>{getAppVersionLabel()}</Text>
             </View>
           </View>
         </View>

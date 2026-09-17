@@ -21,6 +21,10 @@ import {
   isInactiveDetailStatus,
 } from "@/lib/booking-display-status";
 import { pickupAddressText } from "@/lib/profile-location";
+import {
+  STRIPE_PAYMENTS_DISABLED_MESSAGE,
+  STRIPE_PAYMENTS_ENABLED,
+} from "@/lib/stripe-payments-enabled";
 import { colors } from "@platform/shared-theme";
 import { initiatePaymentForBooking, verifyBookingPayment } from "@/services/booking-service";
 import { createStripeSubscription, getSubscriptionPaymentUrl, verifySubscriptionPayment } from "@/services/payments";
@@ -170,7 +174,15 @@ export const BookingDetailScreen: React.FC<Props> = ({ navigation, route }) => {
       setProcessingPayment(true);
       if (kind === "subscription" && subscription) {
         const useStripe =
-          subscription.paymentMethod === "card" || subscription.source === "stripe";
+          STRIPE_PAYMENTS_ENABLED &&
+          (subscription.paymentMethod === "card" || subscription.source === "stripe");
+        if (
+          !STRIPE_PAYMENTS_ENABLED &&
+          (subscription.paymentMethod === "card" || subscription.source === "stripe")
+        ) {
+          Alert.alert("Card payments unavailable", STRIPE_PAYMENTS_DISABLED_MESSAGE);
+          return;
+        }
         const { authorizationUrl } = useStripe
           ? await createStripeSubscription({
               subscriptionId: subscription.id,
@@ -207,6 +219,10 @@ export const BookingDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           "Complete payment",
           "Please complete your subscription payment in the opened page. Status will update automatically once payment is confirmed."
         );
+        return;
+      }
+      if (booking.payment.source === "stripe" && !STRIPE_PAYMENTS_ENABLED) {
+        Alert.alert("Card payments unavailable", STRIPE_PAYMENTS_DISABLED_MESSAGE);
         return;
       }
       if (booking.payment.source === "stripe" || !booking.payment.authorizationUrl) {

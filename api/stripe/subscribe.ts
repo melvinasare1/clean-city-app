@@ -20,6 +20,7 @@ import {
   stripePriceSnapshotFields,
   type StripePriceSnapshot,
 } from "../lib/stripe-pricing";
+import { rejectDisabledStripePayments } from "../lib/stripe-payments-enabled";
 import { getBookingById, getSubscriptionById, getUserEmail } from "../paystack/bookings";
 import { getBillingPeriodEnd } from "../paystack/subscription-helpers";
 import type { CollectionFrequency } from "../paystack/subscription-types";
@@ -59,6 +60,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
     return res.status(405).json({ ok: false, error: "Method not allowed" });
   }
+  if (rejectDisabledStripePayments(res)) return;
   if (!process.env.STRIPE_SECRET_KEY) {
     return res.status(500).json({
       ok: false,

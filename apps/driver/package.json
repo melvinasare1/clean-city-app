@@ -13,7 +13,10 @@
     "eas:ios:dev": "eas build --platform ios --profile development",
     "eas:ios:prod": "eas build --platform ios --profile production",
     "eas:android:prod": "eas build --platform android --profile production",
-    "eas:prod": "eas build --platform all --profile production"
+    "eas:prod": "eas build --platform all --profile production",
+    "hotfix": "node ../../scripts/bump-production-version.js . --hotfix",
+    "eas:update:hotfix": "CLEAN_CITY_HOTFIX=1 eas update --channel production --message hotfix",
+    "eas:hotfix": "npm run hotfix && npm run eas:update:hotfix"
   },
   "dependencies": {
     "@aptabase/react-native": "^0.4.0",

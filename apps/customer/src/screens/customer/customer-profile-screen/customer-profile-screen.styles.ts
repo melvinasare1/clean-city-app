@@ -135,4 +135,18 @@ export const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.error,
   },
+  versionFooter: {
+    marginTop: VARS.small,
+    alignItems: 'center',
+  },
+  versionCaption: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+  },
+  versionValue: {
+    marginTop: 2,
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
 });

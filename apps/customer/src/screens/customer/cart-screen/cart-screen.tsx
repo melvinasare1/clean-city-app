@@ -15,6 +15,7 @@ import { AppText, AppTextInput, ResponsiveContent } from '@/components';
 import { useCart } from '@/contexts/cart-context';
 import { useProductsContext } from '@/contexts/products-context';
 import { useAuth } from '@/hooks/useAuth';
+import { STRIPE_PAYMENTS_ENABLED } from '@/lib/stripe-payments-enabled';
 import { STORE_FLAT_DELIVERY_FEE_GHS } from '@/lib/orders';
 import { pickupAddressText } from '@/lib/profile-location';
 import { formatStorePrice } from '@/lib/products';
@@ -400,33 +401,32 @@ export const CartScreen: React.FC<Props> = ({ navigation }) => {
               </AppText>
             </View>
 
-            {/* FOLLOW-UP: When Stripe goes live, enable Card here the same way as
-                CreateBookingScreen (Schedule Pickup). Both surfaces currently
-                show Card as disabled "Coming soon". */}
-            <View
-              style={[styles.paymentCard, styles.paymentCardDisabled]}
-              accessibilityRole="radio"
-              accessibilityState={{ disabled: true }}
-              accessibilityLabel="Card, coming soon"
-            >
-              <View style={styles.paymentCardHeader}>
-                <View style={styles.paymentIconWrap}>
-                  <Ionicons
-                    name="card-outline"
-                    size={18}
-                    color={colors.inkSecondary}
-                  />
+            {STRIPE_PAYMENTS_ENABLED ? (
+              <View
+                style={[styles.paymentCard, styles.paymentCardDisabled]}
+                accessibilityRole="radio"
+                accessibilityState={{ disabled: true }}
+                accessibilityLabel="Card, coming soon"
+              >
+                <View style={styles.paymentCardHeader}>
+                  <View style={styles.paymentIconWrap}>
+                    <Ionicons
+                      name="card-outline"
+                      size={18}
+                      color={colors.inkSecondary}
+                    />
+                  </View>
+                  <View style={styles.paymentRadio} />
                 </View>
-                <View style={styles.paymentRadio} />
+                <AppText style={styles.paymentTitle}>Card</AppText>
+                <AppText style={styles.paymentSubtitle}>
+                  Visa, Mastercard or other cards
+                </AppText>
+                <View style={styles.comingSoon}>
+                  <AppText style={styles.comingSoonText}>Coming soon</AppText>
+                </View>
               </View>
-              <AppText style={styles.paymentTitle}>Card</AppText>
-              <AppText style={styles.paymentSubtitle}>
-                Visa, Mastercard or other cards
-              </AppText>
-              <View style={styles.comingSoon}>
-                <AppText style={styles.comingSoonText}>Coming soon</AppText>
-              </View>
-            </View>
+            ) : null}
           </View>
 
           <TouchableOpacity

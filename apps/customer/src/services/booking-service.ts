@@ -23,6 +23,10 @@ import { BOOKINGS_COLLECTION } from "@/lib/constants";
 import { setDocAtPath, PROFILES_COLLECTION } from "@/lib/utils";
 import { rewardReferralIfEligible } from "@/services/referralService";
 import { initializePayment, initializeStripeCheckout, verifyPayment, verifyBookingPaymentWithBackend, verifyStripeBookingPayment } from "@/services/payments";
+import {
+  STRIPE_PAYMENTS_DISABLED_MESSAGE,
+  STRIPE_PAYMENTS_ENABLED,
+} from "@/lib/stripe-payments-enabled";
 import { isStripeCardAvailable, STRIPE_CARD_THRESHOLD_MESSAGE } from "@/lib/stripe-threshold";
 
 type CreateBookingParams = {
@@ -191,6 +195,10 @@ export const initiatePaymentForBooking = async (
   if (booking.payment.status === "paid") {
     console.error("[Payment Init] ❌ Booking already paid");
     throw new Error("Booking is already paid ✅");
+  }
+
+  if (provider === "stripe" && !STRIPE_PAYMENTS_ENABLED) {
+    throw new Error(STRIPE_PAYMENTS_DISABLED_MESSAGE);
   }
 
   if (provider === "stripe" && !isStripeCardAvailable(booking.totalPrice)) {

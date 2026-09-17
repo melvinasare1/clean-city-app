@@ -1,11 +1,9 @@
 /**
- * Bumps expo.version patch (1.0.0 → 1.0.1) for production EAS builds.
+ * Bumps expo.version patch (1.0.0 → 1.0.1).
  *
- * - First production build, or another build of the same version: increment patch.
- * - If you set a new version by hand (1.1.0, 2.0.0), that value is used for the
- *   next production build, then patch auto-increment continues from there.
- * - Re-evaluating config during the same EAS run (or a second platform shortly
- *   after) does not bump twice.
+ * Production EAS builds: maybeBumpProductionAppVersion() from app.config.js.
+ * OTA hotfixes: `node scripts/bump-production-version.js <appDir> --hotfix`
+ *   (does not change runtimeVersion, so existing store binaries still update).
  */
 const fs = require("fs");
 const path = require("path");
@@ -70,8 +68,52 @@ function resolveNextVersion(currentVersion, state) {
   return bumpPatch(currentVersion);
 }
 
+function writeState(statePath, nextVersion, extra = {}) {
+  fs.writeFileSync(
+    statePath,
+    `${JSON.stringify(
+      {
+        lastProductionVersion: nextVersion,
+        bumpedAt: Date.now(),
+        ...extra,
+      },
+      null,
+      2
+    )}\n`
+  );
+}
+
+/**
+ * OTA hotfix: bump expo.version patch (1.0.0 → 1.0.1) without changing
+ * runtimeVersion, so existing store binaries still receive the update.
+ */
+function bumpHotfixAppVersion(appDir) {
+  const appJsonPath = path.join(appDir, "app.json");
+  const pkgPath = path.join(appDir, "package.json");
+  const statePath = path.join(appDir, STATE_FILE);
+
+  const appJson = readJson(appJsonPath);
+  const currentVersion = appJson.expo?.version;
+  if (!currentVersion) {
+    throw new Error(`Missing expo.version in ${appJsonPath}`);
+  }
+
+  const nextVersion = bumpPatch(currentVersion);
+  replaceFirstVersion(appJsonPath, nextVersion);
+  if (fs.existsSync(pkgPath)) {
+    replaceFirstVersion(pkgPath, nextVersion);
+  }
+
+  writeState(statePath, nextVersion, { lastHotfixVersion: nextVersion });
+  console.log(
+    `[hotfix] ${path.basename(appDir)} ${currentVersion} → ${nextVersion}`
+  );
+  return nextVersion;
+}
+
 function maybeBumpProductionAppVersion(appDir) {
   if (process.env.CLEAN_CITY_SKIP_VERSION_BUMP === "1") return null;
+  if (process.env.CLEAN_CITY_HOTFIX === "1") return null;
   if (process.env.EAS_BUILD_PROFILE !== "production") return null;
   if (process.env.EAS_BUILD === "true" || process.env.EAS_BUILD === "1") return null;
 
@@ -98,17 +140,7 @@ function maybeBumpProductionAppVersion(appDir) {
     }
   }
 
-  fs.writeFileSync(
-    statePath,
-    `${JSON.stringify(
-      {
-        lastProductionVersion: nextVersion,
-        bumpedAt: Date.now(),
-      },
-      null,
-      2
-    )}\n`
-  );
+  writeState(statePath, nextVersion);
 
   if (nextVersion !== currentVersion) {
     console.log(
@@ -125,12 +157,21 @@ function maybeBumpProductionAppVersion(appDir) {
 
 module.exports = {
   bumpPatch,
+  bumpHotfixAppVersion,
   maybeBumpProductionAppVersion,
   resolveNextVersion,
 };
 
 if (require.main === module) {
-  const appDir = path.resolve(process.argv[2] || process.cwd());
-  process.env.EAS_BUILD_PROFILE = process.env.EAS_BUILD_PROFILE || "production";
-  maybeBumpProductionAppVersion(appDir);
+  const args = process.argv.slice(2);
+  const hotfix = args.includes("--hotfix");
+  const dirArg = args.find((arg) => arg !== "--hotfix");
+  const appDir = path.resolve(dirArg || process.cwd());
+  if (hotfix) {
+    bumpHotfixAppVersion(appDir);
+  } else {
+    process.env.EAS_BUILD_PROFILE =
+      process.env.EAS_BUILD_PROFILE || "production";
+    maybeBumpProductionAppVersion(appDir);
+  }
 }

@@ -15,6 +15,7 @@ import {
   buildStripePriceSnapshot,
   stripePriceSnapshotFields,
 } from "../lib/stripe-pricing";
+import { rejectDisabledStripePayments } from "../lib/stripe-payments-enabled";
 import {
   isStripeCardAvailable,
   STRIPE_CARD_THRESHOLD_MESSAGE,
@@ -37,6 +38,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
     return res.status(405).json({ ok: false, error: "Method not allowed" });
   }
+  if (rejectDisabledStripePayments(res)) return;
 
   if (!process.env.STRIPE_SECRET_KEY) {
     return res.status(500).json({

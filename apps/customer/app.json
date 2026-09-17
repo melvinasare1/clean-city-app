@@ -2,7 +2,7 @@
   "expo": {
     "name": "Clean City",
     "slug": "clean-city-app",
-    "version": "1.0.1",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
