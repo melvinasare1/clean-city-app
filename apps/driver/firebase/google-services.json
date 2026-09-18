@@ -40,11 +40,54 @@
               "client_type": 3
             },
             {
-              "client_id": "430221189966-h6jkblo4etiaecv5i8j30tlrfsrarerl.apps.googleusercontent.com",
+              "client_id": "430221189966-g56ajvvlqr9khar3cgupd1di2c0qkm97.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
-                "bundle_id": "com.cleancity.app",
-                "app_store_id": "6757098396"
+                "bundle_id": "com.cleancity.driver"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:430221189966:android:13db1c8c29e4150d57b41f",
+        "android_client_info": {
+          "package_name": "com.cleancity.driver"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "430221189966-vamhta79oq66i00dfsitolj4vnkk77ci.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.cleancity.driver",
+            "certificate_hash": "cf5aa78c6b714b5325a39d502e67f6ff04c8755f"
+          }
+        },
+        {
+          "client_id": "430221189966-g7n61r2j30jttfo20j2d2765beok7hsf.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCDE24Kmdkky3vyNtjAen0JclwTaxt6wP0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "430221189966-fk5hbi7oosf4hhappmu7484sj5ia3ie4.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "430221189966-g56ajvvlqr9khar3cgupd1di2c0qkm97.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.cleancity.driver"
               }
             }
           ]

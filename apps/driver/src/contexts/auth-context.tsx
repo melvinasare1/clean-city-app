@@ -265,13 +265,33 @@ const fetchUserProfile = async (firebaseUser: FirebaseUser | null): Promise<AppU
     return mapProfile(firebaseUser, data);
 };
 
+/**
+ * Cold app starts can hit Firestore before the network stack is warmed up.
+ * Retry the whole profile fetch a couple of times before giving up, so a
+ * transient failure doesn't get mistaken for "no profile data".
+ */
+const PROFILE_FETCH_RETRY_DELAYS_MS = [800, 1600];
+
+const fetchUserProfileWithRetry = async (firebaseUser: FirebaseUser | null): Promise<AppUser> => {
+    for (let attempt = 0; ; attempt++) {
+        try {
+            return await fetchUserProfile(firebaseUser);
+        } catch (err) {
+            if (attempt >= PROFILE_FETCH_RETRY_DELAYS_MS.length) {
+                throw err;
+            }
+            await delay(PROFILE_FETCH_RETRY_DELAYS_MS[attempt]);
+        }
+    }
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [user, setUser] = useState<AppUser | null>(null);
     const [loading, setLoading] = useState(true);
     const [currentFirebaseUser, setCurrentFirebaseUser] = useState<FirebaseUser | null>(null);
 
     const applyAuthenticatedUser = useCallback(async (firebaseUser: FirebaseUser) => {
-        const profile = await fetchUserProfile(firebaseUser);
+        const profile = await fetchUserProfileWithRetry(firebaseUser);
         setUser(profile);
 
         registerForPushNotifications(firebaseUser.uid, profile.role).catch((err) => {
@@ -316,6 +336,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     }, []);
 
+    /**
+     * Background self-heal: if the profile fetch still fails after the inline
+     * retries in fetchUserProfileWithRetry (e.g. cold-start network isn't up
+     * yet at all), keep trying quietly instead of leaving the user stuck on a
+     * bare fallback for the whole session.
+     */
+    const scheduleProfileRetry = useCallback(
+        (firebaseUser: FirebaseUser, attempt = 0) => {
+            const backgroundRetryDelaysMs = [3000, 6000, 12000];
+            if (attempt >= backgroundRetryDelaysMs.length) {
+                return;
+            }
+            setTimeout(() => {
+                if (auth.currentUser?.uid !== firebaseUser.uid) {
+                    return;
+                }
+                applyAuthenticatedUser(firebaseUser).catch((err) => {
+                    console.error(`Background profile retry ${attempt + 1} failed:`, err);
+                    scheduleProfileRetry(firebaseUser, attempt + 1);
+                });
+            }, backgroundRetryDelaysMs[attempt]);
+        },
+        [applyAuthenticatedUser]
+    );
+
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
             setCurrentFirebaseUser(firebaseUser);
@@ -333,17 +378,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 await applyAuthenticatedUser(firebaseUser);
             } catch (err) {
                 console.error('Error fetching user profile:', err);
-                setUser({
-                    id: firebaseUser.uid,
-                    email: firebaseUser.email ?? '',
-                    role: null,
+                setUser((prev) => {
+                    // A transient fetch failure shouldn't wipe profile data we
+                    // already had in memory for this same user.
+                    if (prev && prev.id === firebaseUser.uid && prev.role !== null) {
+                        return prev;
+                    }
+                    return {
+                        id: firebaseUser.uid,
+                        email: firebaseUser.email ?? '',
+                        role: null,
+                    };
                 });
+                scheduleProfileRetry(firebaseUser);
             }
             setLoading(false);
         });
 
         return () => unsubscribe();
-    }, [applyAuthenticatedUser]);
+    }, [applyAuthenticatedUser, scheduleProfileRetry]);
 
     const refreshUserProfile = useCallback(async () => {
         if (currentFirebaseUser) {

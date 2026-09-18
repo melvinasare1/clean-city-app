@@ -38,7 +38,8 @@ All documentation is organized in the [`docs/`](./docs/) folder. See [docs/READM
 **Quick Links:**
 - [Quick Start Guide](./docs/QUICK_START.md)
 - [Setup Guide](./docs/SETUP_GUIDE.md)
-- [Build and Submit Guide](./docs/BUILD_AND_SUBMIT_GUIDE.md)
+- [Build and Submit Guide](./docs/BUILD_AND_SUBMIT_GUIDE.md) (includes OTA hotfixes)
+- [EAS / monorepo](./docs/EAS_MONOREPO.md)
 - [Push Notifications Setup](./docs/PUSH_NOTIFICATIONS_SETUP.md)
 
 ## 🛠️ Setup Instructions

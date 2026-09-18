@@ -171,6 +171,16 @@ Native Google Sign-In uses `@react-native-google-signin/google-signin` with `fir
 
 3. **Download `google-services.json`** after adding fingerprints and replace `firebase/google-services.json`. A correct file includes an Android OAuth client (`client_type`: 1), not only Web (`client_type`: 3).
 
+The **driver** app (`apps/driver`) is a second Android package: `com.cleancity.driver`. It cannot reuse the customer `google-services.json` (`com.cleancity.app`). In the same Firebase project (`clean-city-app-f9d73`):
+
+1. Project settings → Your apps → **Add app** → Android.
+2. Package name: `com.cleancity.driver` (must match `app.json`).
+3. Add the EAS Android keystore SHA-1 (`eas credentials -p android` from `apps/driver`).
+4. Download `google-services.json` into `apps/driver/firebase/google-services.json`.
+5. Rebuild: `cd apps/driver && eas build --platform android --profile production`.
+
+If Gradle fails with `No matching client found for package name 'com.cleancity.driver'`, this file was not replaced yet.
+
 4. **Align the Web client ID** — `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` in `eas.json` must match the Web client in `google-services.json` (same Firebase project). Rebuild the native app after changing env or `google-services.json` (OTA updates are not enough).
 
 ```bash
@@ -281,6 +291,86 @@ This will:
 - **Environment:** Production API URL (from EAS Secrets)
 - **Use Case:** Public release
 
+## 📡 OTA hotfixes (EAS Update)
+
+Use an OTA when the change is JavaScript/TypeScript, styles, or copy, and existing App Store / Play binaries should pick it up without a new native build.
+
+Do **not** use OTA for native-module changes, `app.json` plugins, `google-services.json`, iOS/Android credentials, or a `runtimeVersion` bump. Those need a production EAS build and store submit.
+
+This is a **monorepo**. Always publish from the repo root scripts (or from `apps/customer` / `apps/driver`). Never run `eas update` at the repository root.
+
+### How a hotfix works
+
+1. `expo.version` patch is bumped (`1.0.2` → `1.0.3`) in that app’s `app.json` and `package.json`.
+2. `runtimeVersion` stays `1.0.0`, so store binaries already in the wild still receive the update.
+3. `CLEAN_CITY_HOTFIX=1` sets `extra.releaseKind` to `hotfix`.
+4. The update is published to the **production** channel (iOS + Android).
+5. Profile shows **Hotfix 1.0.3** instead of the store version.
+
+State is stored in `apps/<app>/version-bump.json`.
+
+### Scripts (from repo root)
+
+| Script | What it does |
+|---|---|
+| `npm run hotfix:customer` | Bump customer `expo.version` only. Does not publish. |
+| `npm run hotfix:driver` | Bump driver `expo.version` only. Does not publish. |
+| `npm run eas:customer:hotfix` | Bump customer version **and** publish OTA to `production`. |
+| `npm run eas:driver:hotfix` | Bump driver version **and** publish OTA to `production`. |
+| `npm run eas:customer:update:hotfix` | Publish customer OTA only (use after a bump, or to republish). |
+| `npm run eas:driver:update:hotfix` | Publish driver OTA only. |
+
+The `eas:*:hotfix` / `eas:*:update:hotfix` scripts set `CLEAN_CITY_HOTFIX=1` and run:
+
+```bash
+eas update --channel production --message hotfix
+```
+
+### Typical customer hotfix
+
+```bash
+# From repo root: bump 1.0.2 → 1.0.3 and publish
+npm run eas:customer:hotfix
+```
+
+If the version is already bumped and you only need to publish:
+
+```bash
+npm run eas:customer:update:hotfix
+```
+
+### Custom update message
+
+The npm scripts always send `--message hotfix`. For a useful EAS dashboard note, bump first, then publish from the app folder:
+
+```bash
+npm run hotfix:customer
+cd apps/customer
+CLEAN_CITY_HOTFIX=1 eas update --channel production --message "Fix checkout payment selection"
+```
+
+Same pattern for the driver app (`npm run hotfix:driver` then `cd apps/driver`).
+
+### After publish
+
+1. Confirm the Expo dashboard shows the new update on the **production** branch.
+   - Customer: https://expo.dev/accounts/itsczar24/projects/clean-city-app/updates
+   - Driver: check the driver EAS project on expo.dev
+2. Fully close the production app and reopen it (`updates.checkAutomatically` is `ON_LOAD`).
+3. Profile should show **Hotfix x.y.z**.
+
+`eas update` loads that app’s `.env`. JS-only `EXPO_PUBLIC_*` values in `.env` are baked into the OTA bundle. Native config, plugins, and store binaries are not.
+
+### OTA vs store build
+
+| Change | OTA hotfix | New production build |
+|---|---|---|
+| Screens, copy, styles, JS/TS logic | Yes | Not required |
+| `expo.version` label for testers | Yes (patch bump) | Yes |
+| Native modules, plugins, `runtimeVersion` | No | Yes |
+| `google-services.json` / Google Sign-In SHA-1 | No | Yes |
+| New `EXPO_PUBLIC_*` needed in a **binary** | No | Yes |
+
 ## 📝 Build Configuration
 
 Current build profiles in `eas.json`:
@@ -337,6 +427,7 @@ eas build:cancel [build-id]
 - Invalid secrets → Check `eas secret:list`
 - Build timeout → Try `--clear-cache`
 - Node version mismatch → Check `eas.json` node version
+- **Driver Android: `processReleaseGoogleServices` / “No matching client found for package name `com.cleancity.driver`”** → `apps/driver/firebase/google-services.json` is still the customer file (`com.cleancity.app`). Register a Firebase Android app for `com.cleancity.driver`, download a new `google-services.json`, and replace the driver file. Then rebuild. See below.
 
 **Debug:**
 ```bash
@@ -377,6 +468,20 @@ eas secret:list
 2. Rebuild: `eas build --platform ios --profile production --clear-cache`
 3. Test in app (Admin screen debug section)
 
+### OTA hotfix not appearing
+
+**Check:**
+- ✅ Published to `--channel production` (the store binaries use that channel)
+- ✅ `runtimeVersion` still `1.0.0` (do not bump it for a JS hotfix)
+- ✅ `CLEAN_CITY_HOTFIX=1` was set for the publish (`eas:*:hotfix` scripts do this)
+- ✅ Device fully closed and reopened the app
+- ✅ Profile shows **Hotfix x.y.z**, not the previous store version
+
+**Common mistakes:**
+- Running `eas update` at the repo root instead of `apps/customer` or `apps/driver`
+- Publishing a native-only change (plugins, `google-services.json`) — OTA cannot ship that
+- Expecting a custom EAS message from `npm run eas:customer:hotfix` — that script always sends `--message hotfix`. Use a manual `eas update` for a descriptive message.
+
 ## 📋 Pre-Submission Checklist
 
 ### iOS App Store
@@ -407,17 +512,34 @@ eas secret:list
 
 ### Build Commands
 ```bash
-# iOS Production
+# From repo root (preferred in this monorepo)
+npm run eas:customer:ios:prod
+npm run eas:customer:android:prod
+npm run eas:customer:prod
+npm run eas:driver:ios:prod
+npm run eas:driver:android:prod
+npm run eas:driver:prod
+
+# Or from apps/customer or apps/driver
 eas build --platform ios --profile production
-
-# Android Production
 eas build --platform android --profile production
-
-# Both platforms
 eas build --platform all --profile production
-
-# Local build (requires local setup)
 eas build --platform ios --profile production --local
+```
+
+### OTA hotfix commands (repo root)
+```bash
+# Bump version + publish to production channel
+npm run eas:customer:hotfix
+npm run eas:driver:hotfix
+
+# Version bump only
+npm run hotfix:customer
+npm run hotfix:driver
+
+# Publish only (version already bumped)
+npm run eas:customer:update:hotfix
+npm run eas:driver:update:hotfix
 ```
 
 ### Submit Commands

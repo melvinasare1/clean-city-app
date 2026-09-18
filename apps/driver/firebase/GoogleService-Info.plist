@@ -3,9 +3,11 @@
 <plist version="1.0">
 <dict>
 	<key>CLIENT_ID</key>
-	<string>430221189966-modpfqh3d92cl92ib4hq59ad2lpqoac0.apps.googleusercontent.com</string>
+	<string>430221189966-g56ajvvlqr9khar3cgupd1di2c0qkm97.apps.googleusercontent.com</string>
 	<key>REVERSED_CLIENT_ID</key>
-	<string>com.googleusercontent.apps.430221189966-modpfqh3d92cl92ib4hq59ad2lpqoac0</string>
+	<string>com.googleusercontent.apps.430221189966-g56ajvvlqr9khar3cgupd1di2c0qkm97</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>430221189966-fpu5ocv7p8g91t2dhph8a19il68d3en7.apps.googleusercontent.com</string>
 	<key>API_KEY</key>
 	<string>AIzaSyAfNNtkwrwDPJ_sebLEsKkR1dwOwRy85PE</string>
 	<key>GCM_SENDER_ID</key>
@@ -13,7 +15,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.cleancity.app</string>
+	<string>com.cleancity.driver</string>
 	<key>PROJECT_ID</key>
 	<string>clean-city-app-f9d73</string>
 	<key>STORAGE_BUCKET</key>
@@ -29,7 +31,7 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:430221189966:ios:825041b001d0025557b41f</string>
+	<string>1:430221189966:ios:168634f3fc85a26457b41f</string>
 	<key>DATABASE_URL</key>
 	<string>https://clean-city-app-f9d73-default-rtdb.europe-west1.firebasedatabase.app</string>
 </dict>

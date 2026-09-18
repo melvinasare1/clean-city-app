@@ -7,7 +7,8 @@ This folder contains all documentation for the CleanCityApp project.
 ### Getting Started
 - **[QUICK_START.md](./QUICK_START.md)** - Quick start guide for new developers
 - **[SETUP_GUIDE.md](./SETUP_GUIDE.md)** - Complete setup instructions
-- **[BUILD_AND_SUBMIT_GUIDE.md](./BUILD_AND_SUBMIT_GUIDE.md)** - Build and submit to app stores
+- **[BUILD_AND_SUBMIT_GUIDE.md](./BUILD_AND_SUBMIT_GUIDE.md)** - Store builds, submit, and OTA hotfixes
+- **[EAS_MONOREPO.md](./EAS_MONOREPO.md)** - Run EAS from `apps/customer` or `apps/driver` (never repo root)
 
 ### Push Notifications
 - **[PUSH_NOTIFICATIONS_SETUP.md](./PUSH_NOTIFICATIONS_SETUP.md)** - Push notification setup overview
@@ -40,6 +41,7 @@ This folder contains all documentation for the CleanCityApp project.
 
 ### For Deployment
 - **Build & Submit:** [BUILD_AND_SUBMIT_GUIDE.md](./BUILD_AND_SUBMIT_GUIDE.md)
+- **OTA hotfixes:** [BUILD_AND_SUBMIT_GUIDE.md](./BUILD_AND_SUBMIT_GUIDE.md#ota-hotfixes-eas-update) (scripts also listed in [EAS_MONOREPO.md](./EAS_MONOREPO.md))
 - **Environment Variables:** [EAS_SECRETS_SETUP.md](./EAS_SECRETS_SETUP.md)
 - **Cloud Functions:** [FUNCTIONS_GEN2_SETUP.md](./FUNCTIONS_GEN2_SETUP.md)
 
