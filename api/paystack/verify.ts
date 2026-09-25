@@ -6,8 +6,11 @@ import {
   fulfillPaidOneTimeBooking,
 } from "../lib/payment-fulfillment";
 import {
+  assemblePublicPaymentStatus,
   isSuccessfulPaystackStatus,
   resolveEvidenceBookingId,
+  statusModeAllowOrigin,
+  type PaymentStatusEvidence,
 } from "../lib/payment-integrity";
 
 const PAYSTACK_BASE_URL = "https://api.paystack.co";
@@ -86,13 +89,257 @@ async function resolveReferenceFromPaymentsCollection(
   }
 }
 
+function isStatusMode(req: VercelRequest): boolean {
+  return pickQueryParam(req.query.mode as string | string[] | undefined) === "status";
+}
+
+function applyStatusCors(req: VercelRequest, res: VercelResponse): void {
+  const originHeader = req.headers.origin;
+  const origin = Array.isArray(originHeader) ? originHeader[0] : originHeader;
+  const allowed = statusModeAllowOrigin(origin);
+  if (!allowed) return;
+  res.setHeader("Access-Control-Allow-Origin", allowed);
+  res.setHeader("Vary", "Origin");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Max-Age", "86400");
+}
+
+function plausibleReference(reference: string): boolean {
+  return /^[A-Za-z0-9_-]{6,100}$/.test(reference);
+}
+
+function plausibleDocId(value: unknown): string {
+  const id = typeof value === "string" ? value.trim() : "";
+  return /^[A-Za-z0-9_-]{1,128}$/.test(id) ? id : "";
+}
+
+function stringField(data: Record<string, unknown> | undefined, key: string): string {
+  const value = data?.[key];
+  return typeof value === "string" ? value.trim() : "";
+}
+
+type DocSnap = { exists: boolean; data(): Record<string, unknown> | undefined };
+type StatusReader = {
+  collection(name: string): { doc(id: string): { get(): Promise<DocSnap> } };
+};
+
+async function readDoc(
+  reader: StatusReader | null,
+  collectionName: string,
+  id: string
+): Promise<Record<string, unknown> | null> {
+  if (!reader || !id) return null;
+  const snap = await reader.collection(collectionName).doc(id).get();
+  if (!snap.exists) return null;
+  return snap.data() ?? null;
+}
+
+type PaystackLookup = {
+  found: boolean;
+  status?: string;
+  amountMinor?: number;
+  currency?: string;
+  metadataType?: string;
+  metadataFrequency?: string;
+  bookingId?: string;
+  subscriptionId?: string;
+  orderId?: string;
+};
+
+async function lookupPaystackTransaction(reference: string): Promise<PaystackLookup> {
+  if (!PAYSTACK_SECRET_KEY) return { found: false };
+  const paystackResponse = await fetch(
+    `${PAYSTACK_BASE_URL}/transaction/verify/${encodeURIComponent(reference)}`,
+    {
+      method: "GET",
+      headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` },
+    }
+  );
+  let body: { status?: boolean; data?: Record<string, unknown> } = {};
+  try {
+    body = (await paystackResponse.json()) as typeof body;
+  } catch {
+    return { found: false };
+  }
+  if (!paystackResponse.ok || !body.status || !body.data) return { found: false };
+  const data = body.data;
+  const metadata =
+    data.metadata && typeof data.metadata === "object"
+      ? (data.metadata as Record<string, unknown>)
+      : {};
+  const amount = Number(data.amount);
+  return {
+    found: true,
+    status: typeof data.status === "string" ? data.status : undefined,
+    amountMinor: Number.isFinite(amount) ? amount : undefined,
+    currency: typeof data.currency === "string" ? data.currency : undefined,
+    metadataType: typeof metadata.type === "string" ? metadata.type : undefined,
+    metadataFrequency:
+      typeof metadata.collectionFrequency === "string"
+        ? metadata.collectionFrequency
+        : undefined,
+    bookingId: typeof metadata.bookingId === "string" ? metadata.bookingId : undefined,
+    subscriptionId:
+      typeof metadata.subscriptionId === "string" ? metadata.subscriptionId : undefined,
+    orderId: typeof metadata.orderId === "string" ? metadata.orderId : undefined,
+  };
+}
+
+/**
+ * Public read-only status. Writes nothing: no fulfillment, no payment updates.
+ * GET /api/paystack/verify?reference=...&mode=status
+ */
+export async function handlePaymentStatusMode(
+  req: VercelRequest,
+  res: VercelResponse,
+  deps: {
+    firestore?: StatusReader | null;
+    lookupPaystack?: (reference: string) => Promise<PaystackLookup>;
+  } = {}
+): Promise<void> {
+  applyStatusCors(req, res);
+  res.setHeader("Cache-Control", "no-store");
+
+  if (req.method === "OPTIONS") {
+    res.status(204).end();
+    return;
+  }
+  if (req.method !== "GET") {
+    res.status(405).json({ error: "Method not allowed" });
+    return;
+  }
+
+  const reference =
+    pickQueryParam(req.query.reference as string | string[] | undefined) ||
+    pickQueryParam(req.query.trxref as string | string[] | undefined);
+  if (!plausibleReference(reference)) {
+    res.status(200).json({ status: "not_found" });
+    return;
+  }
+
+  let reader = deps.firestore;
+  if (reader === undefined) {
+    try {
+      reader = getFirestore();
+    } catch {
+      console.error("[Verify status] Firestore unavailable");
+      reader = null;
+    }
+  }
+
+  let payment: Record<string, unknown> | null = null;
+  try {
+    payment = await readDoc(reader, PAYMENTS_COLLECTION, reference);
+  } catch {
+    console.error("[Verify status] payment read failed");
+    payment = null;
+  }
+
+  const bookingId = plausibleDocId(payment?.bookingId);
+  const subscriptionId = plausibleDocId(payment?.subscriptionId);
+  const orderId = plausibleDocId(payment?.orderId);
+
+  const lookup = deps.lookupPaystack ?? lookupPaystackTransaction;
+  let paystack: PaystackLookup = { found: false };
+  try {
+    paystack = await lookup(reference);
+  } catch {
+    console.error("[Verify status] Paystack lookup failed");
+    paystack = { found: false };
+  }
+
+  const resolvedBookingId = bookingId || plausibleDocId(paystack.bookingId);
+  const resolvedSubscriptionId = subscriptionId || plausibleDocId(paystack.subscriptionId);
+  const resolvedOrderId = orderId || plausibleDocId(paystack.orderId);
+
+  let booking: Record<string, unknown> | null = null;
+  let subscription: Record<string, unknown> | null = null;
+  let order: Record<string, unknown> | null = null;
+  try {
+    booking = await readDoc(reader, "bookings", resolvedBookingId);
+    subscription = await readDoc(reader, "subscriptions", resolvedSubscriptionId);
+    order = await readDoc(reader, "orders", resolvedOrderId);
+  } catch {
+    console.error("[Verify status] linked record read failed");
+  }
+
+  const bookingPayment =
+    booking?.payment && typeof booking.payment === "object"
+      ? (booking.payment as Record<string, unknown>)
+      : undefined;
+  const subscriptionPayment =
+    subscription?.payment && typeof subscription.payment === "object"
+      ? (subscription.payment as Record<string, unknown>)
+      : undefined;
+  const orderPayment =
+    order?.payment && typeof order.payment === "object"
+      ? (order.payment as Record<string, unknown>)
+      : undefined;
+
+  const paymentAmount = Number(payment?.amount);
+  const evidence: PaymentStatusEvidence = {
+    reference,
+    paymentDocExists: payment != null,
+    paymentType: stringField(payment ?? undefined, "type") || undefined,
+    paymentAmount: Number.isFinite(paymentAmount) ? paymentAmount : undefined,
+    paymentCurrency: stringField(payment ?? undefined, "currency") || undefined,
+    paymentItems: payment?.items,
+    paystackFound: paystack.found,
+    paystackStatus: paystack.status,
+    paystackAmountMinor: paystack.amountMinor,
+    paystackCurrency: paystack.currency,
+    metadataType: paystack.metadataType,
+    metadataFrequency:
+      paystack.metadataFrequency ||
+      stringField(subscription ?? undefined, "collectionFrequency") ||
+      undefined,
+    booking: booking
+      ? {
+          paymentStatus: stringField(bookingPayment, "status") || undefined,
+          paymentReference: stringField(bookingPayment, "reference") || undefined,
+          date: stringField(booking, "date") || undefined,
+          windowLabel: stringField(booking, "windowLabel") || undefined,
+          items: booking.items,
+          type: stringField(booking, "type") || undefined,
+        }
+      : null,
+    subscription: subscription
+      ? {
+          paymentStatus: stringField(subscriptionPayment, "status") || undefined,
+          paymentReference: stringField(subscriptionPayment, "reference") || undefined,
+          lastPaymentReference:
+            stringField(subscription, "lastPaymentReference") || undefined,
+          collectionFrequency:
+            stringField(subscription, "collectionFrequency") || undefined,
+          items: subscription.items,
+        }
+      : null,
+    order: order
+      ? {
+          status: stringField(order, "status") || undefined,
+          paymentStatus: stringField(orderPayment, "status") || undefined,
+          paymentReference: stringField(orderPayment, "reference") || undefined,
+          items: order.items,
+        }
+      : null,
+  };
+
+  res.status(200).json(assemblePublicPaymentStatus(evidence));
+}
+
 /**
  * GET /api/paystack/verify?reference=...&subscriptionId=...&bookingId=...
  * POST /api/paystack/verify (with body.reference OR body.bookingId OR body.subscriptionId)
  *
  * Verify a Paystack transaction by reference, bookingId, or subscriptionId (subscription resolves reference from Firestore).
+ * `mode=status` is read-only and returns before any fulfillment. Without it, behavior is unchanged.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (isStatusMode(req)) {
+    return handlePaymentStatusMode(req, res);
+  }
+
   if (req.method !== "GET" && req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }

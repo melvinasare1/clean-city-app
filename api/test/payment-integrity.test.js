@@ -8,6 +8,8 @@ const {
   shouldCreateOneTimeJob,
   isFulfillmentComplete,
   webhookHttpStatus,
+  assemblePublicPaymentStatus,
+  statusModeAllowOrigin,
 } = require("../.test-out/payment-integrity");
 const {
   executePaidOneTimeFulfillment,
@@ -275,5 +277,162 @@ describe("Paystack booking/job integrity", () => {
       webhookHttpStatus({ ok: false, retry: false, error: "Booking missing" }),
       400
     );
+  });
+});
+
+describe("public payment status", () => {
+  it("allows only the website and local dev origins", () => {
+    assert.equal(statusModeAllowOrigin("https://cleancitygh.com"), "https://cleancitygh.com");
+    assert.equal(
+      statusModeAllowOrigin("https://www.cleancitygh.com"),
+      "https://www.cleancitygh.com"
+    );
+    assert.equal(statusModeAllowOrigin("http://localhost:8080"), "http://localhost:8080");
+    assert.equal(statusModeAllowOrigin("https://evil.example"), null);
+    assert.equal(statusModeAllowOrigin("https://cleancitygh.com.evil.com"), null);
+    assert.equal(statusModeAllowOrigin("*"), null);
+  });
+
+  it("confirms a one-off booking only after it is marked paid", () => {
+    const paid = assemblePublicPaymentStatus({
+      reference: "ref_one",
+      paymentDocExists: true,
+      paymentType: "one_time",
+      paymentAmount: 45,
+      paymentCurrency: "GHS",
+      paystackFound: true,
+      paystackStatus: "success",
+      booking: {
+        paymentStatus: "paid",
+        paymentReference: "ref_one",
+        date: "2026-09-28",
+        windowLabel: "Morning",
+        items: [{ quantity: 2, type: "General waste" }],
+      },
+    });
+    assert.equal(paid.status, "confirmed");
+    assert.equal(paid.type, "one_time");
+    assert.equal(paid.amount, 45);
+    assert.equal(paid.currency, "GHS");
+    assert.equal(paid.summary, "Morning · 28 Sep 2026 · 2 bins");
+    assert.equal(paid.rawPaystack, undefined);
+  });
+
+  it("stays processing when Paystack succeeded and the webhook has not marked the booking paid", () => {
+    const pendingWebhook = assemblePublicPaymentStatus({
+      reference: "ref_one",
+      paymentDocExists: true,
+      paymentType: "one_time",
+      paymentAmount: 45,
+      paystackFound: true,
+      paystackStatus: "success",
+      booking: {
+        paymentStatus: "initiated",
+        paymentReference: "ref_one",
+        date: "2026-09-28",
+        windowLabel: "Morning",
+        items: [{ quantity: 1, type: "bin" }],
+      },
+    });
+    assert.equal(pendingWebhook.status, "processing");
+    assert.equal(pendingWebhook.type, "one_time");
+    assert.equal(pendingWebhook.summary, "Morning · 28 Sep 2026 · 1 bin");
+  });
+
+  it("confirms a subscription from the webhook payment reference and describes the cadence", () => {
+    const result = assemblePublicPaymentStatus({
+      reference: "ref_sub",
+      paymentDocExists: true,
+      paymentType: "subscription",
+      paymentAmount: 120,
+      paymentCurrency: "GHS",
+      paystackFound: true,
+      paystackStatus: "success",
+      metadataFrequency: "weekly",
+      subscription: {
+        paymentStatus: "paid",
+        paymentReference: "ref_sub",
+        lastPaymentReference: "ref_sub",
+        collectionFrequency: "weekly",
+        items: [{ quantity: 1, type: "bin" }],
+      },
+    });
+    assert.equal(result.status, "confirmed");
+    assert.equal(result.type, "subscription");
+    assert.equal(result.summary, "Weekly collection · 1 bin");
+  });
+
+  it("does not treat an older active subscription as paid for a new reference", () => {
+    const result = assemblePublicPaymentStatus({
+      reference: "ref_new",
+      paymentDocExists: true,
+      paymentType: "subscription",
+      paystackFound: true,
+      paystackStatus: "success",
+      subscription: {
+        paymentStatus: "paid",
+        paymentReference: "ref_old",
+        lastPaymentReference: "ref_old",
+        collectionFrequency: "monthly",
+        items: [{ quantity: 2, type: "bin" }],
+      },
+    });
+    assert.equal(result.status, "processing");
+  });
+
+  it("confirms a store order without including the delivery address", () => {
+    const result = assemblePublicPaymentStatus({
+      reference: "ref_store",
+      paymentDocExists: true,
+      paymentType: "store_order",
+      paymentAmount: 30,
+      paystackFound: true,
+      paystackStatus: "success",
+      order: {
+        status: "paid",
+        paymentStatus: "paid",
+        paymentReference: "ref_store",
+        items: [{ quantity: 1 }, { quantity: 2 }],
+      },
+    });
+    assert.equal(result.status, "confirmed");
+    assert.equal(result.type, "store");
+    assert.equal(result.summary, "3 items");
+    assert.equal(result.address, undefined);
+    assert.equal(result.email, undefined);
+  });
+
+  it("returns failed for abandoned Paystack charges and not_found for unknown references", () => {
+    const failed = assemblePublicPaymentStatus({
+      reference: "ref_fail",
+      paymentDocExists: true,
+      paymentType: "one_time",
+      paystackFound: true,
+      paystackStatus: "abandoned",
+      booking: { paymentStatus: "initiated", paymentReference: "ref_fail" },
+    });
+    assert.equal(failed.status, "failed");
+
+    const missing = assemblePublicPaymentStatus({
+      reference: "missing_ref",
+      paymentDocExists: false,
+      paystackFound: false,
+    });
+    assert.deepEqual(missing, { status: "not_found" });
+  });
+
+  it("converts Paystack minor units when the payments document has no amount", () => {
+    const result = assemblePublicPaymentStatus({
+      reference: "ref_minor",
+      paymentDocExists: false,
+      paystackFound: true,
+      paystackStatus: "success",
+      paystackAmountMinor: 4500,
+      paystackCurrency: "GHS",
+      metadataType: "one_time",
+    });
+    assert.equal(result.status, "processing");
+    assert.equal(result.amount, 45);
+    assert.equal(result.currency, "GHS");
   });
 });
