@@ -24,6 +24,32 @@ const PREFERRED_REVERSE_TYPES = new Set([
   "point_of_interest",
 ]);
 
+// Forward results at these levels are a country/region centroid, not a pickup
+// point (e.g. ", ," resolves to the middle of Ghana at 7.95, -1.02).
+const COARSE_FORWARD_TYPES = new Set([
+  "country",
+  "administrative_area_level_1",
+  "colloquial_area",
+]);
+
+// An APPROXIMATE result whose viewport is wider than this (in degrees, ~15km)
+// covers a whole city or district. Neighbourhoods like Adenta or East Legon
+// are well under 0.1°.
+const MAX_APPROXIMATE_SPAN_DEG = 0.15;
+
+function isCoarseForwardResult(result: GoogleGeocodeResult): boolean {
+  if ((result.types ?? []).some((type) => COARSE_FORWARD_TYPES.has(type))) return true;
+  if (result.geometry?.location_type !== "APPROXIMATE") return false;
+  const ne = result.geometry.viewport?.northeast;
+  const sw = result.geometry.viewport?.southwest;
+  if (!ne || !sw) return false;
+  const span = Math.max(
+    Math.abs((ne.lat ?? 0) - (sw.lat ?? 0)),
+    Math.abs((ne.lng ?? 0) - (sw.lng ?? 0))
+  );
+  return span > MAX_APPROXIMATE_SPAN_DEG;
+}
+
 function googleGeocodingApiKey(): string {
   const value = process.env.GOOGLE_GEOCODING_API_KEY;
   return typeof value === "string" && value.length > 0 ? value : "";
@@ -38,7 +64,14 @@ function fetchWithTimeout(url: string, timeoutMs = GEOCODE_TIMEOUT_MS): Promise<
 type GoogleGeocodeResult = {
   formatted_address?: string;
   types?: string[];
-  geometry?: { location?: { lat?: number; lng?: number } };
+  geometry?: {
+    location?: { lat?: number; lng?: number };
+    location_type?: string;
+    viewport?: {
+      northeast?: { lat?: number; lng?: number };
+      southwest?: { lat?: number; lng?: number };
+    };
+  };
 };
 
 type GoogleGeocodeResponse = {
@@ -82,7 +115,8 @@ export async function geocodeAddressGoogle(address: string): Promise<GoogleGeoco
     return null;
   }
 
-  const result = body.results?.[0];
+  const result = body.results?.find((candidate) => !isCoarseForwardResult(candidate));
+  if (!result) return null;
   const parsed = parsePickupCoordinates({
     lat: result?.geometry?.location?.lat,
     lng: result?.geometry?.location?.lng,

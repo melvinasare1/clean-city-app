@@ -23,6 +23,7 @@ import {
   CustomerTabParamList,
 } from '@/navigation/types';
 import { getAppVersionLabel } from '@/lib/app-version';
+import { pickupAddressText } from '@/lib/profile-location';
 import { getInitials } from '../customer-home-screen/customer-home-screen.utils';
 import { styles } from './customer-profile-screen.styles';
 
@@ -143,6 +144,8 @@ export const CustomerProfileScreen: React.FC<Props> = ({ navigation }) => {
     );
   };
 
+  const pickupAddress = pickupAddressText(user ?? {});
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView
@@ -201,12 +204,14 @@ export const CustomerProfileScreen: React.FC<Props> = ({ navigation }) => {
               <View style={styles.iconWrap}>
                 <Ionicons name="location" size={20} color={COLORS.primary} />
               </View>
-              <AppText style={styles.menuLabel}>Pickup address</AppText>
-              {user?.address ? (
-                <AppText style={styles.menuValue} numberOfLines={1}>
-                  {user.address}
-                </AppText>
-              ) : null}
+              <View style={styles.menuBody}>
+                <AppText style={styles.menuLabel}>Pickup address</AppText>
+                {pickupAddress ? (
+                  <AppText style={styles.menuValue} numberOfLines={2}>
+                    {pickupAddress}
+                  </AppText>
+                ) : null}
+              </View>
               <Ionicons
                 name="chevron-forward"
                 size={18}
@@ -222,7 +227,9 @@ export const CustomerProfileScreen: React.FC<Props> = ({ navigation }) => {
               <View style={styles.iconWrap}>
                 <Ionicons name="card" size={20} color={COLORS.primary} />
               </View>
-              <AppText style={styles.menuLabel}>Payment Methods</AppText>
+              <View style={styles.menuBody}>
+                <AppText style={styles.menuLabel}>Payment Methods</AppText>
+              </View>
               <Ionicons
                 name="chevron-forward"
                 size={18}
@@ -237,7 +244,9 @@ export const CustomerProfileScreen: React.FC<Props> = ({ navigation }) => {
               <View style={styles.iconWrap}>
                 <Ionicons name="notifications" size={20} color={COLORS.primary} />
               </View>
-              <AppText style={styles.menuLabel}>Booking Reminders</AppText>
+              <View style={styles.menuBody}>
+                <AppText style={styles.menuLabel}>Booking Reminders</AppText>
+              </View>
               <Switch
                 value={remindersEnabled}
                 onValueChange={handleRemindersToggle}
@@ -251,7 +260,9 @@ export const CustomerProfileScreen: React.FC<Props> = ({ navigation }) => {
               <View style={styles.iconWrap}>
                 <Ionicons name="megaphone" size={20} color={COLORS.primary} />
               </View>
-              <AppText style={styles.menuLabel}>Promotions</AppText>
+              <View style={styles.menuBody}>
+                <AppText style={styles.menuLabel}>Promotions</AppText>
+              </View>
               <Switch
                 value={promotionsEnabled}
                 onValueChange={handlePromotionsToggle}
@@ -265,8 +276,12 @@ export const CustomerProfileScreen: React.FC<Props> = ({ navigation }) => {
               <View style={styles.iconWrap}>
                 <Ionicons name="globe-outline" size={20} color={COLORS.primary} />
               </View>
-              <AppText style={styles.menuLabel}>Language</AppText>
-              <AppText style={styles.menuValue}>English</AppText>
+              <View style={styles.menuBody}>
+                <AppText style={styles.menuLabel}>Language</AppText>
+                <AppText style={styles.menuValue} numberOfLines={1}>
+                  English
+                </AppText>
+              </View>
             </View>
           </View>
 
@@ -310,9 +325,11 @@ export const CustomerProfileScreen: React.FC<Props> = ({ navigation }) => {
               <View style={styles.iconWrap}>
                 <Ionicons name="trash-outline" size={20} color={COLORS.error} />
               </View>
-              <AppText style={[styles.menuLabel, styles.destructiveLabel]}>
-                Delete account
-              </AppText>
+              <View style={styles.menuBody}>
+                <AppText style={[styles.menuLabel, styles.destructiveLabel]}>
+                  Delete account
+                </AppText>
+              </View>
             </TouchableOpacity>
           </View>
 

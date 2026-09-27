@@ -47,6 +47,30 @@ export function addressQueryFromJob(params: {
   return [...new Set(parts)].join(", ");
 }
 
+/** Reject empty / punctuation-only snapshot strings that would geocode to a country centroid. */
+export function isUsableAddressQuery(query: string): boolean {
+  return query.replace(/[^a-zA-Z0-9]/g, "").length >= 3;
+}
+
+/**
+ * Prefer the customer's saved pin; only geocode when that is missing and the
+ * address text is specific enough to be worth sending to a maps API.
+ */
+export async function resolveJobPickup(params: {
+  profilePickup?: PickupCoordinates | null;
+  location?: string | null;
+  addressSnapshot?: { addressLine1?: string; area?: string } | null;
+}): Promise<PickupCoordinates | null> {
+  if (params.profilePickup) return params.profilePickup;
+  const query = addressQueryFromJob(params);
+  if (!isUsableAddressQuery(query)) return null;
+  const mapped = await geocodeAddressToPickup(query);
+  if (mapped) return mapped;
+  const { geocodeAddressGoogle } = await import("./geocode-google");
+  const google = await geocodeAddressGoogle(query);
+  return google ? { lat: google.lat, lng: google.lng } : null;
+}
+
 function extraQueryBeyondCity(query: string, name?: string): boolean {
   const q = query.toLowerCase().replace(/,/g, " ");
   const city = (name || "").toLowerCase();

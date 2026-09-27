@@ -4,6 +4,7 @@ import { getBookingById, getSubscriptionById, getUserEmail } from "./bookings";
 import { getStoreOrderById } from "./orders";
 import type { CollectionFrequency } from "./subscription-types";
 import { getBillingPeriodEnd, toDate } from "./subscription-helpers";
+import { CLIENT_APP_URL } from "../lib/client-app-url";
 
 /** Item snapshot for payment/subscription: type, quantity, unitPrice, totalPrice */
 export interface PaymentItemSnapshot {
@@ -61,7 +62,6 @@ function createPaymentDocument(
 
 const PAYSTACK_BASE_URL = "https://api.paystack.co";
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
-const CLIENT_APP_URL = process.env.CLIENT_APP_URL || "http://localhost:19006";
 const SUBSCRIPTIONS_COLLECTION = "subscriptions";
 const PAYMENTS_COLLECTION = "payments";
 

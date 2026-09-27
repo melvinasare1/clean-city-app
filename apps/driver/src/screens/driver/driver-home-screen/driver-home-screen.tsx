@@ -200,13 +200,14 @@ export const DriverHomeScreen: React.FC<DriverHomeScreenProps> = ({ navigation }
     setStarting(true);
     try {
       await startJob(activeTrip.id, driverId);
-      await openNavigationTo(tripNavigationDestination(activeTrip));
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Could not start this job';
       Alert.alert('Error', msg);
+      return;
     } finally {
       setStarting(false);
     }
+    await openNavigationTo(tripNavigationDestination(activeTrip));
   }, [activeTrip, driverId]);
 
   const handleNavigate = useCallback(() => {

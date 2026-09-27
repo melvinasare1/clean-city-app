@@ -10,8 +10,8 @@ import type {
   JobItemSnapshot,
 } from "./payment-and-job-types";
 import {
-  addressQueryFromJob,
-  geocodeAddressToPickup,
+  parsePickupCoordinates,
+  resolveJobPickup,
 } from "../lib/geocode-address";
 import { oneTimeJobDocId } from "../lib/payment-integrity";
 
@@ -224,13 +224,24 @@ function trimString(value: unknown): string {
 async function loadCustomerProfile(
   firestore: Firestore,
   userId: string
-): Promise<{ phone: string; name: string }> {
-  if (!userId) return { phone: "", name: "" };
+): Promise<{
+  phone: string;
+  name: string;
+  address: string;
+  pickup: ReturnType<typeof parsePickupCoordinates>;
+}> {
+  if (!userId) {
+    return { phone: "", name: "", address: "", pickup: null };
+  }
   const profileSnap = await firestore.collection(PROFILES_COLLECTION).doc(userId).get();
   const data = profileSnap.data();
+  const addressFromLocation =
+    typeof data?.location === "string" ? trimString(data.location) : "";
   return {
     phone: trimString(data?.phone),
     name: trimString(data?.name),
+    address: trimString(data?.address) || addressFromLocation,
+    pickup: parsePickupCoordinates(data?.location),
   };
 }
 
@@ -298,13 +309,19 @@ export async function ensureJobForOneTimeBooking(
   const nowTs = Timestamp.fromDate(now);
   const profile = await loadCustomerProfile(firestore, userId);
   const normalizedAddress = {
-    addressLine1: addressSnapshot.addressLine1 ?? "",
-    area: addressSnapshot.area ?? "",
+    addressLine1:
+      trimString(addressSnapshot.addressLine1) ||
+      trimString(location) ||
+      profile.address,
+    area: trimString(addressSnapshot.area),
     phoneNumber: trimString(addressSnapshot.phoneNumber) || profile.phone,
   };
-  const pickup = await geocodeAddressToPickup(
-    addressQueryFromJob({ location, addressSnapshot: normalizedAddress })
-  );
+  const locationText = trimString(location) || normalizedAddress.addressLine1;
+  const pickup = await resolveJobPickup({
+    profilePickup: profile.pickup,
+    location: locationText,
+    addressSnapshot: normalizedAddress,
+  });
   const payload: Record<string, unknown> = {
     id: docRef.id,
     type: "one_time",
@@ -316,7 +333,7 @@ export async function ensureJobForOneTimeBooking(
     jobStatus: "scheduled",
     assignmentStatus: "unassigned",
     items: items ?? [],
-    location: location ?? "",
+    location: locationText,
     addressSnapshot: normalizedAddress,
     ...(pickup ? { pickup } : {}),
     windowId: windowId ?? "",
@@ -404,13 +421,19 @@ export async function createJobsForSubscription(
   const nowTs = Timestamp.fromDate(now);
   const profile = await loadCustomerProfile(firestore, userId);
   const normalizedAddress: JobAddressSnapshot = {
-    addressLine1: addressSnapshot?.addressLine1 ?? "",
-    area: addressSnapshot?.area ?? "",
+    addressLine1:
+      trimString(addressSnapshot?.addressLine1) ||
+      trimString(location) ||
+      profile.address,
+    area: trimString(addressSnapshot?.area),
     phoneNumber: trimString(addressSnapshot?.phoneNumber) || profile.phone,
   };
-  const pickup = await geocodeAddressToPickup(
-    addressQueryFromJob({ location, addressSnapshot: normalizedAddress })
-  );
+  const locationText = trimString(location) || normalizedAddress.addressLine1;
+  const pickup = await resolveJobPickup({
+    profilePickup: profile.pickup,
+    location: locationText,
+    addressSnapshot: normalizedAddress,
+  });
   for (const scheduledDate of scheduledDates) {
     const docRef = jobsRef.doc();
     await docRef.set({
@@ -424,7 +447,7 @@ export async function createJobsForSubscription(
       jobStatus: "scheduled",
       assignmentStatus: "unassigned",
       items: items ?? [],
-      location: location ?? "",
+      location: locationText,
       addressSnapshot: normalizedAddress,
       ...(pickup ? { pickup } : {}),
       windowId: windowId ?? "",

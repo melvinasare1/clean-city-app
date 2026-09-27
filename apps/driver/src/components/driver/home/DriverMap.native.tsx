@@ -22,6 +22,9 @@ import { formatAwayLabel } from '@/lib/mapbox-driving-route';
 import type { DriverMapHandle, DriverMapProps } from './driver-map.types';
 
 const INITIAL_ZOOM = 15;
+/** Accra, used when no location fix arrives so the map never stays hidden. */
+const FALLBACK_CENTER: [number, number] = [-0.187, 5.6037];
+const FALLBACK_CENTER_DELAY_MS = 4000;
 
 const accessToken = resolveMapboxToken();
 
@@ -107,8 +110,11 @@ export const DriverMap = forwardRef<DriverMapHandle, DriverMapProps>(function Dr
     }
   };
 
+  // A real fix replaces the Accra fallback; otherwise the first center wins.
   const adoptCenter = (center: [number, number]) => {
-    if (initialCenterRef.current) return;
+    const current = initialCenterRef.current;
+    if (current && current !== FALLBACK_CENTER) return;
+    if (current === FALLBACK_CENTER && center === FALLBACK_CENTER) return;
     initialCenterRef.current = center;
     setInitialCenter(center);
   };
@@ -128,18 +134,37 @@ export const DriverMap = forwardRef<DriverMapHandle, DriverMapProps>(function Dr
   useEffect(() => {
     let cancelled = false;
 
-    void Location.getLastKnownPositionAsync()
-      .then((position) => {
-        if (cancelled || !position) return;
-        const center = toCenter(position.coords.longitude, position.coords.latitude);
-        if (!center) return;
-        setDriverCoordinate(center);
-        adoptCenter(center);
-      })
-      .catch(() => {});
+    const adoptPosition = (position: Location.LocationObject | null) => {
+      if (cancelled || !position) return false;
+      const center = toCenter(position.coords.longitude, position.coords.latitude);
+      if (!center) return false;
+      setDriverCoordinate(center);
+      adoptCenter(center);
+      return true;
+    };
+
+    // Android often has no cached fix, and the permission is otherwise only
+    // requested when going online — without a fix the map would stay hidden.
+    const locate = async () => {
+      let { status } = await Location.getForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        ({ status } = await Location.requestForegroundPermissionsAsync());
+      }
+      if (cancelled || status !== 'granted') return;
+      if (adoptPosition(await Location.getLastKnownPositionAsync())) return;
+      adoptPosition(
+        await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
+      );
+    };
+    void locate().catch(() => {});
+
+    const fallbackTimer = setTimeout(() => {
+      if (!cancelled) adoptCenter(FALLBACK_CENTER);
+    }, FALLBACK_CENTER_DELAY_MS);
 
     return () => {
       cancelled = true;
+      clearTimeout(fallbackTimer);
     };
   }, []);
 
@@ -274,9 +299,7 @@ export const DriverMap = forwardRef<DriverMapHandle, DriverMapProps>(function Dr
             const next = toCenter(location?.coords?.longitude, location?.coords?.latitude);
             if (!next) return;
             setDriverCoordinate(next);
-            if (!initialCenterRef.current) {
-              adoptCenter(next);
-            }
+            adoptCenter(next);
           }}
         />
         {routeLine ? (

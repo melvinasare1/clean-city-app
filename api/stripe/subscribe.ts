@@ -24,8 +24,8 @@ import { rejectDisabledStripePayments } from "../lib/stripe-payments-enabled";
 import { getBookingById, getSubscriptionById, getUserEmail } from "../paystack/bookings";
 import { getBillingPeriodEnd } from "../paystack/subscription-helpers";
 import type { CollectionFrequency } from "../paystack/subscription-types";
+import { CLIENT_APP_URL } from "../lib/client-app-url";
 
-const CLIENT_APP_URL = process.env.CLIENT_APP_URL || "http://localhost:19006";
 const PAYMENTS_COLLECTION = "payments";
 const SUBSCRIPTIONS_COLLECTION = "subscriptions";
 const PROFILES_COLLECTION = "profiles";

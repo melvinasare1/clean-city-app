@@ -21,8 +21,8 @@ import {
   STRIPE_CARD_THRESHOLD_MESSAGE,
 } from "../lib/stripe-threshold";
 import { getBookingById, getUserEmail } from "../paystack/bookings";
+import { CLIENT_APP_URL } from "../lib/client-app-url";
 
-const CLIENT_APP_URL = process.env.CLIENT_APP_URL || "http://localhost:19006";
 const PAYMENTS_COLLECTION = "payments";
 const PROFILES_COLLECTION = "profiles";
 

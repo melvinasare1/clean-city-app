@@ -5,6 +5,7 @@
  */
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getFirestore } from "../lib/firebase-admin";
+import { parseRequestBody } from "../lib/parse-request-body";
 import {
   requireApprovedDriver,
   requireAssignedJob,
@@ -29,8 +30,8 @@ export default async function handler(
     }
     const uid = actor.uid;
 
-    const body = typeof req.body === "object" && req.body !== null ? req.body : {};
-    const jobId = typeof body.jobId === "string" ? body.jobId.trim() : null;
+    const body = parseRequestBody(req);
+    const jobId = typeof body.jobId === "string" ? body.jobId.trim() : "";
 
     if (!jobId) {
       return sendPublicError(res, 400, "Missing required field: jobId");

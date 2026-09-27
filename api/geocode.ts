@@ -2,7 +2,7 @@
  * POST /api/geocode
  * Forward-geocodes an address via Google Geocoding, server-side.
  * Body: { address: string }
- * Response: { lat, lng, formattedAddress }
+ * Response: { lat, lng, formattedAddress }, or 404 { code: "not_found" }
  */
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { parseRequestBody } from "./lib/parse-request-body";
@@ -25,7 +25,11 @@ export default async function handler(
   try {
     const hit = await geocodeAddressGoogle(address);
     if (!hit) {
-      return res.status(404).json({ error: "No geocoding result found" });
+      // Also covers country/region-level matches, which are rejected as too coarse.
+      return res.status(404).json({
+        code: "not_found",
+        error: "Address not found. Try a more specific address.",
+      });
     }
     return res.status(200).json({
       lat: hit.lat,

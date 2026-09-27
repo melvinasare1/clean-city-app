@@ -1,4 +1,5 @@
 import { Alert, Linking, Platform } from 'react-native';
+import { getApiBaseUrl } from '@/lib/apiBase';
 
 export type NavigationProvider = 'google' | 'waze';
 
@@ -7,6 +8,9 @@ export type NavigationDestination = {
   lng?: number | null;
   address?: string | null;
 };
+
+const ADDRESS_UNAVAILABLE =
+  'Address unavailable, contact the customer';
 
 function hasCoords(lat: unknown, lng: unknown): lat is number {
   return (
@@ -21,12 +25,66 @@ function hasCoords(lat: unknown, lng: unknown): lat is number {
   );
 }
 
-function destinationQuery(dest: NavigationDestination): string | null {
+function usableAddress(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (trimmed.replace(/[^a-zA-Z0-9]/g, '').length < 3) return null;
+  return trimmed;
+}
+
+/**
+ * Coordinates on success, 'not_found' when the backend says the address has no
+ * usable match (404, including country/region-only results), null on any other
+ * failure (network, 5xx) where handing the raw address to maps is still worth it.
+ */
+async function geocodeAddress(
+  address: string
+): Promise<{ lat: number; lng: number } | 'not_found' | null> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/geocode`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address }),
+    });
+    const body = (await res.json().catch(() => ({}))) as {
+      lat?: unknown;
+      lng?: unknown;
+      error?: unknown;
+      details?: unknown;
+    };
+    if (!res.ok) {
+      console.log(
+        '[openNavigation] geocode failed',
+        res.status,
+        body.error ?? body.details ?? ''
+      );
+      return res.status === 404 ? 'not_found' : null;
+    }
+    if (hasCoords(body.lat, body.lng)) {
+      return { lat: body.lat, lng: body.lng as number };
+    }
+    return null;
+  } catch (e) {
+    console.log('[openNavigation] geocode error', e);
+    return null;
+  }
+}
+
+async function resolveQuery(dest: NavigationDestination): Promise<string | null> {
   if (hasCoords(dest.lat, dest.lng)) {
     return `${dest.lat},${dest.lng}`;
   }
-  const address = dest.address?.trim();
-  return address || null;
+
+  const address = usableAddress(dest.address);
+  if (!address) return null;
+
+  const geocoded = await geocodeAddress(address);
+  if (geocoded === 'not_found') return null;
+  if (geocoded) {
+    return `${geocoded.lat},${geocoded.lng}`;
+  }
+  // Geocoding failed but we still have an address string — open maps with it.
+  return address;
 }
 
 function googleMapsUrls(query: string) {
@@ -65,9 +123,9 @@ export async function openNavigationTo(
   dest: NavigationDestination,
   provider: NavigationProvider = 'google',
 ): Promise<void> {
-  const query = destinationQuery(dest);
+  const query = await resolveQuery(dest);
   if (!query) {
-    Alert.alert('Could not open maps', 'Pickup location is missing.');
+    Alert.alert('Could not open maps', ADDRESS_UNAVAILABLE);
     return;
   }
 
@@ -91,9 +149,9 @@ export async function openNavigationTo(
     if (Platform.OS === 'ios' && (await tryOpen(apple))) return;
     if (await tryOpen(geo)) return;
 
-    Alert.alert('Could not open maps', 'Please open Google Maps and navigate to the pickup.');
+    Alert.alert('Could not open maps', ADDRESS_UNAVAILABLE);
   } catch (err) {
     console.warn('Failed to open navigation', err);
-    Alert.alert('Could not open maps', 'Please open Google Maps and navigate to the pickup.');
+    Alert.alert('Could not open maps', ADDRESS_UNAVAILABLE);
   }
 }

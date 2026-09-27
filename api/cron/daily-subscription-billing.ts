@@ -25,9 +25,9 @@ import {
 } from "../paystack/subscription-helpers";
 import type { SubscriptionDocument } from "../paystack/subscription-types";
 import { getPushTokenForUser } from "../lib/collections";
+import { CLIENT_APP_URL } from "../lib/client-app-url";
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
-const CLIENT_APP_URL = process.env.CLIENT_APP_URL || "https://cleancitygh.com";
 const SUBSCRIPTIONS_COLLECTION = "subscriptions";
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 

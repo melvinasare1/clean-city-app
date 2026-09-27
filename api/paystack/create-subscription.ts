@@ -1,10 +1,10 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import admin from "firebase-admin";
 import type { CollectionFrequency } from "./subscription-types";
+import { CLIENT_APP_URL } from "../lib/client-app-url";
 
 const PAYSTACK_BASE_URL = "https://api.paystack.co";
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
-const CLIENT_APP_URL = process.env.CLIENT_APP_URL || "http://localhost:19006";
 const SUBSCRIPTIONS_COLLECTION = "subscriptions";
 
 if (!admin.apps.length && process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {

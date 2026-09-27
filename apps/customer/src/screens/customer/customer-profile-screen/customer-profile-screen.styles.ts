@@ -100,9 +100,19 @@ export const styles = StyleSheet.create({
   iconWrap: {
     width: 28,
     alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  menuBody: {
+    flex: 1,
+    flexShrink: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: VARS.xsmall,
   },
   menuLabel: {
-    flex: 1,
+    flexShrink: 0,
     fontSize: 15,
     fontWeight: '500',
     color: COLORS.text,
@@ -111,11 +121,17 @@ export const styles = StyleSheet.create({
     color: COLORS.error,
   },
   menuValue: {
+    flex: 1,
+    flexShrink: 1,
+    minWidth: 0,
     fontSize: 14,
     color: COLORS.textSecondary,
+    textAlign: 'right',
   },
   legalLabel: {
     flex: 1,
+    flexShrink: 1,
+    minWidth: 0,
     fontSize: 15,
     fontWeight: '600',
     color: COLORS.primary,
